@@ -1,0 +1,473 @@
+<script>
+  import { Grid } from "wx-svelte-grid";
+  import { enhance } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
+  
+  export let data;
+  export let form;
+  
+  $: ({ transactions, budgetItems, allAllocations } = data);
+
+  // 分割割当モーダルの状態
+  let showAllocationModal = false;
+  let selectedTransaction = null;
+  let allocationSplits = [];
+  let newSplit = { budgetItemId: '', amount: '', note: '' };
+
+  // 取引選択
+  function selectTransactionForAllocation(transaction) {
+    selectedTransaction = transaction;
+    // 既存の割当を読み込み
+    allocationSplits = transaction.allocations.map(a => ({
+      id: a.id,
+      budgetItemId: a.budgetItemId,
+      amount: a.amount,
+      note: a.note || '',
+      budgetItemName: `${a.budgetItem.grant.name} - ${a.budgetItem.name}`
+    }));
+    showAllocationModal = true;
+  }
+
+  // 新しい分割を追加
+  function addSplit() {
+    if (newSplit.budgetItemId && newSplit.amount) {
+      const budgetItem = budgetItems.find(b => b.id === parseInt(newSplit.budgetItemId));
+      allocationSplits = [...allocationSplits, {
+        id: `new-${Date.now()}`,
+        budgetItemId: parseInt(newSplit.budgetItemId),
+        amount: parseInt(newSplit.amount),
+        note: newSplit.note,
+        budgetItemName: `${budgetItem.grant.name} - ${budgetItem.name}`,
+        isNew: true
+      }];
+      newSplit = { budgetItemId: '', amount: '', note: '' };
+    }
+  }
+
+  // 分割を削除
+  function removeSplit(index) {
+    allocationSplits = allocationSplits.filter((_, i) => i !== index);
+  }
+
+  // 合計計算
+  $: totalAllocated = allocationSplits.reduce((sum, split) => sum + split.amount, 0);
+  $: remaining = selectedTransaction ? selectedTransaction.amount - totalAllocated : 0;
+
+  // 未割当取引の表示用データ
+  $: formattedTransactions = transactions.map(tx => ({
+    id: tx.id,
+    date: new Date(tx.date).toLocaleDateString('ja-JP'),
+    description: tx.description || '',
+    account: tx.account || '',
+    amount: tx.amount,
+    supplier: tx.supplier || '',
+    totalAllocated: tx.allocations.reduce((sum, a) => sum + a.amount, 0),
+    remaining: tx.amount - tx.allocations.reduce((sum, a) => sum + a.amount, 0),
+    allocationsCount: tx.allocations.length,
+    allocations: tx.allocations.map(a => `${a.budgetItem.grant.name} - ${a.budgetItem.name}`).join(', ')
+  }));
+
+  // 取引一覧用の列定義
+  const transactionColumns = [
+    { 
+      id: "date", 
+      header: "日付", 
+      width: 120, 
+      sort: true 
+    },
+    { 
+      id: "description", 
+      header: "摘要", 
+      width: 180, 
+      sort: true
+    },
+    { 
+      id: "account", 
+      header: "勘定科目", 
+      width: 120, 
+      sort: true 
+    },
+    { 
+      id: "amount", 
+      header: "金額", 
+      width: 120, 
+      sort: true,
+      align: "right",
+      template: (value) => `¥${value.toLocaleString()}`
+    },
+    { 
+      id: "totalAllocated", 
+      header: "割当済", 
+      width: 120, 
+      sort: true,
+      align: "right",
+      template: (value) => value > 0 ? `¥${value.toLocaleString()}` : '-'
+    },
+    { 
+      id: "remaining", 
+      header: "残額", 
+      width: 120, 
+      sort: true,
+      align: "right",
+      template: (value) => {
+        if (value > 0) {
+          return `<span class="text-orange-600 font-medium">¥${value.toLocaleString()}</span>`;
+        } else {
+          return `<span class="text-green-600">¥0</span>`;
+        }
+      }
+    },
+    { 
+      id: "allocationsCount", 
+      header: "分割数", 
+      width: 80, 
+      sort: true,
+      align: "center"
+    },
+    {
+      id: "action",
+      header: "操作",
+      width: 100,
+      template: (value, obj) => `<button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="selectTransaction('${obj.id}')">割当</button>`
+    }
+  ];
+
+  // 全割当履歴の表示用データ
+  $: formattedAllocations = allAllocations.map(allocation => ({
+    id: allocation.id,
+    date: new Date(allocation.transaction.date).toLocaleDateString('ja-JP'),
+    transactionDescription: allocation.transaction.description || '',
+    transactionAmount: allocation.transaction.amount,
+    grantName: allocation.budgetItem.grant.name,
+    budgetItemName: allocation.budgetItem.name,
+    amount: allocation.amount,
+    note: allocation.note || '',
+    createdAt: new Date(allocation.createdAt).toLocaleDateString('ja-JP')
+  }));
+
+  // 割当履歴用の列定義
+  const allocationColumns = [
+    { 
+      id: "date", 
+      header: "取引日", 
+      width: 100, 
+      sort: true 
+    },
+    { 
+      id: "transactionDescription", 
+      header: "取引内容", 
+      width: 150, 
+      sort: true
+    },
+    { 
+      id: "grantName", 
+      header: "助成金", 
+      width: 130, 
+      sort: true
+    },
+    { 
+      id: "budgetItemName", 
+      header: "予算項目", 
+      width: 150, 
+      sort: true
+    },
+    { 
+      id: "amount", 
+      header: "割当額", 
+      width: 100, 
+      sort: true,
+      align: "right",
+      template: (value) => `¥${value.toLocaleString()}`
+    },
+    { 
+      id: "note", 
+      header: "備考", 
+      width: 120, 
+      sort: true
+    },
+    { 
+      id: "createdAt", 
+      header: "作成日", 
+      width: 100, 
+      sort: true
+    }
+  ];
+
+  // 分割割当を保存
+  let saving = false;
+
+  async function saveAllocation() {
+    if (!selectedTransaction || saving) return;
+    
+    saving = true;
+    
+    const formData = new FormData();
+    formData.append('transactionId', selectedTransaction.id);
+    formData.append('allocations', JSON.stringify(allocationSplits.map(split => ({
+      budgetItemId: split.budgetItemId,
+      amount: split.amount,
+      note: split.note || ''
+    }))));
+
+    try {
+      const response = await fetch('?/saveAllocation', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        showAllocationModal = false;
+        await invalidateAll(); // データを再読み込み
+      } else {
+        console.error('Failed to save allocation');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+    } finally {
+      saving = false;
+    }
+  }
+
+  // グローバル関数（テンプレートから呼び出される）
+  globalThis.selectTransaction = (transactionId) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (transaction) {
+      selectTransactionForAllocation(transaction);
+    }
+  };
+</script>
+
+<div class="space-y-6">
+  <!-- ページヘッダー -->
+  <div>
+    <h2 class="text-2xl font-bold text-gray-900">
+      分割割当管理
+    </h2>
+    <p class="mt-2 text-sm text-gray-600">
+      取引を複数の予算項目に分割して割り当てることができます
+    </p>
+  </div>
+
+  <!-- 統計情報 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
+              <span class="text-white text-sm font-medium">要</span>
+            </div>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">割当要対応</dt>
+              <dd class="text-lg font-medium text-gray-900">{transactions.length}件</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+              <span class="text-white text-sm font-medium">総</span>
+            </div>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">総割当件数</dt>
+              <dd class="text-lg font-medium text-gray-900">{allAllocations.length}件</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+              <span class="text-white text-sm font-medium">額</span>
+            </div>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">総割当額</dt>
+              <dd class="text-sm font-medium text-gray-900">
+                ¥{allAllocations.reduce((sum, a) => sum + a.amount, 0).toLocaleString()}
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 割当対象取引 -->
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">
+        割当対象取引
+      </h3>
+      <p class="mt-1 max-w-2xl text-sm text-gray-500">
+        未割当または部分割当の取引一覧です
+      </p>
+    </div>
+    
+    <div class="p-4">
+      <div style="height: 400px;">
+        <Grid data={formattedTransactions} columns={transactionColumns} />
+      </div>
+    </div>
+  </div>
+
+  <!-- 割当履歴 -->
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">
+        分割割当履歴
+      </h3>
+      <p class="mt-1 max-w-2xl text-sm text-gray-500">
+        過去の割当実績を確認できます
+      </p>
+    </div>
+    
+    <div class="p-4">
+      <div style="height: 400px;">
+        <Grid data={formattedAllocations} columns={allocationColumns} />
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 分割割当モーダル -->
+{#if showAllocationModal && selectedTransaction}
+<div class="fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+    </div>
+
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="w-full">
+            <!-- ヘッダー -->
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                  分割割当設定
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                  {selectedTransaction.description} (¥{selectedTransaction.amount.toLocaleString()})
+                </p>
+              </div>
+              <button on:click={() => showAllocationModal = false} class="text-gray-400 hover:text-gray-600">
+                <span class="sr-only">閉じる</span>
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- 現在の分割状況 -->
+            <div class="mb-6">
+              <h4 class="text-md font-medium text-gray-900 mb-3">現在の分割状況</h4>
+              {#if allocationSplits.length > 0}
+                <div class="space-y-2">
+                  {#each allocationSplits as split, index}
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                      <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900">{split.budgetItemName}</div>
+                        <div class="text-sm text-gray-600">¥{split.amount.toLocaleString()}</div>
+                        {#if split.note}
+                          <div class="text-xs text-gray-500">{split.note}</div>
+                        {/if}
+                      </div>
+                      <button on:click={() => removeSplit(index)} class="ml-4 text-red-600 hover:text-red-800">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-sm text-gray-500">まだ分割が設定されていません</p>
+              {/if}
+            </div>
+
+            <!-- 新しい分割を追加 -->
+            <div class="mb-6 border-t pt-6">
+              <h4 class="text-md font-medium text-gray-900 mb-3">新しい分割を追加</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">予算項目</label>
+                  <select bind:value={newSplit.budgetItemId} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    <option value="">選択してください</option>
+                    {#each budgetItems as item}
+                      <option value={item.id}>{item.grant.name} - {item.name}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
+                  <input type="number" bind:value={newSplit.amount} placeholder="0" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">備考</label>
+                  <input type="text" bind:value={newSplit.note} placeholder="分割理由など" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+              </div>
+              <div class="mt-3">
+                <button on:click={addSplit} class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                  分割を追加
+                </button>
+              </div>
+            </div>
+
+            <!-- 合計表示 -->
+            <div class="bg-gray-50 p-4 rounded-md">
+              <div class="flex justify-between items-center text-sm">
+                <span>取引金額:</span>
+                <span class="font-medium">¥{selectedTransaction.amount.toLocaleString()}</span>
+              </div>
+              <div class="flex justify-between items-center text-sm mt-1">
+                <span>割当合計:</span>
+                <span class="font-medium">¥{totalAllocated.toLocaleString()}</span>
+              </div>
+              <div class="flex justify-between items-center text-sm mt-1 pt-2 border-t">
+                <span>残額:</span>
+                <span class="font-medium {remaining > 0 ? 'text-orange-600' : remaining < 0 ? 'text-red-600' : 'text-green-600'}">
+                  ¥{remaining.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- モーダルフッター -->
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <button 
+          on:click={saveAllocation}
+          disabled={saving || allocationSplits.length === 0}
+          type="button" 
+          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          {saving ? '保存中...' : '保存'}
+        </button>
+        <button 
+          on:click={() => showAllocationModal = false} 
+          type="button" 
+          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{/if}
