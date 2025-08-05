@@ -45,7 +45,7 @@ model Grant {
   totalAmount  Int?        // 総額（円）
   startDate    DateTime?   // 開始日
   endDate      DateTime?   // 終了日
-  status       String      @default("active") // active, inactive, completed
+  status       String      @default("in_progress") // in_progress, completed, reported
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -63,6 +63,7 @@ model BudgetItem {
   category        String?           // カテゴリ
   budgetedAmount  Int?              // 予算額（円）
   note            String?           // 🆕 備考フィールド
+  sortOrder       Int               @default(0) // 🆕 並び順
   grantId         Int               // 助成金ID
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt

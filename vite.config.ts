@@ -9,6 +9,9 @@ dotenv.config();
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
+		port: 3002,
+		strictPort: true, // ポートが使用中の場合はエラーで停止
+		host: '0.0.0.0',
 		https: {
 			key: fs.readFileSync('certs/key.pem'),
 			cert: fs.readFileSync('certs/cert.pem')
@@ -19,5 +22,19 @@ export default defineConfig({
 			host: 'localhost',
 			clientPort: 3002
 		}
+	},
+	// プロダクションビルドの最適化
+	build: {
+		// チャンクサイズの最適化
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					// UI libraries (クライアントサイドのみ)
+					ui: ['wx-svelte-grid', 'wx-svelte-core']
+				}
+			}
+		},
+		// チャンクサイズ警告の閾値を上げる
+		chunkSizeWarningLimit: 1000
 	}
 });
