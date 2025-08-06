@@ -1,21 +1,31 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import fs from 'fs';
 import dotenv from 'dotenv';
 
 // .envファイルを読み込み
 dotenv.config();
 
+// ビルド時刻とバージョン番号を生成
+const buildTime = new Date().toISOString();
+const buildVersion = Date.now().toString();
+
 export default defineConfig({
 	plugins: [sveltekit()],
+	// ビルド時の環境変数を定義
+	define: {
+		__BUILD_TIME__: JSON.stringify(buildTime),
+		__BUILD_VERSION__: JSON.stringify(buildVersion),
+		__DEV_MODE__: JSON.stringify(process.env.NODE_ENV === 'development')
+	},
 	server: {
 		port: 3002,
 		strictPort: true, // ポートが使用中の場合はエラーで停止
 		host: '0.0.0.0',
-		https: {
-			key: fs.readFileSync('certs/key.pem'),
-			cert: fs.readFileSync('certs/cert.pem')
-		},
+		// プロダクション用：HTTPで起動（nginxがHTTPS終端を行う）
+		// https: {
+		//     key: fs.readFileSync('certs/key.pem'),
+		//     cert: fs.readFileSync('certs/cert.pem')
+		// },
 		// WebSocket HMR設定
 		hmr: {
 			port: 3002,
@@ -26,14 +36,7 @@ export default defineConfig({
 	// プロダクションビルドの最適化
 	build: {
 		// チャンクサイズの最適化
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					// UI libraries (クライアントサイドのみ)
-					ui: ['wx-svelte-grid', 'wx-svelte-core']
-				}
-			}
-		},
+		rollupOptions: {},
 		// チャンクサイズ警告の閾値を上げる
 		chunkSizeWarningLimit: 1000
 	}

@@ -1,7 +1,8 @@
 <script>
-  import { Grid } from "wx-svelte-grid";
+  // import { Grid } from "wx-svelte-grid";
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import DebugInfo from '$lib/components/DebugInfo.svelte';
   
   export let data;
   export let form;
@@ -320,7 +321,7 @@
     
     <div class="p-4">
       <div style="height: 400px;">
-        <Grid data={formattedTransactions} columns={transactionColumns} />
+        <!-- <Grid data={formattedTransactions} columns={transactionColumns} /> -->
       </div>
     </div>
   </div>
@@ -338,7 +339,7 @@
     
     <div class="p-4">
       <div style="height: 400px;">
-        <Grid data={formattedAllocations} columns={allocationColumns} />
+        <!-- <Grid data={formattedAllocations} columns={allocationColumns} /> -->
       </div>
     </div>
   </div>
@@ -471,3 +472,6 @@
   </div>
 </div>
 {/if}
+
+<!-- デバッグ情報コンポーネント -->
+<DebugInfo />

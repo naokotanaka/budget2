@@ -1,5 +1,6 @@
 <script>
-  import { Grid } from "wx-svelte-grid";
+  // import { Grid } from "wx-svelte-grid";
+  import DebugInfo from '$lib/components/DebugInfo.svelte';
   
   export let data;
   
@@ -193,8 +194,11 @@
     
     <div class="p-4">
       <div style="height: 400px;">
-        <Grid data={formattedTransactions} {columns} />
+        <!-- <Grid data={formattedTransactions} {columns} /> -->
       </div>
     </div>
   </div>
 </div>
+
+<!-- デバッグ情報コンポーネント -->
+<DebugInfo />

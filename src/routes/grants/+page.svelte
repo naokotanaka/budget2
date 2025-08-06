@@ -3,6 +3,11 @@
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { getPeriodColor, getAmountColor } from '$lib/utils/color-rules';
+  import { TabulatorFull as Tabulator } from 'tabulator-tables';
+  import type { ColumnDefinition } from 'tabulator-tables';
+  import 'tabulator-tables/dist/css/tabulator.min.css';
+  import MonthSelector from '$lib/components/MonthSelector.svelte';
+  import DebugInfo from '$lib/components/DebugInfo.svelte';
 
   interface Grant {
     id: number;
@@ -33,8 +38,16 @@
   let error = '';
   let showGrantForm = false;
   let showBudgetItemForm = false;
-  let showCompletedGrants = false; // 終了・報告済み表示切り替え
+  let showImportModal = false;
+  let showCompletedGrants = false; // 終了済み表示切り替え
+  let showReportedGrants = false; // 報告済み表示切り替え
   let filterYear = ''; // 年度フィルター
+  let importType: 'grants' | 'budgetItems' = 'grants';
+  let importFile: File | null = null;
+  let importPreview: any[] = [];
+  let importError = '';
+  let importProgress = 0;
+  let isImporting = false;
 
   // 新規・編集用フォームデータ
   let grantForm: Partial<Grant> = {};
@@ -61,17 +74,32 @@
     
     return () => {
       document.removeEventListener('click', handleClickOutside);
+      // テーブルのクリーンアップ
+      if (table) {
+        table.destroy();
+        table = null;
+      }
     };
   });
 
   async function loadGrants() {
     loading = true;
     try {
-      const response = await fetch(`${base}/api/grants`);
+      const url = `${base}/api/grants`;
+      console.log('🔍 Fetching grants from URL:', url);
+      console.log('🔍 base path:', base);
+      const response = await fetch(url);
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response OK:', response.ok);
       const data = await response.json();
+      console.log('🔍 Response data:', data);
       
       if (data.success) {
         grants = data.grants || [];
+        console.log('助成金データロード完了:', grants.length, '件');
+        // 月列を強制的に再生成
+        monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+        console.log('強制更新後のmonthColumns:', monthColumns);
       } else {
         error = data.error || '助成金データの取得に失敗しました';
       }
@@ -97,7 +125,20 @@
 
   // 終了・報告ステータスを除外するフィルター関数
   function getFilteredBudgetItems(items: any[]) {
-    return items.filter(item => item.grant?.status !== 'completed' && item.grant?.status !== 'reported');
+    return items.filter(item => {
+      const status = item.grantStatus || item.grant?.status;
+      
+      // 基本表示: 進行中のみ
+      if (status === 'in_progress') return true;
+      
+      // 終了済み表示がONの場合、終了ステータスも表示
+      if (showCompletedGrants && status === 'completed') return true;
+      
+      // 報告済み表示がONの場合、報告済みステータスも表示
+      if (showReportedGrants && status === 'reported') return true;
+      
+      return false;
+    });
   }
 
   async function loadBudgetItems(grantId: number) {
@@ -128,6 +169,9 @@
           budgetItems = getFilteredBudgetItems(allBudgetItems);
         }
         console.log('全予算項目取得完了:', allBudgetItems.length, '件');
+        // 月列を強制的に再生成（データロード完了時）
+        monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+        console.log('予算項目ロード後のmonthColumns:', monthColumns);
       } else {
         error = data.error || '予算項目の取得に失敗しました';
       }
@@ -157,8 +201,8 @@
       // 既存項目の場合、スケジュールデータを読み込み
       await loadBudgetItemSchedule(budgetItem.id);
     } else {
-      // 新規作成時は全月をデフォルトでチェック
-      if (availableMonths.length > 0) {
+      // 新規作成時は、選択された助成金があれば全月をデフォルトでチェック
+      if (selectedGrant && availableMonths.length > 0) {
         selectedMonths = new Set(availableMonths.map(m => getMonthKey(m.year, m.month)));
       } else {
         selectedMonths.clear();
@@ -214,12 +258,15 @@
   }
 
   async function saveBudgetItem() {
-    if (!selectedGrant) return;
+    if (!budgetItemForm.grantId) {
+      error = '助成金を選択してください';
+      return;
+    }
     
     try {
       const url = budgetItemForm.id ? 
-        `${base}/api/grants/${selectedGrant.id}/budget-items/${budgetItemForm.id}` : 
-        `${base}/api/grants/${selectedGrant.id}/budget-items`;
+        `${base}/api/grants/${budgetItemForm.grantId}/budget-items/${budgetItemForm.id}` : 
+        `${base}/api/grants/${budgetItemForm.grantId}/budget-items`;
       const method = budgetItemForm.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -241,6 +288,8 @@
         // 絞り込み状態を維持
         if (selectedGrant) {
           budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
+        } else {
+          budgetItems = getFilteredBudgetItems(allBudgetItems);
         }
       } else {
         error = data.error || '予算項目の保存に失敗しました';
@@ -279,6 +328,15 @@
   // 複数条件ソート機能
   let sortCriteria: Array<{field: string, direction: 'asc' | 'desc', priority: number}> = [];
 
+  // wx-svelte-grid関連
+  // Tabulator用の変数
+  let tableElement: HTMLDivElement;
+  let table: Tabulator | null = null;
+  let columns: ColumnDefinition[] = [];
+  let tableData: any[] = [];
+  let monthColumns: Array<{year: number, month: number, label: string}> = [];
+  let isTableInitializing = false;
+
   // カテゴリ管理
   let availableCategories: string[] = [];
   let showCategoryDropdown = false;
@@ -301,6 +359,33 @@
   // 予算項目が変更された時にカテゴリを更新
   $: if (budgetItems.length > 0) {
     updateAvailableCategories();
+  }
+
+  // 終了済みフィルター変更時の処理
+  $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
+    console.log('終了済みフィルター変更:', showCompletedGrants);
+    refreshBudgetItems();
+  }
+
+  // 報告済みフィルター変更時の処理  
+  $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
+    console.log('報告済みフィルター変更:', showReportedGrants);
+    refreshBudgetItems();
+  }
+
+  // 選択助成金変更時の処理
+  $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
+    console.log('選択助成金変更:', selectedGrant?.name);
+    refreshBudgetItems();
+  }
+
+  function refreshBudgetItems() {
+    if (selectedGrant) {
+      budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
+    } else {
+      budgetItems = getFilteredBudgetItems(allBudgetItems);
+    }
+    console.log('フィルター後予算項目数:', budgetItems.length);
   }
   
   function selectCategory(category: string) {
@@ -485,22 +570,32 @@
     
     budgetItems = [...budgetItems]; // リアクティブ更新
   }
+
+  // グリッドの初期化と更新（データが実際に存在し、DOM要素が準備できたときのみ）
+  $: if (budgetItems.length > 0 && tableElement && columns.length > 0) {
+    console.log('Updating table with data:', budgetItems.length, 'items');
+    initializeTableColumns();
+    prepareTableData();
+    updateTable();
+  }
+
   
-  function getSortIcon(field: string) {
+  // リアクティブな関数として定義
+  $: getSortIcon = (field: string) => {
     const criterion = sortCriteria.find(s => s.field === field);
-    if (!criterion) return '';
+    if (!criterion) return '↕';
     
     const icon = criterion.direction === 'asc' ? '▲' : '▼';
     return `${icon}${criterion.priority}`;
-  }
+  };
   
-  function getSortClass(field: string) {
+  $: getSortClass = (field: string) => {
     const criterion = sortCriteria.find(s => s.field === field);
     if (criterion) {
       return 'bg-blue-100 text-blue-800';
     }
     return '';
-  }
+  };
   
   function clearSort() {
     sortCriteria = [];
@@ -513,6 +608,209 @@
   function formatAmount(amount?: number): string {
     if (!amount) return '¥0';
     return `¥${amount.toLocaleString()}`;
+  }
+
+  // Tabulatorの列定義を初期化
+  function initializeTableColumns() {
+    const baseColumns: ColumnDefinition[] = [
+      {
+        title: "助成金",
+        field: "grantName",
+        frozen: true,
+        width: 180,
+        sorter: "string"
+      },
+      {
+        title: "項目名", 
+        field: "name",
+        frozen: true,
+        width: 200,
+        sorter: "string"
+      },
+      {
+        title: "カテゴリ",
+        field: "category",
+        width: 120,
+        sorter: "string"
+      },
+      {
+        title: "予算額",
+        field: "budgetedAmount",
+        width: 120,
+        sorter: "number",
+        hozAlign: "right",
+        formatter: (cell) => formatAmount(cell.getValue())
+      },
+      {
+        title: "使用額", 
+        field: "usedAmount",
+        width: 120,
+        sorter: "number",
+        hozAlign: "right",
+        formatter: (cell) => formatAmount(cell.getValue())
+      },
+      {
+        title: "残額",
+        field: "remainingAmount",
+        width: 120,
+        sorter: "number",
+        hozAlign: "right",
+        formatter: (cell) => {
+          const value = cell.getValue();
+          const color = value < 0 ? 'red' : 'green';
+          return `<span style="color: ${color}; font-weight: 600;">${formatAmount(value)}</span>`;
+        }
+      }
+    ];
+
+    // 月列を常に表示（列固定により水平スクロールで対応）
+    if (monthColumns && monthColumns.length > 0) {
+      monthColumns.forEach(monthCol => {
+        baseColumns.push({
+          title: monthCol.label,
+          field: `month_${monthCol.year}_${monthCol.month}`,
+          width: 100,
+          hozAlign: "center",
+          formatter: (cell) => {
+            const value = cell.getValue();
+            return value > 0 ? formatAmount(value) : '-';
+          }
+        });
+      });
+    }
+
+    baseColumns.push({
+      title: "操作",
+      field: "actions",
+      width: 80,
+      hozAlign: "center",
+      formatter: () => `<button style="color: #2563eb; cursor: pointer;">編集</button>`,
+      cellClick: (e, cell) => {
+        const rowData = cell.getRow().getData();
+        const item = budgetItems.find(i => i.id === rowData.id);
+        if (item) {
+          openBudgetItemForm(item);
+        }
+      }
+    });
+
+    columns = baseColumns;
+  }
+
+  // Tabulatorテーブルデータの準備
+  function prepareTableData() {
+    tableData = budgetItems.map(item => {
+      const remaining = (item.budgetedAmount || 0) - (item.usedAmount || 0);
+      return {
+        ...item,
+        remainingAmount: remaining,
+        actions: '', // Tabulatorのformatterで処理
+        ...(monthColumns && monthColumns.length > 0 ? monthColumns.reduce((acc, monthCol) => {
+          const monthAmount = getMonthlyAmount(item, monthCol.year, monthCol.month);
+          acc[`month_${monthCol.year}_${monthCol.month}`] = monthAmount;
+          return acc;
+        }, {}) : {})
+      };
+    });
+  }
+
+  // Tabulatorテーブルの初期化と更新
+  function initializeTable() {
+    if (isTableInitializing) {
+      console.log('Table initialization already in progress, skipping');
+      return;
+    }
+
+    isTableInitializing = true;
+    
+    if (table) {
+      table.destroy();
+      table = null;
+    }
+    
+    if (!tableElement) {
+      console.warn('Table element not found');
+      isTableInitializing = false;
+      return;
+    }
+
+    if (columns.length === 0) {
+      console.warn('No columns defined for table');
+      isTableInitializing = false;
+      return;
+    }
+    
+    try {
+      table = new Tabulator(tableElement, {
+        data: tableData,
+        columns: columns,
+        layout: "fitColumns",
+        responsiveLayout: "hide",
+        pagination: "local",
+        paginationSize: 50,
+        paginationSizeSelector: [25, 50, 100],
+        movableColumns: true,
+        resizableRows: false,
+        selectable: 1,
+        reactiveData: true,
+        virtualDomVert: true
+      });
+
+      // テーブル初期化完了を待つ
+      table.on("tableBuilt", function() {
+        console.log("Tabulator table built successfully");
+        isTableInitializing = false;
+      });
+
+      table.on("tableBuiltFailed", function(error) {
+        console.error("Tabulator table build failed:", error);
+        isTableInitializing = false;
+      });
+
+    } catch (error) {
+      console.error('Error initializing Tabulator table:', error);
+      isTableInitializing = false;
+      table = null;
+    }
+  }
+
+  function updateTable() {
+    if (!tableElement) {
+      console.warn('Table element not available for update');
+      return;
+    }
+
+    if (isTableInitializing) {
+      console.log('Table is initializing, deferring update');
+      setTimeout(() => updateTable(), 200);
+      return;
+    }
+
+    if (table && table.initialized) {
+      try {
+        table.setColumns(columns);
+        table.setData(tableData);
+      } catch (error) {
+        console.error('Error updating table:', error);
+        // エラーが発生した場合は再初期化
+        initializeTable();
+      }
+    } else {
+      initializeTable();
+    }
+  }
+
+  // onMountでテーブル要素の準備
+  onMount(() => {
+    // 初期化はbudgetItemsが読み込まれた後に実行
+  });
+
+  // budgetItemsが更新されたときにTabulatorを更新（条件を厳格化）
+  $: if (budgetItems.length > 0 && tableElement && !loading) {
+    console.log('Budget items changed, updating table');
+    initializeTableColumns();
+    prepareTableData();
+    updateTable();
   }
 
   // ISO文字列をYYYY-MM-DD形式に変換（HTML input[type="date"]用）
@@ -532,15 +830,30 @@
     return Math.round((used || 0) / total * 100);
   }
 
-  // 完了済み助成金の年度フィルタリング
+  // 終了済み助成金の年度フィルタリング
   function getFilteredCompletedGrants(grants: Grant[]): Grant[] {
-    const completedGrants = grants.filter(g => g.status === 'completed' || g.status === 'reported');
+    const completedGrants = grants.filter(g => g.status === 'completed');
     
     if (!filterYear) {
       return completedGrants;
     }
     
     return completedGrants.filter(grant => {
+      if (!grant.endDate) return false;
+      const endYear = new Date(grant.endDate).getFullYear();
+      return endYear.toString() === filterYear;
+    });
+  }
+
+  // 報告済み助成金の年度フィルタリング
+  function getFilteredReportedGrants(grants: Grant[]): Grant[] {
+    const reportedGrants = grants.filter(g => g.status === 'reported');
+    
+    if (!filterYear) {
+      return reportedGrants;
+    }
+    
+    return reportedGrants.filter(grant => {
       if (!grant.endDate) return false;
       const endYear = new Date(grant.endDate).getFullYear();
       return endYear.toString() === filterYear;
@@ -561,6 +874,442 @@
     return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)); // 新しい年順
   }
 
+  // 表示用の月列を生成（表示中の予算項目に関連する助成金のみから生成）
+  function generateMonthColumns(grantsData: Grant[], selectedGrantData: Grant | null, currentBudgetItems: any[]): Array<{year: number, month: number, label: string}> {
+    console.log('generateMonthColumns called, grants.length:', grantsData?.length, 'budgetItems.length:', currentBudgetItems?.length);
+    console.log('grantsData:', grantsData);
+    console.log('currentBudgetItems:', currentBudgetItems);
+    
+    if (selectedGrantData) {
+      // 選択された助成金の期間から生成
+      console.log('Using selectedGrant:', selectedGrantData.name);
+      return generateMonthsFromGrant(selectedGrantData);
+    }
+    
+    // データがまだロードされていない場合は空の配列を返す
+    if (!grantsData || grantsData.length === 0) {
+      console.log('No grants data, returning empty months');
+      return [];
+    }
+    
+    if (!currentBudgetItems) {
+      console.log('No budget items data, returning empty months');
+      return [];
+    }
+    
+    // 暫定：全ての進行中の助成金から月列を生成
+    const displayedGrantIds = new Set(grantsData.filter(g => g.status === 'in_progress').map(g => g.id));
+    console.log('Using all active grants for month generation:', Array.from(displayedGrantIds));
+    
+    if (displayedGrantIds.size === 0) {
+      console.log('No displayed grant IDs, returning empty months');
+      return [];
+    }
+    
+    // 関連する助成金の期間のみを統合
+    const allMonths = new Set<string>();
+    grantsData.forEach(grant => {
+      console.log('Checking grant:', grant.id, grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate, 'inDisplayed:', displayedGrantIds.has(grant.id));
+      if (displayedGrantIds.has(grant.id) && grant.startDate && grant.endDate) {
+        console.log('Processing grant for months:', grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate);
+        const months = generateMonthsFromGrant(grant);
+        console.log('Generated months for grant:', months);
+        months.forEach(m => allMonths.add(`${m.year}-${m.month}`));
+      }
+    });
+    
+    console.log('Generated months count:', allMonths.size);
+    console.log('All months:', Array.from(allMonths));
+    
+    return Array.from(allMonths)
+      .sort((a, b) => {
+        const [aYear, aMonth] = a.split('-');
+        const [bYear, bMonth] = b.split('-');
+        const aDate = new Date(parseInt(aYear), parseInt(aMonth) - 1);
+        const bDate = new Date(parseInt(bYear), parseInt(bMonth) - 1);
+        return aDate.getTime() - bDate.getTime();
+      })
+      .map(monthKey => {
+        const [year, month] = monthKey.split('-');
+        return {
+          year: parseInt(year),
+          month: parseInt(month),
+          label: `${year.slice(-2)}/${month.padStart(2, '0')}`
+        };
+      });
+  }
+
+  function generateMonthsFromGrant(grant: Grant): Array<{year: number, month: number, label: string}> {
+    if (!grant.startDate || !grant.endDate) return [];
+    
+    const startDate = new Date(grant.startDate);
+    const endDate = new Date(grant.endDate);
+    const months = [];
+
+    let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
+    while (current <= end) {
+      const year = current.getFullYear();
+      const month = current.getMonth() + 1;
+      months.push({
+        year,
+        month,
+        label: `${year.toString().slice(-2)}/${month.toString().padStart(2, '0')}`
+      });
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    return months;
+  }
+
+  // 予算項目の月割り金額を計算
+  function getMonthlyAmount(item: any, targetYear: number, targetMonth: number): number {
+    const schedules = budgetItemSchedules.get(item.id);
+    if (!schedules || !item.budgetedAmount) return 0;
+    
+    // その月がスケジュールに含まれているかチェック
+    const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
+    const hasSchedule = schedules.includes(monthKey);
+    
+    if (!hasSchedule) return 0;
+    
+    // 設定された月数で予算額を割る
+    const totalMonths = schedules.length;
+    return totalMonths > 0 ? Math.round(item.budgetedAmount / totalMonths) : 0;
+  }
+
+  // リアクティブに月列を更新（grants, budgetItems, selectedGrantが変更されたときに再実行）
+  $: {
+    console.log('Reactive update - grants.length:', grants?.length, 'budgetItems.length:', budgetItems?.length);
+    monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+    console.log('Updated monthColumns:', monthColumns);
+  }
+  $: console.log('selectedGrant:', selectedGrant);
+
+  // monthColumnsが更新された時にテーブルを再初期化
+  $: if (monthColumns.length > 0 && budgetItems.length > 0 && tableElement && !loading) {
+    console.log('⚡ monthColumns updated - reinitializing table with', monthColumns.length, 'months');
+    // テーブルの完全な再初期化が必要な場合
+    setTimeout(() => {
+      initializeTableColumns();
+      prepareTableData();
+      updateTable();
+    }, 100); // DOMの更新を待つ
+  }
+
+  // インポート機能
+  function openImportModal() {
+    importFile = null;
+    importPreview = [];
+    importError = '';
+    importProgress = 0;
+    isImporting = false;
+    showImportModal = true;
+  }
+
+  function downloadSampleCSV() {
+    if (importType === 'grants') {
+      // 助成金ファイルのサンプル
+      const sampleData = `助成金名,助成金コード,総額,開始日,終了日,ステータス
+"WAM補助金","WAM2025","7000000","2025-04-01","2026-03-31","進行中"
+"赤い羽根助成金","AKA2025","2000000","2025-06-01","2026-05-31","進行中"`;
+      
+      const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sample_grants.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else {
+      // 予算項目ファイルのサンプル
+      const sampleData = `助成金コード,予算項目名,予算額,カテゴリ,備考
+"WAM2025","人件費","3000000","人件費","職員給与・賞与"
+"WAM2025","消耗品費","500000","消耗品","事務用品等"
+"AKA2025","活動費","1500000","活動費","イベント開催費用"`;
+      
+      const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sample_budget_items.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function handleFileSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (!file) {
+      importFile = null;
+      importPreview = [];
+      return;
+    }
+
+    if (!file.name.endsWith('.csv')) {
+      importError = 'CSVファイルを選択してください';
+      return;
+    }
+
+    importFile = file;
+    importError = '';
+    parseCSVFile(file);
+  }
+
+  async function parseCSVFile(file: File) {
+    try {
+      const text = await file.text();
+      console.log('ファイル内容:', text);
+      const lines = text.split('\n').filter(line => line.trim());
+      console.log('行数:', lines.length);
+      
+      if (lines.length < 2) {
+        importError = 'CSVファイルにデータが含まれていません';
+        return;
+      }
+
+      console.log('ヘッダー行:', lines[0]);
+
+      // ヘッダー行をスキップして解析
+      const dataLines = lines.slice(1);
+      const preview = [];
+
+      if (importType === 'grants') {
+        // 助成金CSVの解析
+        for (const line of dataLines) {
+          const columns = parseCSVLine(line);
+          console.log('CSV行:', line);
+          console.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
+          
+          if (columns.length >= 6) {
+            const grant = {
+              name: columns[0]?.trim() || '',
+              grantCode: columns[1]?.trim() || null,
+              totalAmount: parseAmount(columns[2]),
+              startDate: parseDate(columns[3]),
+              endDate: parseDate(columns[4]),
+              status: parseStatus(columns[5])
+            };
+            preview.push(grant);
+          } else {
+            console.warn('カラム数不足でスキップ:', line);
+          }
+        }
+      } else {
+        // 予算項目CSVの解析
+        for (const line of dataLines) {
+          const columns = parseCSVLine(line);
+          console.log('CSV行:', line);
+          console.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
+          
+          if (columns.length >= 3) {
+            const budgetItem = {
+              grantCode: columns[0]?.trim() || '',
+              name: columns[1]?.trim() || '',
+              budgetedAmount: parseAmount(columns[2]),
+              category: columns[3]?.trim() || null,
+              note: columns[4]?.trim() || null
+            };
+            preview.push(budgetItem);
+          } else {
+            console.warn('カラム数不足でスキップ:', line);
+          }
+        }
+      }
+
+      importPreview = preview;
+      console.log('Import preview:', importPreview);
+      
+    } catch (err) {
+      importError = 'CSVファイルの解析に失敗しました: ' + (err instanceof Error ? err.message : String(err));
+      console.error('CSV parse error:', err);
+    }
+  }
+
+  function parseCSVLine(line: string): string[] {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        // ダブルクォートの処理
+        if (inQuotes && line[i + 1] === '"') {
+          // エスケープされたクォート
+          current += '"';
+          i++; // 次のクォートをスキップ
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    // 引用符で囲まれている場合は引用符を除去
+    return result.map(field => {
+      if (field.startsWith('"') && field.endsWith('"')) {
+        return field.slice(1, -1);
+      }
+      return field;
+    });
+  }
+
+  function parseAmount(value: string): number | null {
+    if (!value?.trim()) return null;
+    const cleaned = value.replace(/[¥,]/g, '');
+    const parsed = parseInt(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  function parseDate(value: string): string | null {
+    if (!value?.trim()) return null;
+    
+    // YYYY/MM/DD または YYYY-MM-DD 形式を ISO 形式に変換
+    const dateStr = value.trim().replace(/\//g, '-');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    return null;
+  }
+
+  function parseStatus(value: string): 'in_progress' | 'completed' | 'reported' {
+    const trimmed = value?.trim() || '';
+    switch (trimmed) {
+      case '終了':
+      case 'completed':
+        return 'completed';
+      case '報告済み':
+      case 'reported':
+        return 'reported';
+      default:
+        return 'in_progress';
+    }
+  }
+
+  async function createFullMonthSchedule(budgetItemId: number, grant: any) {
+    try {
+      if (!grant.startDate || !grant.endDate) {
+        console.warn('助成金の期間が設定されていないため、月別スケジュールをスキップします');
+        return;
+      }
+
+      // 助成金の期間内の全ての月を生成
+      const months = generateMonthsFromGrant(grant);
+      const schedules = months.map(month => ({
+        year: month.year,
+        month: month.month,
+        isActive: true
+      }));
+
+      const response = await fetch(`${base}/api/budget-items/${budgetItemId}/schedule`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedules })
+      });
+
+      if (!response.ok) {
+        console.warn(`予算項目ID${budgetItemId}の月別スケジュール作成に失敗`);
+      } else {
+        console.log(`予算項目ID${budgetItemId}に${schedules.length}ヶ月のスケジュールを作成しました`);
+      }
+    } catch (err) {
+      console.error('月別スケジュール作成エラー:', err);
+    }
+  }
+
+  async function executeImport() {
+    if (!importPreview.length) return;
+
+    isImporting = true;
+    importError = '';
+    importProgress = 0;
+
+    try {
+      if (importType === 'grants') {
+        // 助成金のインポート
+        for (let i = 0; i < importPreview.length; i++) {
+          const grantData = importPreview[i];
+          
+          const grantResponse = await fetch(`${base}/api/grants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: grantData.name,
+              grantCode: grantData.grantCode,
+              totalAmount: grantData.totalAmount,
+              startDate: grantData.startDate,
+              endDate: grantData.endDate,
+              status: grantData.status
+            })
+          });
+
+          const grantResult = await grantResponse.json();
+          if (!grantResult.success) {
+            throw new Error(`助成金「${grantData.name}」の作成に失敗: ${grantResult.error}`);
+          }
+
+          importProgress = Math.round(((i + 1) / importPreview.length) * 100);
+        }
+      } else {
+        // 予算項目のインポート
+        for (let i = 0; i < importPreview.length; i++) {
+          const budgetItemData = importPreview[i];
+          
+          // 助成金コードから助成金IDを取得
+          const grant = grants.find(g => g.grantCode === budgetItemData.grantCode);
+          if (!grant) {
+            console.warn(`助成金コード「${budgetItemData.grantCode}」に対応する助成金が見つかりません`);
+            continue;
+          }
+
+          const budgetResponse = await fetch(`${base}/api/grants/${grant.id}/budget-items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: budgetItemData.name,
+              budgetedAmount: budgetItemData.budgetedAmount,
+              category: budgetItemData.category,
+              note: budgetItemData.note
+            })
+          });
+
+          const budgetResult = await budgetResponse.json();
+          if (!budgetResult.success) {
+            console.warn(`予算項目「${budgetItemData.name}」の作成に失敗: ${budgetResult.error}`);
+          } else if (budgetResult.budgetItem?.id) {
+            // 助成金の期間に合わせて全ての月を自動選択してスケジュールを作成
+            await createFullMonthSchedule(budgetResult.budgetItem.id, grant);
+          }
+
+          importProgress = Math.round(((i + 1) / importPreview.length) * 100);
+        }
+      }
+
+      showImportModal = false;
+      await loadGrants();
+      await loadAllBudgetItems();
+      
+    } catch (err) {
+      importError = err instanceof Error ? err.message : String(err);
+    } finally {
+      isImporting = false;
+    }
+  }
+
 </script>
 
 <svelte:head>
@@ -570,15 +1319,26 @@
 <div class="container mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-gray-900">助成金管理</h1>
-    <button 
-      on:click={() => openGrantForm()}
-      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-    >
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-      </svg>
-      新規助成金
-    </button>
+    <div class="flex items-center gap-3">
+      <button 
+        on:click={openImportModal}
+        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+        </svg>
+        インポート
+      </button>
+      <button 
+        on:click={() => openGrantForm()}
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        新規助成金
+      </button>
+    </div>
   </div>
 
   {#if error}
@@ -603,11 +1363,23 @@
               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
             />
             <label for="showCompleted" class="text-sm font-medium text-gray-700">
-              終了・報告済みを表示
+              終了済みを表示
             </label>
           </div>
           
-          {#if showCompletedGrants && getAvailableYears(grants).length > 0}
+          <div class="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              id="showReported" 
+              bind:checked={showReportedGrants}
+              class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+            />
+            <label for="showReported" class="text-sm font-medium text-gray-700">
+              報告済みを表示
+            </label>
+          </div>
+          
+          {#if (showCompletedGrants || showReportedGrants) && getAvailableYears(grants).length > 0}
             <div class="flex items-center gap-2">
               <label for="yearFilter" class="text-sm text-gray-600">年度:</label>
               <select 
@@ -709,15 +1481,15 @@
           </div>
         {/if}
 
-        <!-- 終了・報告済みの助成金 -->
+        <!-- 終了済みの助成金 -->
         {#if showCompletedGrants}
           {@const filteredCompletedGrants = getFilteredCompletedGrants(grants)}
           {#if filteredCompletedGrants.length > 0}
-            <div>
+            <div class="mb-4">
               <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
-                終了・報告済み
-                <span class="text-xs bg-gray-200 px-2 py-0.5 rounded-full">
+                <div class="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                終了済み（報告未完了）
+                <span class="text-xs bg-yellow-200 px-2 py-0.5 rounded-full">
                   {filteredCompletedGrants.length}件
                 </span>
               </h3>
@@ -725,6 +1497,82 @@
                 {#each filteredCompletedGrants as grant}
                 <div 
                   class="border rounded-lg px-3 py-2 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} opacity-75 flex-shrink-0 w-80 h-24 relative group"
+                >
+                  <div 
+                    class="cursor-pointer h-full"
+                    on:click={() => selectGrant(grant)}
+                    role="button"
+                    tabindex="0"
+                    on:keydown={(e) => e.key === 'Enter' && selectGrant(grant)}
+                  >
+                    <!-- 1行目: 助成金コード + 助成金名 + ステータス（右上）+ 編集ボタン（右） -->
+                    <div class="flex justify-between items-start mb-1">
+                      <div class="flex items-start gap-2 flex-1 min-w-0">
+                        {#if grant.grantCode}
+                          <span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">
+                            {grant.grantCode}
+                          </span>
+                        {/if}
+                        <h3 class="font-semibold text-sm truncate">{grant.name}</h3>
+                      </div>
+                      <div class="flex items-center gap-1 flex-shrink-0">
+                        <span class="px-1.5 py-0.5 rounded text-xs font-medium {statusColors[grant.status]}">
+                          {statusLabels[grant.status]}
+                        </span>
+                        <button 
+                          on:click|stopPropagation={() => openGrantForm(grant)}
+                          class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          編集
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- 2行目: 期間 + 予算額 -->
+                    <div class="flex justify-between items-center mb-1 text-xs">
+                      <div class="{getPeriodColor(grant.endDate)}">
+                        {#if grant.startDate && grant.endDate}
+                          {new Date(grant.startDate).toLocaleDateString()} 〜 {new Date(grant.endDate).toLocaleDateString()}
+                        {:else}
+                          期間未設定
+                        {/if}
+                      </div>
+                      <div class="font-medium text-gray-900">{formatAmount(grant.totalAmount)}</div>
+                    </div>
+
+                    <!-- 3行目: 使用額 + 残額 -->
+                    <div class="flex justify-between items-center text-xs">
+                      <div class="text-gray-600">
+                        使用済: {formatAmount(grant.usedAmount || 0)}
+                      </div>
+                      <div class="font-medium {getAmountColor((grant.totalAmount || 0) - (grant.usedAmount || 0), null, grant.endDate)}">
+                        残額: {formatAmount((grant.totalAmount || 0) - (grant.usedAmount || 0))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        {/if}
+
+        <!-- 報告済みの助成金 -->
+        {#if showReportedGrants}
+          {@const filteredReportedGrants = getFilteredReportedGrants(grants)}
+          {#if filteredReportedGrants.length > 0}
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                報告済み（確定）
+                <span class="text-xs bg-green-200 px-2 py-0.5 rounded-full">
+                  {filteredReportedGrants.length}件
+                </span>
+              </h3>
+              <div class="flex gap-4 overflow-x-auto" style="height: 200px;">
+                {#each filteredReportedGrants as grant}
+                <div 
+                  class="border rounded-lg px-3 py-2 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} opacity-60 flex-shrink-0 w-80 h-24 relative group"
                 >
                   <div 
                     class="cursor-pointer h-full"
@@ -796,9 +1644,8 @@
         <div class="flex items-center gap-4">
           <h2 class="text-xl font-semibold">予算項目</h2>
           <button 
-            on:click={() => selectedGrant && openBudgetItemForm()}
-            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium {selectedGrant ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}"
-            disabled={!selectedGrant}
+            on:click={() => openBudgetItemForm()}
+            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -848,6 +1695,12 @@
             </div>
           {/if}
           
+          <div class="mb-4 flex justify-between items-center">
+            <div class="text-sm text-gray-600">
+              {budgetItems.length}件の予算項目（月別情報も表示、左の列は固定済み）
+            </div>
+          </div>
+
           {#if budgetItems.length === 0}
             <div class="text-center text-gray-500 py-8">
               <div class="mb-4">
@@ -859,107 +1712,8 @@
               <p class="text-sm text-gray-500 mb-4">上の「追加」ボタンから最初の予算項目を作成してください</p>
             </div>
           {:else}
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('grantName')}"
-                        on:click={() => toggleSort('grantName')}>
-                      <div class="flex items-center justify-between">
-                        助成金
-                        <span class="text-blue-600 font-bold text-sm">{getSortIcon('grantName')}</span>
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('name')}" 
-                        on:click={() => toggleSort('name')}>
-                      <div class="flex items-center justify-between">
-                        項目名
-                        <span class="text-blue-600 font-bold text-sm">{getSortIcon('name')}</span>
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('category')}"
-                        on:click={() => toggleSort('category')}>
-                      <div class="flex items-center justify-between">
-                        カテゴリ
-                        <span class="text-blue-600 font-bold text-sm">{getSortIcon('category')}</span>
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('budgetedAmount')}"
-                        on:click={() => toggleSort('budgetedAmount')}>
-                      <div class="flex items-center justify-end">
-                        <span class="text-blue-600 font-bold text-sm mr-1">{getSortIcon('budgetedAmount')}</span>
-                        予算額
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('usedAmount')}"
-                        on:click={() => toggleSort('usedAmount')}>
-                      <div class="flex items-center justify-end">
-                        <span class="text-blue-600 font-bold text-sm mr-1">{getSortIcon('usedAmount')}</span>
-                        使用済み
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors {getSortClass('remainingAmount')}"
-                        on:click={() => toggleSort('remainingAmount')}>
-                      <div class="flex items-center justify-end">
-                        <span class="text-blue-600 font-bold text-sm mr-1">{getSortIcon('remainingAmount')}</span>
-                        残額
-                      </div>
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">利用予定月</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each budgetItems as item, index}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <div class="font-medium text-gray-900">{item.grantName || '-'}</div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{item.name}</div>
-                        {#if item.note}
-                          <div class="text-sm text-gray-500">{item.note}</div>
-                        {/if}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {item.category || '-'}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatAmount(item.budgetedAmount)}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatAmount(item.usedAmount)}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <span class="{getAmountColor((item.budgetedAmount || 0) - (item.usedAmount || 0), null, item.grantEndDate)}">
-                          {formatAmount((item.budgetedAmount || 0) - (item.usedAmount || 0))}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 text-sm text-gray-600">
-                        {#if budgetItemSchedules.has(item.id)}
-                          <div class="flex flex-wrap gap-1">
-                            {#each budgetItemSchedules.get(item.id) as month}
-                              <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                {month}
-                              </span>
-                            {/each}
-                          </div>
-                        {:else}
-                          <span class="text-gray-400">未設定</span>
-                        {/if}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button 
-                          on:click={() => openBudgetItemForm(item)}
-                          class="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          編集
-                        </button>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
+            <div class="budget-table-container">
+              <div bind:this={tableElement} class="tabulator-table"></div>
             </div>
           {/if}
         </div>
@@ -1068,6 +1822,22 @@
       
       <form on:submit|preventDefault={saveBudgetItem}>
         <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
+          <select 
+            bind:value={budgetItemForm.grantId}
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">助成金を選択してください</option>
+            {#each grants as grant}
+              <option value={grant.id}>
+                {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name} ({statusLabels[grant.status]})
+              </option>
+            {/each}
+          </select>
+        </div>
+        
+        <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
           <input 
             type="text" 
@@ -1139,56 +1909,48 @@
           ></textarea>
         </div>
 
-        <!-- 月別スケジュール選択 -->
-        {#if availableMonths.length > 0}
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-3">
-              <label class="block text-sm font-medium text-gray-700">利用予定月</label>
-              <div class="flex space-x-2">
-                <button 
-                  type="button" 
-                  on:click={selectAllMonths}
-                  class="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded"
-                >
-                  全選択
-                </button>
-                <button 
-                  type="button" 
-                  on:click={clearAllMonths}
-                  class="text-xs px-2 py-1 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded"
-                >
-                  全解除
-                </button>
-              </div>
-            </div>
-            <p class="text-sm text-gray-500 mb-3">この予算項目を利用する予定の月をチェックしてください</p>
-            
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-4 bg-gray-50">
-              {#each availableMonths as month}
-                <label class="flex items-center space-x-2 text-sm cursor-pointer hover:bg-white rounded px-3 py-2 border border-transparent hover:border-gray-300 transition-all">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedMonths.has(getMonthKey(month.year, month.month))}
-                    on:change={() => toggleMonth(getMonthKey(month.year, month.month))}
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
-                  />
-                  <span class="text-gray-700 font-medium min-w-0">{month.label}</span>
-                </label>
-              {/each}
-            </div>
-            
-            {#if selectedMonths.size > 0}
-              <div class="mt-2 text-sm text-blue-600">
-                {selectedMonths.size}ヶ月選択中
+        <!-- 月別スケジュール選択 - デバッグ版 -->
+        <div class="mb-6 p-4 border-2 border-red-500 bg-red-50">
+          <h3 class="text-red-800 font-bold mb-2">🔴 MonthSelector テスト</h3>
+          <p class="text-red-700 mb-2">grants.length: {grants.length}</p>
+          <p class="text-red-700 mb-2">selectedMonths.size: {selectedMonths.size}</p>
+          
+          <MonthSelector 
+            {grants}
+            selectedMonths={Array.from(selectedMonths)}
+            title="利用予定月（テスト版）"
+            showGrouping={true}
+            on:change={(e) => {
+              console.log("MonthSelector change event:", e.detail);
+              selectedMonths = new Set(e.detail);
+            }}
+          />
+          <p class="text-sm text-red-600 mt-2 font-bold">↑ 新しいMonthSelectorコンポーネントが表示されているはずです</p>
+        </div>
+
+        <!-- 従来の条件付き表示（バックアップ用・削除予定） -->
+        {#if false && budgetItemForm.grantId}
+          {@const formGrant = grants.find(g => g.id === parseInt(budgetItemForm.grantId))}
+          {#if formGrant && formGrant.startDate && formGrant.endDate}
+            {@const formAvailableMonths = generateMonthsFromGrant(formGrant)}
+            {#if formAvailableMonths.length > 0}
+              <!-- 旧UI（使用されない） -->
+            {:else}
+              <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p class="text-sm text-yellow-800">
+                  選択された助成金の期間が設定されていないため、月別スケジュールを選択できません。
+                </p>
               </div>
             {/if}
-          </div>
+          {:else}
+            <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p class="text-sm text-yellow-800">
+                選択された助成金の期間が設定されていないため、月別スケジュールを選択できません。
+              </p>
+            </div>
+          {/if}
         {:else}
-          <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p class="text-sm text-yellow-800">
-              助成金の期間が設定されていないため、月別スケジュールを選択できません。
-            </p>
-          </div>
+          <!-- 旧メッセージ（使用されない） -->
         {/if}
         
         <div class="flex justify-end space-x-3">
@@ -1210,3 +1972,226 @@
     </div>
   </div>
 {/if}
+
+<!-- インポートモーダル -->
+{#if showImportModal}
+  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">助成金データインポート</h3>
+      
+      {#if !isImporting}
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">インポートタイプ</label>
+          <div class="flex gap-4 mb-4">
+            <label class="flex items-center">
+              <input 
+                type="radio" 
+                bind:group={importType} 
+                value="grants"
+                class="mr-2"
+                on:change={() => { importFile = null; importPreview = []; importError = ''; }}
+              />
+              助成金
+            </label>
+            <label class="flex items-center">
+              <input 
+                type="radio" 
+                bind:group={importType} 
+                value="budgetItems"
+                class="mr-2"
+                on:change={() => { importFile = null; importPreview = []; importError = ''; }}
+              />
+              予算項目
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">CSVファイルを選択</label>
+          <input 
+            type="file" 
+            accept=".csv"
+            on:change={handleFileSelect}
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div class="mt-2 flex justify-between items-center">
+            <p class="text-sm text-gray-500">
+              {#if importType === 'grants'}
+                助成金CSV形式: 助成金名, 助成金コード, 総額, 開始日, 終了日, ステータス
+              {:else}
+                予算項目CSV形式: 助成金コード, 予算項目名, 予算額, カテゴリ, 備考
+              {/if}
+            </p>
+            <button 
+              type="button"
+              on:click={downloadSampleCSV}
+              class="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              サンプルCSVダウンロード
+            </button>
+          </div>
+        </div>
+
+        {#if importError}
+          <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {importError}
+          </div>
+        {/if}
+
+        {#if importPreview.length > 0}
+          <div class="mb-6">
+            <h4 class="text-md font-medium text-gray-800 mb-3">
+              インポートプレビュー ({importPreview.length}件の{importType === 'grants' ? '助成金' : '予算項目'})
+            </h4>
+            <div class="max-h-96 overflow-y-auto border border-gray-200 rounded">
+              {#if importType === 'grants'}
+                {#each importPreview as grant, index}
+                  <div class="p-4 border-b border-gray-100 {index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
+                    <div class="flex justify-between items-start mb-2">
+                      <div>
+                        <h5 class="font-medium text-gray-900">
+                          {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name}
+                        </h5>
+                        <div class="text-sm text-gray-600">
+                          {grant.startDate || '開始日未設定'} 〜 {grant.endDate || '終了日未設定'} | 
+                          {formatAmount(grant.totalAmount)} | 
+                          {statusLabels[grant.status]}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              {:else}
+                {#each importPreview as budgetItem, index}
+                  <div class="p-4 border-b border-gray-100 {index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
+                    <div class="flex justify-between items-start mb-2">
+                      <div>
+                        <h5 class="font-medium text-gray-900">
+                          [{budgetItem.grantCode}] {budgetItem.name}
+                        </h5>
+                        <div class="text-sm text-gray-600">
+                          {formatAmount(budgetItem.budgetedAmount)}
+                          {budgetItem.category ? ` | ${budgetItem.category}` : ''}
+                          {budgetItem.note ? ` | ${budgetItem.note}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <div class="flex justify-end space-x-3">
+          <button 
+            type="button"
+            on:click={() => showImportModal = false}
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+          >
+            キャンセル
+          </button>
+          {#if importPreview.length > 0}
+            <button 
+              type="button"
+              on:click={executeImport}
+              class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md"
+            >
+              インポート実行
+            </button>
+          {/if}
+        </div>
+      {:else}
+        <div class="text-center py-8">
+          <div class="mb-4">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+              <svg class="w-8 h-8 text-green-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+            </div>
+          </div>
+          <h4 class="text-lg font-medium text-gray-900 mb-2">インポート中...</h4>
+          <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+            <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {importProgress}%"></div>
+          </div>
+          <p class="text-sm text-gray-600">{importProgress}% 完了</p>
+          
+          {#if importError}
+            <div class="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {importError}
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<!-- デバッグ情報コンポーネント -->
+<DebugInfo />
+
+<style>
+  .budget-table-container {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  /* wx-svelte-gridのカスタムスタイル */
+  :global(.tabulator-table) {
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  
+  :global(.tabulator .tabulator-header) {
+    background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  
+  :global(.tabulator .tabulator-col) {
+    background: #f9fafb;
+  }
+  
+  :global(.tabulator .tabulator-cell) {
+    border-right: 1px solid #f3f4f6;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    vertical-align: middle;
+  }
+  
+  :global(.tabulator .tabulator-row:hover) {
+    background: #f9fafb !important;
+  }
+  
+  :global(.tabulator .tabulator-row.tabulator-row-odd) {
+    background: #ffffff;
+  }
+  
+  :global(.tabulator .tabulator-row.tabulator-row-even) {
+    background: #fafafa;
+  }
+  
+  /* 固定列のスタイル */
+  :global(.tabulator .tabulator-frozen) {
+    border-right: 2px solid #d1d5db !important;
+    background: #f8fafc !important;
+  }
+  
+  /* 操作ボタンのスタイル */
+  :global(.tabulator button) {
+    background: none;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  :global(.tabulator button:hover) {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+</style>
