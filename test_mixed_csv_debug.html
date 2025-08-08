@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixed CSV Debug</title>
+    <style>
+        body { font-family: 'Hiragino Kaku Gothic Pro', sans-serif; margin: 20px; }
+        .debug-section { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+        .warning { color: #ffc107; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .confidence { font-weight: bold; }
+        .grant-confidence { color: #007bff; }
+        .budget-confidence { color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>Mixed CSV Debug Tool</h1>
+    
+    <input type="file" id="csvFile" accept=".csv" />
+    <button onclick="processFile()">CSVファイルを分析</button>
+    
+    <div id="results"></div>
+
+    <script>
+        // CSV処理ユーティリティ（簡略版）
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/).filter(line => line.trim());
+            if (!lines.length) return { headers: [], rows: [] };
+            
+            const headers = lines[0].split(',').map(h => h.trim());
+            const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()));
+            
+            return { headers, rows };
+        }
+
+        // ヒューリスティクス関数
+        function getRowConfidence(row, headers) {
+            const grantKeywords = ['助成金', 'grant', '総額', 'totalAmount', '開始日', 'startDate', '終了日', 'endDate'];
+            const budgetItemKeywords = ['項目', 'item', '予算額', 'budgetedAmount', 'カテゴリ', 'category', '備考', 'note'];
+            
+            let grantScore = 0;
+            let budgetItemScore = 0;
+
+            // ヘッダーベースのスコア
+            headers.forEach((header, index) => {
+                const value = row[index] || '';
+                if (!value) return;
+
+                const headerLower = header.toLowerCase();
+                
+                // 助成金スコア
+                if (grantKeywords.some(keyword => 
+                    headerLower.includes(keyword.toLowerCase()) || header.includes(keyword)
+                )) {
+                    grantScore += 0.3;
+                    
+                    if (header.includes('総額') || header.includes('金額')) {
+                        const amount = parseInt(value.replace(/[,¥]/g, ''));
+                        if (!isNaN(amount) && amount > 100000) {
+                            grantScore += 0.4;
+                        }
+                    }
+                }
+                
+                // 予算項目スコア
+                if (budgetItemKeywords.some(keyword => 
+                    headerLower.includes(keyword.toLowerCase()) || header.includes(keyword)
+                )) {
+                    budgetItemScore += 0.3;
+                    
+                    if (header.includes('カテゴリ') && 
+                        ['消耗', '賃金', '旅費', '通信', '委託', '備品'].some(cat => value.includes(cat))) {
+                        budgetItemScore += 0.4;
+                    }
+                }
+            });
+
+            // データ内容ベースのスコア
+            const dataText = row.join(' ').toLowerCase();
+            
+            // 助成金らしいパターン
+            if (/^\d{6}_/.test(dataText)) {
+                grantScore += 0.2;
+            }
+            if (dataText.includes('active') || dataText.includes('completed') || dataText.includes('進行中')) {
+                grantScore += 0.3;
+            }
+            
+            // 予算項目らしいパターン
+            if (['消耗品', '人件費', '旅費交通費', '通信運搬費'].some(cat => dataText.includes(cat))) {
+                budgetItemScore += 0.4;
+            }
+
+            return {
+                grant: Math.min(grantScore, 1.0),
+                budgetItem: Math.min(budgetItemScore, 1.0)
+            };
+        }
+
+        function processFile() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('CSVファイルを選択してください');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvText = e.target.result;
+                analyzeCSV(csvText);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function analyzeCSV(csvText) {
+            const { headers, rows } = parseCSV(csvText);
+            const results = document.getElementById('results');
+            
+            let html = `
+                <div class="debug-section">
+                    <h2>CSVファイル分析結果</h2>
+                    <p><strong>ヘッダー:</strong> ${headers.join(', ')}</p>
+                    <p><strong>データ行数:</strong> ${rows.length}</p>
+                </div>
+            `;
+
+            // 行ごとの分析
+            html += `
+                <div class="debug-section">
+                    <h3>行ごとの分類分析</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>行</th>
+                                <th>データ（最初の3列）</th>
+                                <th>助成金信頼度</th>
+                                <th>予算項目信頼度</th>
+                                <th>分類結果</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            let grantCount = 0;
+            let budgetItemCount = 0;
+            let unknownCount = 0;
+
+            rows.forEach((row, index) => {
+                const confidence = getRowConfidence(row, headers);
+                let classification = 'Unknown';
+                let classColor = 'error';
+                
+                if (confidence.grant > confidence.budgetItem && confidence.grant > 0.3) {
+                    classification = 'Grant';
+                    classColor = 'grant-confidence';
+                    grantCount++;
+                } else if (confidence.budgetItem > confidence.grant && confidence.budgetItem > 0.3) {
+                    classification = 'Budget Item';
+                    classColor = 'budget-confidence';
+                    budgetItemCount++;
+                } else {
+                    classification = 'Unknown';
+                    unknownCount++;
+                }
+
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${row.slice(0, 3).join(', ')}</td>
+                        <td class="confidence grant-confidence">${confidence.grant.toFixed(2)}</td>
+                        <td class="confidence budget-confidence">${confidence.budgetItem.toFixed(2)}</td>
+                        <td class="${classColor}">${classification}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>分類サマリー</h3>
+                    <p><span class="grant-confidence">助成金データ:</span> ${grantCount}件</p>
+                    <p><span class="budget-confidence">予算項目データ:</span> ${budgetItemCount}件</p>
+                    <p><span class="error">不明データ:</span> ${unknownCount}件</p>
+                </div>
+            `;
+
+            results.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

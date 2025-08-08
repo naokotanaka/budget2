@@ -1,0 +1,111 @@
+{
+  "auto_clean_triggers": {
+    "immediate_execution": [
+      "変更が反映されない",
+      "変更が反映されません",
+      "コードを変更しても",
+      "Port already in use",
+      "ポートが使用中",
+      "address already in use",
+      "EADDRINUSE",
+      "HMRが動かない",
+      "HMRが機能しない",
+      "Hot Module Replacement",
+      "hot reload",
+      "ホットリロード",
+      "ビルドエラーが解消されない",
+      "ビルドエラーが消えない",
+      "開発サーバーが応答しない",
+      "開発サーバーにアクセスできない",
+      "localhost:3002にアクセスできない",
+      "キャッシュの問題",
+      "キャッシュが原因",
+      "古いキャッシュ",
+      "コンポーネントが更新されない",
+      "Svelteコンポーネント",
+      "viteエラー",
+      "vite dev"
+    ],
+    "after_analysis": [
+      "Cannot find module",
+      "モジュールが見つかりません",
+      "TypeScript error",
+      "型エラー",
+      "import error",
+      "インポートエラー",
+      "build failed",
+      "ビルド失敗",
+      "dev server error",
+      "開発サーバーエラー",
+      "webpack",
+      "rollup",
+      "esbuild",
+      "postcss",
+      "tailwind"
+    ],
+    "exclude_patterns": [
+      "database",
+      "データベース",
+      "postgres",
+      "postgresql",
+      "sqlite",
+      "prisma migrate",
+      "migration",
+      "server error 500",
+      "backend",
+      "api error",
+      "authentication",
+      "authorization",
+      "nginx",
+      "systemd",
+      "pm2"
+    ]
+  },
+  "execution_commands": {
+    "primary": "npm run dev:clean",
+    "fallback": "./universal-dev-clean.sh",
+    "simple": "npm run dev:simple",
+    "full_reset": [
+      "rm -rf node_modules package-lock.json",
+      "npm install",
+      "npm run dev:clean"
+    ]
+  },
+  "diagnosis_priority": {
+    "high": {
+      "keywords": ["変更が反映", "HMR", "ポート", "キャッシュ"],
+      "action": "immediate_clean"
+    },
+    "medium": {
+      "keywords": ["ビルド", "モジュール", "import"],
+      "action": "analyze_then_clean"
+    },
+    "low": {
+      "keywords": ["warning", "deprecation", "info"],
+      "action": "normal_diagnosis"
+    }
+  },
+  "response_templates": {
+    "immediate_execution": "フロントエンド開発環境の問題を検出しました。クリーンスタートスクリプトを実行して解決を試みます。",
+    "execution_success": "✅ 開発環境のクリーンスタートが完了しました。問題が解決されているか確認してください。",
+    "execution_failed": "⚠️ クリーンスタートでは問題が解決しませんでした。追加の診断を行います。",
+    "prevention_advice": "今後同様の問題を防ぐため、定期的に`npm run dev:clean`を実行することをお勧めします。"
+  },
+  "monitoring": {
+    "track_errors": true,
+    "log_executions": true,
+    "success_rate_threshold": 0.8,
+    "escalation_after_failures": 3
+  },
+  "project_specific": {
+    "port": 3002,
+    "framework": "SvelteKit",
+    "package_manager": "npm",
+    "cache_dirs": [
+      "node_modules/.vite",
+      ".svelte-kit",
+      "dist",
+      "build"
+    ]
+  }
+}

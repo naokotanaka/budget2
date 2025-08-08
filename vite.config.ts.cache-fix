@@ -1,0 +1,26 @@
+// キャッシュ問題を防ぐVite設定追加案
+export default {
+  // 既存設定...
+  
+  server: {
+    // 開発時のキャッシュを無効化
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    }
+  },
+  
+  build: {
+    // バージョン番号をファイル名に含める
+    rollupOptions: {
+      output: {
+        // 毎回異なるハッシュを生成
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`
+      }
+    }
+  }
+};

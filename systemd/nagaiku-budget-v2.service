@@ -1,0 +1,43 @@
+[Unit]
+Description=Nagaiku Budget V2 Application
+After=network.target
+
+[Service]
+Type=simple
+User=tanaka
+Group=tanaka
+WorkingDirectory=/home/tanaka/projects/nagaiku-budget-v2
+Environment="NODE_ENV=production"
+Environment="PORT=3002"
+Environment="ORIGIN=http://localhost:3002"
+Environment="HOST=0.0.0.0"
+
+# メインコマンド
+ExecStart=/usr/bin/node build
+
+# 自動再起動設定
+Restart=always
+RestartSec=10
+
+# プロセス管理
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# リソース制限
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# ログ設定
+StandardOutput=append:/home/tanaka/projects/nagaiku-budget-v2/logs/app.log
+StandardError=append:/home/tanaka/projects/nagaiku-budget-v2/logs/error.log
+
+# セキュリティ設定
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/tanaka/projects/nagaiku-budget-v2
+
+[Install]
+WantedBy=multi-user.target

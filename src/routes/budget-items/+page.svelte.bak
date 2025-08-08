@@ -1,13 +1,10 @@
 <script>
-  console.log('📍 Script block started');
+  import { Grid } from "wx-svelte-grid";
   import { onMount } from "svelte";
-  import CSVImporter from '$lib/components/CSVImporter.svelte';
   
   export let data;
-  console.log('📍 data received:', data);
   
   $: ({ grants, budgetItems } = data);
-  $: console.log('🌟 budgetItems.length:', budgetItems?.length || 0);
 
   // 予算項目の表示用データ
   $: formattedBudgetItems = budgetItems.map(item => ({
@@ -27,14 +24,12 @@
       ? Math.round((item.totalAllocated / item.budgetedAmount) * 100)
       : 0
   }));
-  $: console.log('⭐ formattedBudgetItems.length:', formattedBudgetItems?.length || 0);
 
   // グリッド設定変数
   let gridApi;
   let isEditing = false;
   let selectedRows = [];
-  let showCSVImporter = false;
-  let showMonthlyData = true;
+  let showMonthlyData = false;
 
   // 金額フォーマット関数
   const formatCurrency = (value) => {
@@ -789,7 +784,6 @@
 
   // 月別データを生成・処理する関数
   const getMonthlyData = (budgetItem) => {
-    console.log('⚡⚡⚡ getMonthlyData called for:', budgetItem.name, 'budgetedAmount:', budgetItem.budgetedAmount);
     // 実際の実装では、budgetItem.allocations から月別データを集計
     const monthlyData = {};
     const currentYear = new Date().getFullYear();
@@ -810,7 +804,7 @@
       });
     } else {
       // サンプルデータ生成（実際の実装では削除）
-      const totalAmount = budgetItem.budgetedAmount;
+      const totalAmount = budgetItem.totalAllocated;
       if (totalAmount > 0) {
         // 使用額を12ヶ月に分散（変動あり）
         let remainingAmount = totalAmount;
@@ -828,7 +822,6 @@
   
   // 月別データを含む拡張データを作成
   $: extendedBudgetItems = formattedBudgetItems.map(item => {
-    console.log('🔥🔥🔥 Creating extendedBudgetItems for:', item.name);
     const monthlyData = getMonthlyData(item);
     return {
       ...item,
@@ -933,15 +926,6 @@
   $: displayData = showMonthlyData ? extendedBudgetItems : formattedBudgetItems;
   $: displayColumns = showMonthlyData ? monthlyColumns : columns;
   
-  // 強制的にextendedBudgetItemsを初期化
-  $: {
-    console.log('💪 formattedBudgetItems.length:', formattedBudgetItems.length);
-    if (formattedBudgetItems.length > 0) {
-      console.log('💪 Forcing extendedBudgetItems calculation');
-      extendedBudgetItems;  // 参照して計算を強制実行
-    }
-  }
-  
   // 月別集計データ（統計用）
   $: monthlyStats = showMonthlyData ? {
     monthlyTotals: Array.from({length: 12}, (_, i) => {
@@ -992,12 +976,6 @@
     </div>
     
     <div class="flex space-x-3">
-      <button 
-        on:click={() => showCSVImporter = true}
-        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-      >
-        CSVインポート
-      </button>
       <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
         予算項目追加
       </button>
@@ -1099,6 +1077,7 @@
       </div>
     </div>
   </div>
+{/if}
 
   <!-- 助成金別サマリー（モバイルでは簡略表示） -->
   {#if !isMobile}
@@ -1154,7 +1133,6 @@
       </div>
     </div>
   </div>
-  {/if}
 
   <!-- 予算項目一覧 -->
   <div class="bg-white shadow rounded-lg overflow-hidden">
@@ -1343,34 +1321,4 @@
       </div>
     </div>
   {/if}
-
-<!-- CSVインポートモーダル -->
-{#if showCSVImporter}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-4 mx-auto p-4 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-semibold text-gray-900">予算項目CSVインポート</h3>
-        <button 
-          on:click={() => showCSVImporter = false}
-          class="text-gray-400 hover:text-gray-600"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <CSVImporter 
-        importType="budget-items"
-        onSuccess={() => {
-          showCSVImporter = false;
-          window.location.reload();
-        }}
-        onError={(errorMessage) => {
-          updateError = errorMessage;
-        }}
-      />
-    </div>
-  </div>
-{/if}
 </div>
