@@ -7,7 +7,7 @@
   import type { ColumnDefinition } from 'tabulator-tables';
   import 'tabulator-tables/dist/css/tabulator.min.css';
   import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
-  import DebugInfo from '$lib/components/DebugInfo.svelte';
+
 
   interface Grant {
     id: number;
@@ -54,15 +54,131 @@
   let showMonthlyUsed = true;    // 使用額表示
   let showMonthlyRemaining = true; // 残額表示
   
+  // 月の絞り込み制御（実際のデータに基づいて動的に設定）
+  let monthFilterStartYear = 2025; // 実際のデータ範囲に合わせて調整
+  let monthFilterStartMonth = 1;
+  let monthFilterEndYear = 2025; // 実際のデータがある範囲
+  let monthFilterEndMonth = 12;
+  
+  // 月データ表示制御（既に上で定義済みのため削除）
+  
+  // 月列生成時に自動的にフィルター範囲を調整
+  function adjustFilterRangeToData() {
+    if (monthColumns && monthColumns.length > 0) {
+      const years = monthColumns.map(col => col.year);
+      const minYear = Math.min(...years);
+      const maxYear = Math.max(...years);
+      
+      console.log('📅 データに基づくフィルター範囲調整:', {
+        currentStartYear: monthFilterStartYear,
+        currentEndYear: monthFilterEndYear,
+        dataMinYear: minYear,
+        dataMaxYear: maxYear
+      });
+      
+      // 初回のみ自動調整（ユーザーの手動設定を尊重）
+      if (monthFilterStartYear === 2025 && monthFilterEndYear === 2025) {
+        monthFilterStartYear = minYear;
+        monthFilterEndYear = maxYear;
+        console.log('📅 フィルター範囲を自動調整:', {
+          newStartYear: monthFilterStartYear,
+          newEndYear: monthFilterEndYear
+        });
+      }
+    }
+  }
+  
+  console.log('🔧 初期月絞り込み設定:', {
+    monthFilterStartYear,
+    monthFilterStartMonth,
+    monthFilterEndYear,
+    monthFilterEndMonth
+  });
+  
+  console.log('🔧 月フィルタリング修正版 - 2024-2026年範囲で設定:', {
+    monthFilterStartYear,
+    monthFilterStartMonth,
+    monthFilterEndYear,
+    monthFilterEndMonth
+  });
+  
   // 月データ表示制御をwindowオブジェクトに設定（フォーマッター内からアクセス可能にする）
   $: {
     if (typeof window !== 'undefined') {
       (window as any).monthDisplaySettings = {
         showMonthlyBudget,
         showMonthlyUsed,
-        showMonthlyRemaining
+        showMonthlyRemaining,
+        monthFilterStartYear,
+        monthFilterStartMonth,
+        monthFilterEndYear,
+        monthFilterEndMonth
       };
     }
+  }
+  
+  // 月データの合計を計算するヘルパー関数
+  function calculateMonthlyTotals(rowData: any) {
+    const settings = (window as any).monthDisplaySettings || {
+      showMonthlyBudget: true,
+      showMonthlyUsed: true,
+      showMonthlyRemaining: true
+    };
+    
+    let totalBudget = 0;
+    let totalUsed = 0;
+    let totalRemaining = 0;
+    
+    // monthColumnsから月データを集計
+    monthColumns.forEach(monthCol => {
+      const fieldName = `month_${monthCol.year}_${monthCol.month}`;
+      const monthlyBudget = rowData[fieldName] || 0;
+      
+      // 対象月が絞り込み範囲内かチェック
+      const targetYear = monthCol.year;
+      const targetMonth = monthCol.month;
+      const targetDate = targetYear * 100 + targetMonth; // YYYYMM形式で比較
+      const filterStartDate = settings.monthFilterStartYear * 100 + settings.monthFilterStartMonth;
+      const filterEndDate = settings.monthFilterEndYear * 100 + settings.monthFilterEndMonth;
+      
+      // 絞り込み範囲外の月はスキップ
+      if (targetDate < filterStartDate || targetDate > filterEndDate) {
+        return;
+      }
+      
+      // 現在の年月を取得
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      
+      // 対象月が過去・現在・未来かを判定
+      const isCurrentOrPast = 
+        targetYear < currentYear || 
+        (targetYear === currentYear && targetMonth <= currentMonth);
+      
+      // 予算額：実際に数値が表示される場合のみ合計
+      if (monthlyBudget > 0) {
+        totalBudget += monthlyBudget;
+      }
+      
+      // 使用額：実際に数値が表示される場合のみ合計（過去・現在月の0も含む）
+      if (isCurrentOrPast) {
+        const monthlyUsed = 0; // 実際は実データを取得予定
+        totalUsed += monthlyUsed;
+      }
+      // 未来の月は "-" 表示なので合計に含めない
+      
+      // 残額：実際に数値が表示される場合のみ合計
+      if (isCurrentOrPast && monthlyBudget > 0) {
+        // 過去・現在で予算がある場合のみ
+        const monthlyUsed = 0;
+        const monthlyRemaining = monthlyBudget - monthlyUsed;
+        totalRemaining += monthlyRemaining;
+      }
+      // 未来の月や予算が0の月は "-" 表示なので合計に含めない
+    });
+    
+    return { totalBudget, totalUsed, totalRemaining };
   }
 
   // 新規・編集用フォームデータ
@@ -102,6 +218,47 @@
         if (monthColumns.length === 0) {
           monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
           console.log('🔄 初期monthColumns生成完了:', monthColumns.length);
+          
+          // フィルター範囲を自動調整
+          adjustFilterRangeToData();
+          
+          // 月列生成後にテーブル再構築
+          setTimeout(() => {
+            console.log('🔄 月列生成後のテーブル再構築');
+            console.log('🔄 monthColumns確認:', monthColumns.length, '個');
+            handleTableUpdate();
+          }, 500);
+          
+          // 追加: さらに後でも再実行（確実に実行するため）
+          setTimeout(() => {
+            console.log('🔄 追加テーブル更新実行');
+            if (monthColumns.length > 0) {
+              handleTableUpdate();
+            }
+          }, 2000);
+          
+          // 最終テスト - 手動実行用のwindow関数を追加
+          setTimeout(() => {
+            (window as any).testMonthColumns = () => {
+              console.log('🧪 手動月列テスト開始');
+              console.log('🧪 現在の状態:', {
+                grants: grants.length,
+                budgetItems: budgetItems.length,
+                monthColumns: monthColumns.length,
+                tableElement: !!tableElement
+              });
+              
+              if (monthColumns.length === 0) {
+                console.log('🧪 月列を強制生成');
+                monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+                console.log('🧪 月列生成完了:', monthColumns.length);
+              }
+              
+              console.log('🧪 テーブル更新実行');
+              handleTableUpdate();
+            };
+            console.log('🧪 手動テスト関数を準備しました。ブラウザのコンソールで testMonthColumns() を実行してください');
+          }, 3000);
         }
         
         // スケジュール取得強制実行
@@ -130,6 +287,27 @@
     // 外クリックでドロップダウンを閉じる
     document.addEventListener('click', handleClickOutside);
     
+    // 手動テスト用の関数をwindowに追加（確実に実行）
+    (window as any).testMonthColumns = () => {
+      console.log('🧪 手動月列テスト開始');
+      console.log('🧪 現在の状態:', {
+        grants: grants.length,
+        budgetItems: budgetItems.length,  
+        monthColumns: monthColumns.length,
+        tableElement: !!tableElement
+      });
+      
+      if (monthColumns.length === 0) {
+        console.log('🧪 月列を強制生成');
+        monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+        console.log('🧪 月列生成完了:', monthColumns.length);
+      }
+      
+      console.log('🧪 テーブル更新実行');
+      handleTableUpdate();
+    };
+    console.log('🧪 手動テスト関数準備完了 - ブラウザで testMonthColumns() を実行してください');
+
     return () => {
       document.removeEventListener('click', handleClickOutside);
       // テーブルのクリーンアップ
@@ -140,47 +318,134 @@
     };
   });
 
-  // 月列とbudgetItemsのリアクティブ更新（無限ループ防止付き）
-  $: if (grants.length > 0 && budgetItems.length > 0) {
-    console.log('🔄 月列・テーブル更新条件チェック:', {
-      grants: grants.length,
-      budgetItems: budgetItems.length,
-      monthColumns: monthColumns.length
-    });
+  // 月列とbudgetItemsのリアクティブ更新（無限ループ防止付き） - 無効化
+  // $: if (grants.length > 0 && budgetItems.length > 0) {
+  //   console.log('🔄 月列・テーブル更新条件チェック:', {
+  //     grants: grants.length,
+  //     budgetItems: budgetItems.length,
+  //     monthColumns: monthColumns.length
+  //   });
     
-    // monthColumnsが0の場合のみ自動生成
-    if (monthColumns.length === 0) {
-      console.log('🔄 月列が未生成、自動生成開始');
-      monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-      console.log('🔄 月列生成完了:', monthColumns.length, '件');
-    }
-  }
+    // monthColumnsが0の場合のみ自動生成 - 無効化
+    // if (monthColumns.length === 0) {
+    //   console.log('🔄 月列が未生成、自動生成開始');
+    //   monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+    //   console.log('🔄 月列生成完了:', monthColumns.length, '件');
+    // }
+  // }
   
   // 月データ表示設定変更処理を関数として定義
-  let lastDisplaySettings = { showMonthlyBudget: true, showMonthlyUsed: true, showMonthlyRemaining: true };
+  let lastDisplaySettings = { 
+    showMonthlyBudget: true, 
+    showMonthlyUsed: true, 
+    showMonthlyRemaining: true,
+    monthFilterStartYear: new Date().getFullYear(),
+    monthFilterStartMonth: 1,
+    monthFilterEndYear: new Date().getFullYear(),
+    monthFilterEndMonth: 12
+  };
   
   function handleDisplaySettingsChange() {
-    const currentSettings = { showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining };
+    const currentSettings = { 
+      showMonthlyBudget, 
+      showMonthlyUsed, 
+      showMonthlyRemaining,
+      monthFilterStartYear,
+      monthFilterStartMonth,
+      monthFilterEndYear,
+      monthFilterEndMonth
+    };
     const changed = JSON.stringify(currentSettings) !== JSON.stringify(lastDisplaySettings);
     
-    if (changed && table) {
-      console.log('🔄 月データ表示設定変更、再描画:', currentSettings);
+    if (changed && table && tableElement) {
+      console.log('🔄 月データ表示設定・絞り込み変更:', currentSettings);
+      
+      // 月絞り込みが変更された場合は列構造を更新
+      const isFilterChange = 
+        currentSettings.monthFilterStartYear !== lastDisplaySettings.monthFilterStartYear ||
+        currentSettings.monthFilterStartMonth !== lastDisplaySettings.monthFilterStartMonth ||
+        currentSettings.monthFilterEndYear !== lastDisplaySettings.monthFilterEndYear ||
+        currentSettings.monthFilterEndMonth !== lastDisplaySettings.monthFilterEndMonth;
+      
       lastDisplaySettings = { ...currentSettings };
-      table.redraw(true);
+      
+      if (isFilterChange) {
+        // 絞り込み変更時はテーブル再構築
+        console.log('🔧 月絞り込み変更のためテーブル再構築');
+        table.destroy();
+        table = null;
+        isTableUpdating = false; // 再構築前にフラグリセット
+        setTimeout(() => {
+          console.log('🔧 絞り込み変更による再構築開始');
+          handleTableUpdate();
+        }, 200);
+      } else {
+        // 表示項目変更時は再描画のみ
+        console.log('🔧 表示項目変更のため再描画');
+        table.redraw(true);
+      }
     }
   }
   
   // 表示設定の変更を監視
   $: {
-    showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining;
+    showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining, monthFilterStartYear, monthFilterStartMonth, monthFilterEndYear, monthFilterEndMonth;
     if (table) {
       // 少し遅延させて処理
       setTimeout(handleDisplaySettingsChange, 10);
     }
   }
   
+  // 月絞り込み適用関数
+  function getFilteredMonthColumns() {
+    console.log('🔍 getFilteredMonthColumns 開始:', {
+      monthColumnsExists: !!monthColumns,
+      monthColumnsLength: monthColumns?.length || 0,
+      monthFilterStartYear,
+      monthFilterStartMonth,
+      monthFilterEndYear,
+      monthFilterEndMonth
+    });
+    
+    if (!monthColumns || monthColumns.length === 0) {
+      console.log('🔍 monthColumns が空のため絞り込み不可');
+      return [];
+    }
+    
+    const startDate = monthFilterStartYear * 100 + monthFilterStartMonth;
+    const endDate = monthFilterEndYear * 100 + monthFilterEndMonth;
+    
+    console.log('🔍 月絞り込み適用:', {
+      startDate,
+      endDate,
+      totalMonthColumns: monthColumns.length,
+      monthColumns: monthColumns.map(col => ({
+        year: col.year,
+        month: col.month,
+        targetDate: col.year * 100 + col.month
+      }))
+    });
+    
+    const filtered = monthColumns.filter(monthCol => {
+      const targetDate = monthCol.year * 100 + monthCol.month;
+      const inRange = targetDate >= startDate && targetDate <= endDate;
+      console.log(`月列${monthCol.label}: targetDate=${targetDate}, inRange=${inRange}`);
+      return inRange;
+    });
+    
+    console.log('🔍 絞り込み結果:', filtered.length, '列');
+    
+    // 絞り込み結果が0件の場合は、全ての月列を返す（安全な処理）
+    if (filtered.length === 0) {
+      console.log('⚠️ 絞り込み結果が0件のため、全ての月列を表示');
+      return monthColumns;
+    }
+    
+    return filtered;
+  }
+  
   // テーブル要素が準備できたらテーブル初期化を実行  
-  $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0) {
+  $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0 && !isTableUpdating) {
     console.log('🔄 テーブル要素準備完了、初期化開始:', {
       tableElement: !!tableElement,
       budgetItems: budgetItems.length,
@@ -563,25 +828,27 @@
     }
   }
   
-  $: handleBudgetItemsUpdate();
+  // リアクティブ無効化 - 無限ループを防ぐため
+  // $: handleBudgetItemsUpdate();
 
+  // リアクティブステートメント無効化 - 無限ループ防止
   // 終了済みフィルター変更時の処理
-  $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
-    console.log('終了済みフィルター変更:', showCompletedGrants);
-    refreshBudgetItems().catch(console.error);
-  }
+  // $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
+  //   console.log('終了済みフィルター変更:', showCompletedGrants);
+  //   refreshBudgetItems().catch(console.error);
+  // }
 
   // 報告済みフィルター変更時の処理  
-  $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
-    console.log('報告済みフィルター変更:', showReportedGrants);
-    refreshBudgetItems().catch(console.error);
-  }
+  // $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
+  //   console.log('報告済みフィルター変更:', showReportedGrants);
+  //   refreshBudgetItems().catch(console.error);
+  // }
 
   // 選択助成金変更時の処理
-  $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
-    console.log('選択助成金変更:', selectedGrant?.name);
-    refreshBudgetItems().catch(console.error);
-  }
+  // $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
+  //   console.log('選択助成金変更:', selectedGrant?.name);
+  //   refreshBudgetItems().catch(console.error);
+  // }
 
   async function refreshBudgetItems() {
     console.log('🔄 refreshBudgetItems実行:', {
@@ -733,6 +1000,9 @@
       monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
       console.log('📅 スケジュール取得後の月列生成完了:', monthColumns.length, '件');
       console.log('📅 生成された月列:', monthColumns);
+      
+      // フィルター範囲を自動調整
+      adjustFilterRangeToData();
       handleTableUpdate();
     }, 100);
   }
@@ -741,25 +1011,9 @@
   let scheduleLoadTimeout: ReturnType<typeof setTimeout> | null = null;
   
   async function handleScheduleLoad() {
-    console.log('📅 handleScheduleLoad呼び出し:', budgetItems.length, '件');
-    
-    if (budgetItems.length === 0) {
-      console.log('📅 予算項目が0件のためスケジュール取得をスキップ');
-      return;
-    }
-    
-    // 既存のタイマーをクリア
-    if (scheduleLoadTimeout) {
-      console.log('📅 既存のスケジュールタイマーをクリア');
-      clearTimeout(scheduleLoadTimeout);
-    }
-    
-    // デバウンス処理で重複実行を防止
-    scheduleLoadTimeout = setTimeout(async () => {
-      console.log('📅 デバウンス後のスケジュール取得開始:', budgetItems.length, '件');
-      await loadBudgetItemSchedules();
-      scheduleLoadTimeout = null;
-    }, 500);
+    console.log('📅 handleScheduleLoad無効化 - 無限ループ防止');
+    // 一時的に無効化
+    return;
   }
   
   function toggleSort(field: string) {
@@ -847,8 +1101,10 @@
     schedulesLoaded: false
   };
   
+  let isTableUpdating = false;
+  
   function handleTableUpdate() {
-    console.log('🔧 handleTableUpdate 呼び出し:', {
+    console.log('🔧 handleTableUpdate 呼び出し (simplified):', {
       tableElement: !!tableElement,
       loading: loading,
       budgetItems: budgetItems.length,
@@ -870,49 +1126,18 @@
       return;
     }
     
-    const currentState = {
-      budgetItemsIds: budgetItems.map(item => item.id).sort().join(','),
-      monthColumnsLength: monthColumns.length,
-      schedulesLoaded
-    };
-    
-    // 状態が変わった場合のみ更新
-    const stateChanged = 
-      currentState.budgetItemsIds !== lastTableState.budgetItemsIds ||
-      currentState.monthColumnsLength !== lastTableState.monthColumnsLength ||
-      currentState.schedulesLoaded !== lastTableState.schedulesLoaded;
-    
-    if (!stateChanged) {
-      return;
+    console.log('🔄 簡素化テーブル更新実行');
+    try {
+      console.log('🔄 1. initializeTableColumns 呼び出し前');
+      initializeTableColumns();
+      console.log('🔄 2. prepareTableData 呼び出し前');
+      prepareTableData();
+      console.log('🔄 3. updateTable 呼び出し前');
+      updateTable();
+      console.log('🔄 4. 全処理完了');
+    } catch (error) {
+      console.error('テーブル更新エラー:', error);
     }
-    
-    lastTableState = currentState;
-    
-    // 既存のタイマーをクリア
-    if (tableUpdateTimeout) {
-      clearTimeout(tableUpdateTimeout);
-    }
-    
-    // デバウンス処理でテーブル更新
-    tableUpdateTimeout = setTimeout(() => {
-      console.log('🔄 統合テーブル更新:', {
-        budgetItems: budgetItems.length,
-        monthColumns: monthColumns.length,
-        schedulesLoaded
-      });
-      
-      try {
-        initializeTableColumns();
-        prepareTableData();
-        updateTable();
-      } catch (error) {
-        console.error('テーブル更新エラー:', error);
-        // エラー時は再初期化を試行
-        initializeTable();
-      }
-      
-      tableUpdateTimeout = null;
-    }, 300);
   }
   
   // リアクティブな関数として定義
@@ -948,6 +1173,7 @@
 
   // Tabulatorの列定義を初期化
   function initializeTableColumns() {
+    console.log('🔧 initializeTableColumns 呼び出し開始!');
     // 基本列を固定で定義（毎回同じ内容）
     const fixedBaseColumns = [
       {
@@ -984,7 +1210,18 @@
         widthGrow: 0.8,
         sorter: "number",
         hozAlign: "right",
-        formatter: (cell) => formatAmount(cell.getValue())
+        formatter: (cell) => {
+          const budgetedAmount = cell.getValue();
+          const rowData = cell.getRow().getData();
+          const monthlyTotals = calculateMonthlyTotals(rowData);
+          
+          return `
+            <div style="font-size: 11px; line-height: 1.3;">
+              <div style="margin-bottom: 2px;">${formatAmount(budgetedAmount)}</div>
+              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalBudget, false)}</div>
+            </div>
+          `;
+        }
       },
       {
         title: "使用額", 
@@ -994,7 +1231,18 @@
         widthGrow: 0.8,
         sorter: "number",
         hozAlign: "right",
-        formatter: (cell) => formatAmount(cell.getValue())
+        formatter: (cell) => {
+          const usedAmount = cell.getValue();
+          const rowData = cell.getRow().getData();
+          const monthlyTotals = calculateMonthlyTotals(rowData);
+          
+          return `
+            <div style="font-size: 11px; line-height: 1.3;">
+              <div style="margin-bottom: 2px;">${formatAmount(usedAmount)}</div>
+              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalUsed, false)}</div>
+            </div>
+          `;
+        }
       },
       {
         title: "残額",
@@ -1007,7 +1255,15 @@
         formatter: (cell) => {
           const value = cell.getValue();
           const color = value < 0 ? 'red' : 'green';
-          return `<span style="color: ${color}; font-weight: 600;">${formatAmount(value)}</span>`;
+          const rowData = cell.getRow().getData();
+          const monthlyTotals = calculateMonthlyTotals(rowData);
+          
+          return `
+            <div style="font-size: 11px; line-height: 1.3;">
+              <div style="color: ${color}; font-weight: 600; margin-bottom: 2px;">${formatAmount(value)}</div>
+              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalRemaining, false)}</div>
+            </div>
+          `;
         }
       }
     ];
@@ -1023,9 +1279,24 @@
       monthColumnsFirst3: monthColumns?.slice(0, 3)
     });
     
+    console.log('🔧 月列構築開始 - 詳細デバッグ:', {
+      monthColumnsExists: !!monthColumns,
+      monthColumnsLength: monthColumns?.length || 0,
+      monthColumnsFirst3: monthColumns?.slice(0, 3),
+      monthColumnDefsLength: monthColumnDefs.length
+    });
+    
     if (monthColumns && monthColumns.length > 0) {
-      console.log('🔧 月列を順次追加中...');
-      monthColumns.forEach((monthCol, index) => {
+      // 月フィルタリングを適用
+      const filteredMonthColumns = getFilteredMonthColumns();
+      console.log('🔧 月列を追加中...', {
+        totalMonthColumns: monthColumns.length,
+        filteredMonthColumns: filteredMonthColumns.length,
+        filterRange: `${monthFilterStartYear}/${monthFilterStartMonth} - ${monthFilterEndYear}/${monthFilterEndMonth}`
+      });
+      
+      // フィルタリングされた月列のみを追加
+      filteredMonthColumns.forEach((monthCol, index) => {
         const columnDef = {
           title: monthCol.label,
           field: `month_${monthCol.year}_${monthCol.month}`,
@@ -1034,55 +1305,26 @@
           maxWidth: 110,
           hozAlign: "right",
           formatter: (cell) => {
-            const monthlyBudget = cell.getValue(); // これが実際の月予算額（スケジュール設定値）
+            const monthlyBudget = cell.getValue(); // 月別予算額
+            const rowData = cell.getRow().getData();
+            const fieldName = cell.getField();
             
-            // 現在の年月を取得
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth() + 1; // 0ベースなので+1
+            // デバッグログ削除
             
-            // 対象月が過去・現在・未来かを判定
-            const targetYear = monthCol.year;
-            const targetMonth = monthCol.month;
-            const isCurrentOrPast = 
-              targetYear < currentYear || 
-              (targetYear === currentYear && targetMonth <= currentMonth);
+            // チェックボックス設定に基づく表示制御
+            const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+            const usedDisplay = '-'; // 今後実装
+            const remainingDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
             
-            // 使用額の表示ルール
-            let monthlyUsed;
-            let usedDisplay;
-            if (isCurrentOrPast) {
-              monthlyUsed = 0; // 実際は実データを取得予定
-              usedDisplay = monthlyUsed === 0 ? '0' : formatAmount(monthlyUsed, false);
-            } else {
-              monthlyUsed = null; // 未来の月
-              usedDisplay = '-';
-            }
-            
-            // 残額の計算と表示
-            let remainingDisplay;
-            if (isCurrentOrPast) {
-              const monthlyRemaining = monthlyBudget - (monthlyUsed || 0);
-              remainingDisplay = formatAmount(monthlyRemaining, false);
-            } else {
-              remainingDisplay = '-';
-            }
-            
-            // 表示項目を制御（windowオブジェクトから動的に設定を取得）
-            const settings = (window as any).monthDisplaySettings || {
-              showMonthlyBudget: true,
-              showMonthlyUsed: true,
-              showMonthlyRemaining: true
-            };
             const items = [];
-            if (settings.showMonthlyBudget) {
-              items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${monthlyBudget > 0 ? formatAmount(monthlyBudget, false) : '-'}</div>`);
+            if (showMonthlyBudget) {
+              items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${budgetDisplay}</div>`);
             }
-            if (settings.showMonthlyUsed) {
+            if (showMonthlyUsed) {
               items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
             }
-            if (settings.showMonthlyRemaining) {
-              items.push(`<div style="background-color: ${isCurrentOrPast && monthlyBudget > 0 ? (monthlyBudget - (monthlyUsed || 0) < 0 ? '#fef2f2' : '#f0fdf4') : '#f9f9f9'}; padding: 1px 3px; border-radius: 2px; font-weight: 600;">${remainingDisplay}</div>`);
+            if (showMonthlyRemaining) {
+              items.push(`<div style="background-color: #f0fdf4; padding: 1px 3px; border-radius: 2px;">${remainingDisplay}</div>`);
             }
             
             if (items.length === 0) {
@@ -1097,9 +1339,11 @@
           }
         };
         monthColumnDefs.push(columnDef);
-        console.log(`🔧 月列${index + 1}追加:`, columnDef.title, columnDef.field);
+        console.log(`🔧 月列${index + 1}追加:`, columnDef.title);
       });
       console.log('🔧 月列構築完了:', monthColumnDefs.length, '個');
+    } else {
+      console.log('🔧 monthColumnsが空のため、月列なし');
     }
     
     // 操作列を追加
@@ -1260,18 +1504,21 @@
 
       // テーブル初期化完了を待つ
       table.on("tableBuilt", function() {
-        console.log("Tabulator table built successfully");
+        console.log("📊 Tabulator table built successfully");
         isTableInitializing = false;
+        isTableUpdating = false; // テーブル更新完了フラグリセット
       });
 
       table.on("tableBuiltFailed", function(error) {
         console.error("Tabulator table build failed:", error);
         isTableInitializing = false;
+        isTableUpdating = false; // エラー時もフラグリセット
       });
 
     } catch (error) {
       console.error('Error initializing Tabulator table:', error);
       isTableInitializing = false;
+      isTableUpdating = false; // エラー時もフラグリセット
       table = null;
     }
   }
@@ -1290,15 +1537,87 @@
 
     if (table && table.initialized) {
       try {
-        // 現在のcolumnsをそのまま使用（基本列は既に保護済み）
+        // 月列が不足している場合は強制的に追加
+        const currentMonthCols = columns.filter(col => col.title && col.title.includes('/'));
+        console.log('🔧 updateTable: 月列チェック', {
+          currentMonthColumns: currentMonthCols.length,
+          monthColumnsAvailable: monthColumns.length,
+          needsMonthColumnUpdate: currentMonthCols.length === 0 && monthColumns.length > 0
+        });
+        
+        // 月列が不足している場合は追加構築
+        if (currentMonthCols.length === 0 && monthColumns.length > 0) {
+          console.log('🔧 updateTable: 月列を緊急追加中...');
+          
+          // 基本列を保持
+          const baseColsOnly = columns.filter(col => !col.title || !col.title.includes('/'));
+          const actionCol = baseColsOnly.find(col => col.field === 'actions');
+          const otherCols = baseColsOnly.filter(col => col.field !== 'actions');
+          
+          // 月列を動的構築（フィルタリング適用）
+          const filteredEmergencyMonths = getFilteredMonthColumns();
+          const emergencyMonthCols = filteredEmergencyMonths.map((monthCol) => ({
+            title: monthCol.label,
+            field: `month_${monthCol.year}_${monthCol.month}`,
+            width: 90,
+            minWidth: 80,
+            maxWidth: 110,
+            hozAlign: "right",
+            formatter: (cell) => {
+              const monthlyBudget = cell.getValue(); // 月別予算額
+              const rowData = cell.getRow().getData();
+              const fieldName = cell.getField();
+              
+              // デバッグログ削除
+              
+              // チェックボックス設定に基づく表示制御  
+              const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+              const usedDisplay = '-'; // 今後実装
+              const remainingDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+              
+              const items = [];
+              if (showMonthlyBudget) {
+                items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${budgetDisplay}</div>`);
+              }
+              if (showMonthlyUsed) {
+                items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
+              }
+              if (showMonthlyRemaining) {
+                items.push(`<div style="background-color: #f0fdf4; padding: 1px 3px; border-radius: 2px;">${remainingDisplay}</div>`);
+              }
+              
+              if (items.length === 0) {
+                return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+              }
+              
+              return `
+                <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+                  ${items.join('')}
+                </div>
+              `;
+            }
+          }));
+          
+          // 新しい列定義: 基本列 + 月列 + 操作列
+          columns = [...otherCols, ...emergencyMonthCols, ...(actionCol ? [actionCol] : [])];
+          console.log('🔧 updateTable: 月列緊急追加完了', {
+            totalColumns: columns.length,
+            monthColumnsAdded: emergencyMonthCols.length
+          });
+        }
+        
+        // 現在のcolumnsをそのまま使用
         const completeColumns = columns;
         
         console.log('🔧 updateTable: 完全な列定義で更新実行', {
-          baseColumnsCount: baseColumns.filter(col => !col.title.includes('/')).length,
-          monthColumnsCount: baseColumns.filter(col => col.title.includes('/')).length,
+          baseColumnsCount: baseColumns.length,
+          monthColumnsCount: completeColumns.filter(col => col.title.includes('/')).length,
           totalColumns: completeColumns.length,
-          baseColumnTitles: completeColumns.filter(col => !col.title.includes('/')).map(c => c.title),
-          monthColumnTitles: completeColumns.filter(col => col.title.includes('/')).map(c => c.title)
+          columnsBreakdown: {
+            baseColumns: baseColumns.map(c => c.title),
+            allColumns: completeColumns.map(c => c.title),
+            monthColumns: completeColumns.filter(col => col.title.includes('/')).map(c => c.title)
+          }
         });
         
         // Tabulatorテーブルの現在の列を確認
@@ -2343,8 +2662,10 @@
           {:else}
             <!-- 月データ表示設定 -->
             <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-              <h4 class="text-sm font-medium text-gray-700 mb-2">月データ表示設定</h4>
-              <div class="flex flex-wrap gap-4">
+              <h4 class="text-sm font-medium text-gray-700 mb-3">月データ表示設定</h4>
+              
+              <!-- 表示項目選択 -->
+              <div class="flex flex-wrap gap-4 mb-4">
                 <label class="flex items-center">
                   <input 
                     type="checkbox" 
@@ -2369,6 +2690,79 @@
                   />
                   <span class="text-sm text-gray-600">残額</span>
                 </label>
+              </div>
+              
+              <!-- 月絞り込み設定 -->
+              <div class="border-t pt-3">
+                <h5 class="text-xs font-medium text-gray-600 mb-2">表示月範囲</h5>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">開始</label>
+                    <div class="flex gap-1">
+                      <select bind:value={monthFilterStartYear} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-16">
+                        <option value={2023}>2023</option>
+                        <option value={2024}>2024</option>
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                      </select>
+                      <select bind:value={monthFilterStartMonth} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-12">
+                        {#each Array.from({length: 12}, (_, i) => i + 1) as month}
+                          <option value={month}>{month}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">終了</label>
+                    <div class="flex gap-1">
+                      <select bind:value={monthFilterEndYear} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-16">
+                        <option value={2023}>2023</option>
+                        <option value={2024}>2024</option>
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                      </select>
+                      <select bind:value={monthFilterEndMonth} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-12">
+                        {#each Array.from({length: 12}, (_, i) => i + 1) as month}
+                          <option value={month}>{month}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 月データ表示設定 -->
+              <div class="border-t pt-3">
+                <h5 class="text-xs font-medium text-gray-600 mb-2">月データ表示設定</h5>
+                <div class="flex gap-4">
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      bind:checked={showMonthlyBudget} 
+                      on:change={handleTableUpdate}
+                      class="mr-1 w-3 h-3"
+                    />
+                    <span class="text-xs">予算</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      bind:checked={showMonthlyUsed} 
+                      on:change={handleTableUpdate}
+                      class="mr-1 w-3 h-3"
+                    />
+                    <span class="text-xs">使用額</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      bind:checked={showMonthlyRemaining} 
+                      on:change={handleTableUpdate}
+                      class="mr-1 w-3 h-3"
+                    />
+                    <span class="text-xs">残額</span>
+                  </label>
+                </div>
               </div>
             </div>
             
@@ -2775,7 +3169,7 @@
 {/if}
 
 <!-- デバッグ情報コンポーネント -->
-<DebugInfo />
+
 
 <style>
   .budget-table-container {
