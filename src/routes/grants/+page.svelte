@@ -49,6 +49,22 @@
   let importProgress = 0;
   let isImporting = false;
 
+  // 月データ表示制御
+  let showMonthlyBudget = true;  // 予算額表示
+  let showMonthlyUsed = true;    // 使用額表示
+  let showMonthlyRemaining = true; // 残額表示
+  
+  // 月データ表示制御をwindowオブジェクトに設定（フォーマッター内からアクセス可能にする）
+  $: {
+    if (typeof window !== 'undefined') {
+      (window as any).monthDisplaySettings = {
+        showMonthlyBudget,
+        showMonthlyUsed,
+        showMonthlyRemaining
+      };
+    }
+  }
+
   // 新規・編集用フォームデータ
   let grantForm: Partial<Grant> = {};
   let budgetItemForm: Partial<BudgetItem> = {};
@@ -137,6 +153,29 @@
       console.log('🔄 月列が未生成、自動生成開始');
       monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
       console.log('🔄 月列生成完了:', monthColumns.length, '件');
+    }
+  }
+  
+  // 月データ表示設定変更処理を関数として定義
+  let lastDisplaySettings = { showMonthlyBudget: true, showMonthlyUsed: true, showMonthlyRemaining: true };
+  
+  function handleDisplaySettingsChange() {
+    const currentSettings = { showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining };
+    const changed = JSON.stringify(currentSettings) !== JSON.stringify(lastDisplaySettings);
+    
+    if (changed && table) {
+      console.log('🔄 月データ表示設定変更、再描画:', currentSettings);
+      lastDisplaySettings = { ...currentSettings };
+      table.redraw(true);
+    }
+  }
+  
+  // 表示設定の変更を監視
+  $: {
+    showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining;
+    if (table) {
+      // 少し遅延させて処理
+      setTimeout(handleDisplaySettingsChange, 10);
     }
   }
   
@@ -915,34 +954,34 @@
         title: "助成金",
         field: "grantName",
         frozen: true,
-        minWidth: 150,
-        width: 150,
-        resizable: false,
+        minWidth: 120,
+        width: 180,
+        widthGrow: 1,
         sorter: "string"
       },
       {
         title: "項目名", 
         field: "name",
         frozen: true,
-        width: 200,
-        minWidth: 200,
-        resizable: false,
+        width: 220,
+        minWidth: 150,
+        widthGrow: 2,
         sorter: "string"
       },
       {
         title: "カテゴリ",
         field: "category",
         width: 120,
-        minWidth: 120,
-        resizable: false,
+        minWidth: 100,
+        widthGrow: 0.5,
         sorter: "string"
       },
       {
         title: "予算額",
         field: "budgetedAmount",
-        width: 120,
-        minWidth: 120,
-        resizable: false,
+        width: 130,
+        minWidth: 110,
+        widthGrow: 0.8,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => formatAmount(cell.getValue())
@@ -950,9 +989,9 @@
       {
         title: "使用額", 
         field: "usedAmount",
-        width: 120,
-        minWidth: 120,
-        resizable: false,
+        width: 130,
+        minWidth: 110,
+        widthGrow: 0.8,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => formatAmount(cell.getValue())
@@ -960,9 +999,9 @@
       {
         title: "残額",
         field: "remainingAmount",
-        width: 120,
-        minWidth: 120,
-        resizable: false,
+        width: 130,
+        minWidth: 110,
+        widthGrow: 0.8,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => {
@@ -990,13 +1029,71 @@
         const columnDef = {
           title: monthCol.label,
           field: `month_${monthCol.year}_${monthCol.month}`,
-          width: 80,
-          minWidth: 70,
-          maxWidth: 100,
+          width: 90,
+          minWidth: 80,
+          maxWidth: 110,
           hozAlign: "right",
           formatter: (cell) => {
-            const value = cell.getValue();
-            return value > 0 ? formatAmount(value, false) : '-';
+            const monthlyBudget = cell.getValue(); // これが実際の月予算額（スケジュール設定値）
+            
+            // 現在の年月を取得
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1; // 0ベースなので+1
+            
+            // 対象月が過去・現在・未来かを判定
+            const targetYear = monthCol.year;
+            const targetMonth = monthCol.month;
+            const isCurrentOrPast = 
+              targetYear < currentYear || 
+              (targetYear === currentYear && targetMonth <= currentMonth);
+            
+            // 使用額の表示ルール
+            let monthlyUsed;
+            let usedDisplay;
+            if (isCurrentOrPast) {
+              monthlyUsed = 0; // 実際は実データを取得予定
+              usedDisplay = monthlyUsed === 0 ? '0' : formatAmount(monthlyUsed, false);
+            } else {
+              monthlyUsed = null; // 未来の月
+              usedDisplay = '-';
+            }
+            
+            // 残額の計算と表示
+            let remainingDisplay;
+            if (isCurrentOrPast) {
+              const monthlyRemaining = monthlyBudget - (monthlyUsed || 0);
+              remainingDisplay = formatAmount(monthlyRemaining, false);
+            } else {
+              remainingDisplay = '-';
+            }
+            
+            // 表示項目を制御（windowオブジェクトから動的に設定を取得）
+            const settings = (window as any).monthDisplaySettings || {
+              showMonthlyBudget: true,
+              showMonthlyUsed: true,
+              showMonthlyRemaining: true
+            };
+            const items = [];
+            if (settings.showMonthlyBudget) {
+              items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${monthlyBudget > 0 ? formatAmount(monthlyBudget, false) : '-'}</div>`);
+            }
+            if (settings.showMonthlyUsed) {
+              items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
+            }
+            if (settings.showMonthlyRemaining) {
+              items.push(`<div style="background-color: ${isCurrentOrPast && monthlyBudget > 0 ? (monthlyBudget - (monthlyUsed || 0) < 0 ? '#fef2f2' : '#f0fdf4') : '#f9f9f9'}; padding: 1px 3px; border-radius: 2px; font-weight: 600;">${remainingDisplay}</div>`);
+            }
+            
+            if (items.length === 0) {
+              return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+            }
+            
+            return `
+              <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+                ${items.join('')}
+              </div>
+            `;
           }
         };
         monthColumnDefs.push(columnDef);
@@ -1135,15 +1232,22 @@
         monthColumns: initColumns.filter(c => c.title.includes('/')).length
       });
       
+      console.log('📊 テーブル作成直前 - データ確認:', {
+        tableDataCount: tableData.length,
+        firstRowData: tableData[0],
+        columnsCount: initColumns.length,
+        baseColumnsCount: initColumns.filter(c => !c.title.includes('/')).length
+      });
+      
       table = new Tabulator(tableElement, {
         data: tableData,
         columns: initColumns,
-        layout: "fitColumns",
+        layout: "fitDataFill",
         responsiveLayout: false,
-        height: "600px",
+        height: "calc(100vh - 200px)",
         pagination: "local",
-        paginationSize: 50,
-        paginationSizeSelector: [25, 50, 100],
+        paginationSize: window.innerHeight > 900 ? 150 : 100,
+        paginationSizeSelector: [50, 100, 150, 200],
         movableColumns: true,
         resizableRows: false,
         resizableColumns: true,
@@ -1823,8 +1927,8 @@
   <title>助成金管理 - nagaiku budget</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-  <div class="flex justify-between items-center mb-6">
+<div class="w-full max-w-none">
+  <div class="flex justify-between items-center mb-3">
     <h1 class="text-3xl font-bold text-gray-900">助成金管理</h1>
     <div class="flex items-center gap-3">
       <button 
@@ -1855,7 +1959,7 @@
   {/if}
 
   <!-- 上部: 助成金一覧 -->
-  <div class="bg-white shadow rounded-lg mb-2">
+  <div class="bg-white shadow rounded-lg mb-1">
     <div class="px-6 py-4 border-b border-gray-200">
       <div class="flex justify-between items-center">
         <h2 class="text-xl font-semibold">助成金一覧</h2>
@@ -2206,7 +2310,7 @@
       </div>
     </div>
     
-    <div class="p-4">
+    <div class="p-1 sm:p-2">
           
           <!-- ソートリセットボタン -->
           {#if budgetItems.length > 0 && sortCriteria.length > 0}
@@ -2237,6 +2341,37 @@
               <p class="text-sm text-gray-500 mb-4">上の「追加」ボタンから最初の予算項目を作成してください</p>
             </div>
           {:else}
+            <!-- 月データ表示設定 -->
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">月データ表示設定</h4>
+              <div class="flex flex-wrap gap-4">
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={showMonthlyBudget}
+                    class="mr-2"
+                  />
+                  <span class="text-sm text-gray-600">予算額</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={showMonthlyUsed}
+                    class="mr-2"
+                  />
+                  <span class="text-sm text-gray-600">使用額</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={showMonthlyRemaining}
+                    class="mr-2"
+                  />
+                  <span class="text-sm text-gray-600">残額</span>
+                </label>
+              </div>
+            </div>
+            
             <div class="budget-table-container overflow-x-auto">
               <div bind:this={tableElement} class="tabulator-table min-w-full"></div>
             </div>
@@ -2647,6 +2782,22 @@
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     overflow: hidden;
+    width: 100%;
+    max-width: none;
+    min-height: 400px;
+  }
+
+  /* レスポンシブ対応：大きい画面での調整 */
+  @media (min-width: 1400px) {
+    .budget-table-container {
+      min-height: calc(100vh - 180px);
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .budget-table-container {
+      min-height: calc(100vh - 150px);
+    }
   }
   
   /* wx-svelte-gridのカスタムスタイル */
@@ -2667,11 +2818,17 @@
   
   :global(.tabulator .tabulator-cell) {
     border-right: 1px solid #f3f4f6;
-    padding: 8px 12px;
+    padding: 4px 8px;
     font-size: 0.875rem;
-    vertical-align: middle;
+    vertical-align: top;
+    line-height: 1.2;
   }
   
+  :global(.tabulator .tabulator-row) {
+    min-height: 60px;
+    height: 60px;
+  }
+
   :global(.tabulator .tabulator-row:hover) {
     background: #f9fafb !important;
   }
