@@ -66,8 +66,50 @@
   };
 
   onMount(async () => {
+    console.log('🚀 onMount開始');
     await loadGrants();
+    console.log('🚀 助成金ロード完了');
     await loadAllBudgetItems();
+    console.log('🚀 予算項目ロード完了');
+    
+    // 複数回にわたって初期化を確実に実行
+    const initializeComplete = () => {
+      console.log('🚀 初期化最終段階:', {
+        grants: grants.length,
+        budgetItems: budgetItems.length,
+        monthColumns: monthColumns.length,
+        tableElement: !!tableElement
+      });
+      
+      if (grants.length > 0 && budgetItems.length > 0) {
+        // 月列生成
+        if (monthColumns.length === 0) {
+          monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+          console.log('🔄 初期monthColumns生成完了:', monthColumns.length);
+        }
+        
+        // スケジュール取得強制実行
+        if (budgetItems.length > 0) {
+          console.log('🔄 初期スケジュール取得開始');
+          handleScheduleLoad();
+        }
+        
+        // テーブル初期化
+        if (tableElement && monthColumns.length > 0) {
+          console.log('🔄 初期テーブル初期化開始');
+          handleTableUpdate();
+        } else if (!tableElement) {
+          console.log('⚠️ tableElement が見つかりません、再試行します');
+          // DOM要素がまだ準備できていない場合、少し待ってから再試行
+          setTimeout(initializeComplete, 100);
+        }
+      }
+    };
+
+    // 複数のタイミングで初期化を試行
+    setTimeout(initializeComplete, 50);
+    setTimeout(initializeComplete, 200);
+    setTimeout(initializeComplete, 500);
     
     // 外クリックでドロップダウンを閉じる
     document.addEventListener('click', handleClickOutside);
@@ -81,6 +123,38 @@
       }
     };
   });
+
+  // 月列とbudgetItemsのリアクティブ更新（無限ループ防止付き）
+  $: if (grants.length > 0 && budgetItems.length > 0) {
+    console.log('🔄 月列・テーブル更新条件チェック:', {
+      grants: grants.length,
+      budgetItems: budgetItems.length,
+      monthColumns: monthColumns.length
+    });
+    
+    // monthColumnsが0の場合のみ自動生成
+    if (monthColumns.length === 0) {
+      console.log('🔄 月列が未生成、自動生成開始');
+      monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+      console.log('🔄 月列生成完了:', monthColumns.length, '件');
+    }
+  }
+  
+  // テーブル要素が準備できたらテーブル初期化を実行  
+  $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0) {
+    console.log('🔄 テーブル要素準備完了、初期化開始:', {
+      tableElement: !!tableElement,
+      budgetItems: budgetItems.length,
+      monthColumns: monthColumns.length,
+      tableExists: !!table,
+      tableInitialized: table?.initialized
+    });
+    
+    // テーブルがまだ初期化されていない場合のみ
+    if (!table || !table.initialized) {
+      handleTableUpdate();
+    }
+  }
 
   async function loadGrants() {
     loading = true;
@@ -96,10 +170,13 @@
       
       if (data.success) {
         grants = data.grants || [];
-        console.log('助成金データロード完了:', grants.length, '件');
-        // 月列を強制的に再生成
-        monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-        console.log('強制更新後のmonthColumns:', monthColumns);
+        console.log('助成金取得完了:', grants.length, '件');
+        
+        // 月列を生成（ただし予算項目が既にロード済みの場合のみ）
+        if (budgetItems.length > 0) {
+          monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+          console.log('助成金ロード後のmonthColumns:', monthColumns.length, '件');
+        }
       } else {
         error = data.error || '助成金データの取得に失敗しました';
       }
@@ -125,20 +202,47 @@
 
   // 終了・報告ステータスを除外するフィルター関数
   function getFilteredBudgetItems(items: any[]) {
-    return items.filter(item => {
+    console.log('getFilteredBudgetItems - 入力:', items.length, '件');
+    console.log('最初の3件のデータ:', items.slice(0, 3));
+    
+    // 🚨 一時的にフィルタリングを無効化してテスト
+    console.log('⚠️ フィルタリングを一時的に無効化中 - 全項目を返します');
+    return items;
+    
+    const filtered = items.filter(item => {
       const status = item.grantStatus || item.grant?.status;
+      console.log(`項目${item.id}(${item.name}) - grantStatus: ${item.grantStatus}, grant.status: ${item.grant?.status}, 判定status: ${status}`);
+      
+      // ステータスが未定義の場合は表示（デバッグ用）
+      if (!status) {
+        console.log(`項目${item.id}(${item.name}) - ステータス未定義、表示`);
+        return true;
+      }
       
       // 基本表示: 進行中のみ
-      if (status === 'in_progress') return true;
+      if (status === 'in_progress') {
+        console.log(`項目${item.id}(${item.name}) - 進行中、表示`);
+        return true;
+      }
       
       // 終了済み表示がONの場合、終了ステータスも表示
-      if (showCompletedGrants && status === 'completed') return true;
+      if (showCompletedGrants && status === 'completed') {
+        console.log(`項目${item.id}(${item.name}) - 終了済み表示ON、表示`);
+        return true;
+      }
       
       // 報告済み表示がONの場合、報告済みステータスも表示
-      if (showReportedGrants && status === 'reported') return true;
+      if (showReportedGrants && status === 'reported') {
+        console.log(`項目${item.id}(${item.name}) - 報告済み表示ON、表示`);
+        return true;
+      }
       
+      console.log(`項目${item.id}(${item.name}) - 条件に合致せず、非表示`);
       return false;
     });
+    
+    console.log('getFilteredBudgetItems - 出力:', filtered.length, '件');
+    return filtered;
   }
 
   async function loadBudgetItems(grantId: number) {
@@ -158,20 +262,42 @@
   }
 
   async function loadAllBudgetItems() {
+    console.log('🔍 loadAllBudgetItems開始');
     try {
       const response = await fetch(`${base}/api/budget-items`);
+      console.log('🔍 APIレスポンス受信:', response.status, response.statusText);
       const data = await response.json();
+      console.log('🔍 APIデータ解析:', data.success, data.budgetItems?.length);
       
       if (data.success) {
         allBudgetItems = data.budgetItems || [];
+        console.log('全予算項目取得完了:', allBudgetItems.length, '件');
+        console.log('全予算項目の例（最初の3件）:', allBudgetItems.slice(0, 3));
+        
         // 初期表示は全項目（終了・報告ステータス除く）
         if (!selectedGrant) {
+          console.log('🔍 初期フィルター処理開始:', {
+            selectedGrant: selectedGrant,
+            showCompletedGrants: showCompletedGrants,
+            showReportedGrants: showReportedGrants
+          });
+          // 初期フィルター処理を有効化
           budgetItems = getFilteredBudgetItems(allBudgetItems);
+          console.log('🔍 初期フィルター処理完了:', budgetItems.length, '件');
+          
+          // 予算項目更新後にスケジュール取得を実行
+          if (budgetItems.length > 0) {
+            await handleScheduleLoad();
+          }
         }
-        console.log('全予算項目取得完了:', allBudgetItems.length, '件');
-        // 月列を強制的に再生成（データロード完了時）
-        monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-        console.log('予算項目ロード後のmonthColumns:', monthColumns);
+        console.log('フィルタ後予算項目:', budgetItems.length, '件');
+        console.log('予算項目の例（最初の3件）:', budgetItems.slice(0, 3));
+        
+        // 月列を生成（ただし既にデータがロード済みの場合のみ）
+        if (grants.length > 0) {
+          monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+          console.log('予算項目ロード後のmonthColumns:', monthColumns.length, '件');
+        }
       } else {
         error = data.error || '予算項目の取得に失敗しました';
       }
@@ -333,6 +459,7 @@
   let tableElement: HTMLDivElement;
   let table: Tabulator | null = null;
   let columns: ColumnDefinition[] = [];
+  let baseColumns: ColumnDefinition[] = [];
   let tableData: any[] = [];
   let monthColumns: Array<{year: number, month: number, label: string}> = [];
   let isTableInitializing = false;
@@ -356,36 +483,84 @@
     availableCategories = Array.from(categories).sort();
   }
   
-  // 予算項目が変更された時にカテゴリを更新
-  $: if (budgetItems.length > 0) {
-    updateAvailableCategories();
+  // 予算項目更新時の統合処理（カテゴリ更新・テーブル更新）
+  let budgetItemsUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastBudgetItemsLength = 0;
+  let lastBudgetItemsIds = '';
+  
+  function handleBudgetItemsUpdate() {
+    const currentIds = budgetItems.map(item => item.id).sort().join(',');
+    const lengthChanged = budgetItems.length !== lastBudgetItemsLength;
+    const idsChanged = currentIds !== lastBudgetItemsIds;
+    
+    console.log('📊 handleBudgetItemsUpdate:', {
+      budgetItemsLength: budgetItems.length,
+      lengthChanged,
+      idsChanged,
+      currentIds: currentIds.substring(0, 50) + (currentIds.length > 50 ? '...' : ''),
+      lastIds: lastBudgetItemsIds.substring(0, 50) + (lastBudgetItemsIds.length > 50 ? '...' : '')
+    });
+    
+    if (budgetItems.length > 0 && (lengthChanged || idsChanged)) {
+      lastBudgetItemsLength = budgetItems.length;
+      lastBudgetItemsIds = currentIds;
+      
+      if (budgetItemsUpdateTimeout) clearTimeout(budgetItemsUpdateTimeout);
+      budgetItemsUpdateTimeout = setTimeout(() => {
+        // カテゴリ更新
+        if (lengthChanged) {
+          console.log('📊 カテゴリ更新実行 (lengthChanged)');
+          updateAvailableCategories();
+        }
+        // IDが変更された場合はスケジュール取得
+        if (idsChanged) {
+          console.log('📊 スケジュール取得実行 (idsChanged)');
+          handleScheduleLoad();
+        }
+        // テーブル更新処理は別の関数で実行
+        console.log('📊 テーブル更新実行');
+        handleTableUpdate();
+      }, 200);
+    }
   }
+  
+  $: handleBudgetItemsUpdate();
 
   // 終了済みフィルター変更時の処理
   $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
     console.log('終了済みフィルター変更:', showCompletedGrants);
-    refreshBudgetItems();
+    refreshBudgetItems().catch(console.error);
   }
 
   // 報告済みフィルター変更時の処理  
   $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
     console.log('報告済みフィルター変更:', showReportedGrants);
-    refreshBudgetItems();
+    refreshBudgetItems().catch(console.error);
   }
 
   // 選択助成金変更時の処理
   $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
     console.log('選択助成金変更:', selectedGrant?.name);
-    refreshBudgetItems();
+    refreshBudgetItems().catch(console.error);
   }
 
-  function refreshBudgetItems() {
+  async function refreshBudgetItems() {
+    console.log('🔄 refreshBudgetItems実行:', {
+      selectedGrant: selectedGrant?.name,
+      allBudgetItemsLength: allBudgetItems.length
+    });
+    
     if (selectedGrant) {
       budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
     } else {
       budgetItems = getFilteredBudgetItems(allBudgetItems);
     }
-    console.log('フィルター後予算項目数:', budgetItems.length);
+    
+    // フィルター後の予算項目についてスケジュール取得
+    if (budgetItems.length > 0) {
+      await handleScheduleLoad();
+    }
+    console.log('🔄 フィルター後予算項目数:', budgetItems.length);
   }
   
   function selectCategory(category: string) {
@@ -471,31 +646,81 @@
   let schedulesLoaded = false; // スケジュール読み込み完了フラグ
 
   async function loadBudgetItemSchedules() {
+    console.log('📅 スケジュール取得開始:', budgetItems.length, '件');
     schedulesLoaded = false;
-    budgetItemSchedules.clear();
+    const newSchedules = new Map();
     
     for (const item of budgetItems) {
       try {
+        console.log(`📅 項目ID${item.id}のスケジュール取得中...`);
         const response = await fetch(`${base}/api/budget-items/${item.id}/schedule`);
+        console.log(`📅 項目ID${item.id}のレスポンス:`, response.status, response.statusText);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log(`📅 項目ID${item.id}のデータ:`, data);
+          
           if (data.success && data.schedules.length > 0) {
             const months = data.schedules.map(s => `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`);
-            budgetItemSchedules.set(item.id, months);
+            newSchedules.set(item.id, months);
+            console.log(`📅 項目ID${item.id}のスケジュール設定:`, months);
+          } else {
+            console.log(`📅 項目ID${item.id}はスケジュールデータなし`);
           }
+        } else {
+          console.warn(`📅 項目ID${item.id}のスケジュール取得失敗:`, response.status);
         }
       } catch (err) {
-        // スケジュールデータがない場合は無視
+        console.error(`📅 項目ID${item.id}のスケジュール取得エラー:`, err);
       }
     }
-    budgetItemSchedules = new Map(budgetItemSchedules); // リアクティブ更新
+    
+    // 一度だけMapを更新（リアクティブ更新を最小化）
+    budgetItemSchedules = newSchedules;
     schedulesLoaded = true; // 読み込み完了をマーク
-    console.log('スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件');
+    console.log('📅 スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件', Array.from(budgetItemSchedules.entries()));
+    
+    // スケジュール取得完了後に月列生成とテーブル更新を実行
+    setTimeout(() => {
+      console.log('📅 スケジュール取得後の月列とテーブル更新実行');
+      // 月列を再生成（スケジュールデータに基づいて）
+      console.log('📅 月列生成前の状態:', {
+        monthColumnsLength: monthColumns.length,
+        schedulesLoaded,
+        grantsLength: grants.length,
+        budgetItemsLength: budgetItems.length
+      });
+      
+      monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+      console.log('📅 スケジュール取得後の月列生成完了:', monthColumns.length, '件');
+      console.log('📅 生成された月列:', monthColumns);
+      handleTableUpdate();
+    }, 100);
   }
 
-  // 予算項目が変更されたときにスケジュールを読み込み
-  $: if (budgetItems.length > 0) {
-    loadBudgetItemSchedules();
+  // スケジュール取得処理（統合版：handleBudgetItemsUpdate内で実行）
+  let scheduleLoadTimeout: ReturnType<typeof setTimeout> | null = null;
+  
+  async function handleScheduleLoad() {
+    console.log('📅 handleScheduleLoad呼び出し:', budgetItems.length, '件');
+    
+    if (budgetItems.length === 0) {
+      console.log('📅 予算項目が0件のためスケジュール取得をスキップ');
+      return;
+    }
+    
+    // 既存のタイマーをクリア
+    if (scheduleLoadTimeout) {
+      console.log('📅 既存のスケジュールタイマーをクリア');
+      clearTimeout(scheduleLoadTimeout);
+    }
+    
+    // デバウンス処理で重複実行を防止
+    scheduleLoadTimeout = setTimeout(async () => {
+      console.log('📅 デバウンス後のスケジュール取得開始:', budgetItems.length, '件');
+      await loadBudgetItemSchedules();
+      scheduleLoadTimeout = null;
+    }, 500);
   }
   
   function toggleSort(field: string) {
@@ -575,14 +800,81 @@
     budgetItems = [...budgetItems]; // リアクティブ更新
   }
 
-  // グリッドの初期化と更新（データが実際に存在し、DOM要素が準備できたときのみ）
-  $: if (budgetItems.length > 0 && tableElement && columns.length > 0) {
-    console.log('Updating table with data:', budgetItems.length, 'items', 'schedulesLoaded:', schedulesLoaded);
-    initializeTableColumns();
-    prepareTableData();
-    updateTable();
+  // 統合されたテーブル更新処理
+  let tableUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastTableState = {
+    budgetItemsIds: '',
+    monthColumnsLength: 0,
+    schedulesLoaded: false
+  };
+  
+  function handleTableUpdate() {
+    console.log('🔧 handleTableUpdate 呼び出し:', {
+      tableElement: !!tableElement,
+      loading: loading,
+      budgetItems: budgetItems.length,
+      monthColumns: monthColumns.length
+    });
+    
+    if (!tableElement) {
+      console.log('⚠️ tableElement が見つかりません');
+      return;
+    }
+    
+    if (loading) {
+      console.log('⚠️ ローディング中のためスキップ');
+      return;
+    }
+    
+    if (budgetItems.length === 0) {
+      console.log('⚠️ 予算項目が0件のためスキップ');
+      return;
+    }
+    
+    const currentState = {
+      budgetItemsIds: budgetItems.map(item => item.id).sort().join(','),
+      monthColumnsLength: monthColumns.length,
+      schedulesLoaded
+    };
+    
+    // 状態が変わった場合のみ更新
+    const stateChanged = 
+      currentState.budgetItemsIds !== lastTableState.budgetItemsIds ||
+      currentState.monthColumnsLength !== lastTableState.monthColumnsLength ||
+      currentState.schedulesLoaded !== lastTableState.schedulesLoaded;
+    
+    if (!stateChanged) {
+      return;
+    }
+    
+    lastTableState = currentState;
+    
+    // 既存のタイマーをクリア
+    if (tableUpdateTimeout) {
+      clearTimeout(tableUpdateTimeout);
+    }
+    
+    // デバウンス処理でテーブル更新
+    tableUpdateTimeout = setTimeout(() => {
+      console.log('🔄 統合テーブル更新:', {
+        budgetItems: budgetItems.length,
+        monthColumns: monthColumns.length,
+        schedulesLoaded
+      });
+      
+      try {
+        initializeTableColumns();
+        prepareTableData();
+        updateTable();
+      } catch (error) {
+        console.error('テーブル更新エラー:', error);
+        // エラー時は再初期化を試行
+        initializeTable();
+      }
+      
+      tableUpdateTimeout = null;
+    }, 300);
   }
-
   
   // リアクティブな関数として定義
   $: getSortIcon = (field: string) => {
@@ -617,12 +909,15 @@
 
   // Tabulatorの列定義を初期化
   function initializeTableColumns() {
-    const baseColumns: ColumnDefinition[] = [
+    // 基本列を固定で定義（毎回同じ内容）
+    const fixedBaseColumns = [
       {
         title: "助成金",
         field: "grantName",
         frozen: true,
-        width: 180,
+        minWidth: 150,
+        width: 150,
+        resizable: false,
         sorter: "string"
       },
       {
@@ -630,18 +925,24 @@
         field: "name",
         frozen: true,
         width: 200,
+        minWidth: 200,
+        resizable: false,
         sorter: "string"
       },
       {
         title: "カテゴリ",
         field: "category",
         width: 120,
+        minWidth: 120,
+        resizable: false,
         sorter: "string"
       },
       {
         title: "予算額",
         field: "budgetedAmount",
         width: 120,
+        minWidth: 120,
+        resizable: false,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => formatAmount(cell.getValue())
@@ -650,6 +951,8 @@
         title: "使用額", 
         field: "usedAmount",
         width: 120,
+        minWidth: 120,
+        resizable: false,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => formatAmount(cell.getValue())
@@ -658,6 +961,8 @@
         title: "残額",
         field: "remainingAmount",
         width: 120,
+        minWidth: 120,
+        resizable: false,
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => {
@@ -667,24 +972,41 @@
         }
       }
     ];
-
-    // 月列を常に表示（列固定により水平スクロールで対応）
+    
+    // 基本列を設定（固定）
+    baseColumns = [...fixedBaseColumns];
+    
+    // 月列を動的に構築
+    const monthColumnDefs = [];
+    console.log('🔧 initializeTableColumns - 月列追加処理:', {
+      monthColumnsLength: monthColumns?.length || 0,
+      monthColumns: monthColumns, // 全ての月列を表示
+      monthColumnsFirst3: monthColumns?.slice(0, 3)
+    });
+    
     if (monthColumns && monthColumns.length > 0) {
-      monthColumns.forEach(monthCol => {
-        baseColumns.push({
+      console.log('🔧 月列を順次追加中...');
+      monthColumns.forEach((monthCol, index) => {
+        const columnDef = {
           title: monthCol.label,
           field: `month_${monthCol.year}_${monthCol.month}`,
-          width: 100,
+          width: 80,
+          minWidth: 70,
+          maxWidth: 100,
           hozAlign: "right",
           formatter: (cell) => {
             const value = cell.getValue();
             return value > 0 ? formatAmount(value, false) : '-';
           }
-        });
+        };
+        monthColumnDefs.push(columnDef);
+        console.log(`🔧 月列${index + 1}追加:`, columnDef.title, columnDef.field);
       });
+      console.log('🔧 月列構築完了:', monthColumnDefs.length, '個');
     }
-
-    baseColumns.push({
+    
+    // 操作列を追加
+    const actionColumn = {
       title: "操作",
       field: "actions",
       width: 80,
@@ -697,14 +1019,26 @@
           openBudgetItemForm(item);
         }
       }
-    });
+    };
 
-    columns = baseColumns;
+    // 最終的な列定義を構築：基本列 + 月列 + 操作列
+    columns = [...baseColumns, ...monthColumnDefs, actionColumn];
+    console.log('🔧 最終的なcolumns設定完了:', {
+      baseColumnsLength: baseColumns.length,
+      monthColumnDefsLength: monthColumnDefs.length,
+      totalColumnsLength: columns.length,
+      baseColumnTitles: baseColumns.map(c => c.title),
+      monthColumnTitles: monthColumnDefs.map(c => c.title),
+      allColumnTitles: columns.map(c => c.title)
+    });
   }
 
   // Tabulatorテーブルデータの準備
   function prepareTableData() {
     console.log('prepareTableData開始 - budgetItems:', budgetItems.length, 'monthColumns:', monthColumns.length, 'schedulesLoaded:', schedulesLoaded);
+    
+    // 元のbudgetItemsのデータ構造を確認
+    console.log('🔍 元のbudgetItems[0]:', budgetItems[0]);
     
     tableData = budgetItems.map(item => {
       const remaining = (item.budgetedAmount || 0) - (item.usedAmount || 0);
@@ -713,6 +1047,22 @@
         remainingAmount: remaining,
         actions: '' // Tabulatorのformatterで処理
       };
+      
+      console.log(`📋 項目${item.name}のbaseData:`, {
+        id: baseData.id,
+        name: baseData.name,
+        grantName: baseData.grantName,
+        category: baseData.category,
+        budgetedAmount: baseData.budgetedAmount,
+        usedAmount: baseData.usedAmount,
+        remainingAmount: baseData.remainingAmount,
+        '🔍 基本列フィールド存在確認': {
+          hasGrantName: 'grantName' in baseData,
+          hasName: 'name' in baseData,
+          hasCategory: 'category' in baseData,
+          hasBudgetedAmount: 'budgetedAmount' in baseData
+        }
+      });
       
       // 月別データを追加
       if (monthColumns && monthColumns.length > 0) {
@@ -724,12 +1074,26 @@
         Object.assign(baseData, monthlyData);
         
         console.log(`項目${item.name}の月別データ:`, monthlyData);
+        console.log(`🎯 最終データ構造 - 項目${item.name}:`, {
+          keys: Object.keys(Object.assign(baseData, monthlyData)),
+          baseFields: ['id', 'name', 'grantName', 'category', 'budgetedAmount', 'usedAmount', 'remainingAmount'].filter(key => key in Object.assign(baseData, monthlyData)),
+          monthFields: Object.keys(monthlyData),
+          actualValues: {
+            id: Object.assign(baseData, monthlyData).id,
+            name: Object.assign(baseData, monthlyData).name,
+            grantName: Object.assign(baseData, monthlyData).grantName,
+            category: Object.assign(baseData, monthlyData).category,
+            budgetedAmount: Object.assign(baseData, monthlyData).budgetedAmount
+          }
+        });
       }
       
       return baseData;
     });
     
     console.log('prepareTableData完了 - tableData length:', tableData.length);
+    console.log('📋 最初のテーブルデータサンプル:', tableData[0]);
+    console.log('📋 テーブルデータの全フィールド:', tableData[0] ? Object.keys(tableData[0]) : 'データなし');
   }
 
   // Tabulatorテーブルの初期化と更新
@@ -759,17 +1123,33 @@
     }
     
     try {
+      // 基本列を確実に保持した列定義を使用
+      const initColumns = baseColumns.length > 0 ? baseColumns : columns;
+      
+      console.log('🏗️ initializeTable: テーブル作成開始', {
+        baseColumnsLength: baseColumns.length,
+        columnsLength: initColumns.length,
+        columnTitles: initColumns.map(c => c.title),
+        tableDataLength: tableData.length,
+        baseColumns: initColumns.filter(c => !c.title.includes('/')).length,
+        monthColumns: initColumns.filter(c => c.title.includes('/')).length
+      });
+      
       table = new Tabulator(tableElement, {
         data: tableData,
-        columns: columns,
+        columns: initColumns,
         layout: "fitColumns",
-        responsiveLayout: "hide",
+        responsiveLayout: false,
+        height: "600px",
         pagination: "local",
         paginationSize: 50,
         paginationSizeSelector: [25, 50, 100],
         movableColumns: true,
         resizableRows: false,
+        resizableColumns: true,
         selectable: 1,
+        scrollToColumnPosition: "left",
+        scrollToColumnVisibility: "visible",
         reactiveData: true,
         virtualDomVert: true
       });
@@ -806,8 +1186,39 @@
 
     if (table && table.initialized) {
       try {
-        table.setColumns(columns);
+        // 現在のcolumnsをそのまま使用（基本列は既に保護済み）
+        const completeColumns = columns;
+        
+        console.log('🔧 updateTable: 完全な列定義で更新実行', {
+          baseColumnsCount: baseColumns.filter(col => !col.title.includes('/')).length,
+          monthColumnsCount: baseColumns.filter(col => col.title.includes('/')).length,
+          totalColumns: completeColumns.length,
+          baseColumnTitles: completeColumns.filter(col => !col.title.includes('/')).map(c => c.title),
+          monthColumnTitles: completeColumns.filter(col => col.title.includes('/')).map(c => c.title)
+        });
+        
+        // Tabulatorテーブルの現在の列を確認
+        console.log('📊 現在のテーブル列状態:', {
+          currentColumns: table.getColumns().map(col => col.getDefinition().title),
+          setColumnsTarget: completeColumns.map(c => c.title)
+        });
+        
+        // 列定義を確実に更新してからデータを更新
+        table.setColumns(completeColumns);
+        
+        console.log('🔧 updateTable: データ更新実行', {
+          tableDataLength: tableData.length,
+          sampleData: tableData[0]
+        });
         table.setData(tableData);
+        
+        // データ更新後の列状態を確認
+        setTimeout(() => {
+          console.log('📊 データ更新後のテーブル列状態:', {
+            finalColumns: table.getColumns().map(col => col.getDefinition().title),
+            visibleColumns: table.getColumns().filter(col => col.isVisible()).map(col => col.getDefinition().title)
+          });
+        }, 100);
       } catch (error) {
         console.error('Error updating table:', error);
         // エラーが発生した場合は再初期化
@@ -823,13 +1234,7 @@
     // 初期化はbudgetItemsが読み込まれた後に実行
   });
 
-  // budgetItemsが更新されたときにTabulatorを更新
-  $: if (budgetItems.length > 0 && tableElement && !loading) {
-    console.log('Budget items changed, updating table, schedulesLoaded:', schedulesLoaded);
-    initializeTableColumns();
-    prepareTableData();
-    updateTable();
-  }
+  // テーブル更新は統合されたhandleTableUpdate関数で処理
 
   // ISO文字列をYYYY-MM-DD形式に変換（HTML input[type="date"]用）
   function formatDateForInput(dateString?: string): string {
@@ -984,23 +1389,41 @@
   // 予算項目の月割り金額を計算
   function getMonthlyAmount(item: any, targetYear: number, targetMonth: number): number {
     const schedules = budgetItemSchedules.get(item.id);
+    const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
+    
+    console.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
+      schedules,
+      budgetedAmount: item.budgetedAmount,
+      schedulesLoaded,
+      budgetItemSchedulesSize: budgetItemSchedules.size
+    });
     
     if (!item.budgetedAmount) {
+      console.log(`💰 項目ID${item.id}は予算額が0のため金額0`);
       return 0;
     }
     
     // スケジュールデータがある場合は、それに基づいて計算
     if (schedules && schedules.length > 0) {
-      const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
       const hasSchedule = schedules.includes(monthKey);
       
-      if (!hasSchedule) return 0;
+      console.log(`💰 項目ID${item.id}のスケジュール判定:`, {
+        monthKey,
+        hasSchedule,
+        schedules,
+        schedulesLength: schedules.length
+      });
+      
+      if (!hasSchedule) {
+        console.log(`💰 項目ID${item.id} ${monthKey}月はスケジュール対象外のため金額0`);
+        return 0;
+      }
       
       // 設定された月数で予算額を割る
       const totalMonths = schedules.length;
       const monthlyAmount = totalMonths > 0 ? Math.round(item.budgetedAmount / totalMonths) : 0;
       
-      console.log(`項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (総額: ${item.budgetedAmount}, 対象月数: ${totalMonths})`);
+      console.log(`💰 項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (総額: ${item.budgetedAmount}, 対象月数: ${totalMonths})`);
       return monthlyAmount;
     }
     
@@ -1028,35 +1451,59 @@
     return 0;
   }
 
-  // リアクティブに月列を更新（grants, budgetItems, selectedGrantが変更されたときに再実行）
-  $: {
-    console.log('Reactive update - grants.length:', grants?.length, 'budgetItems.length:', budgetItems?.length);
-    monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-    console.log('Updated monthColumns:', monthColumns);
+  // 月列更新処理（デバウンス付き）
+  let monthColumnsTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastMonthColumnsState = {
+    grantsLength: 0,
+    selectedGrantId: 0,
+    budgetItemsIds: ''
+  };
+  
+  function updateMonthColumns() {
+    const currentState = {
+      grantsLength: grants?.length || 0,
+      selectedGrantId: selectedGrant?.id || 0,
+      budgetItemsIds: budgetItems.map(item => item.id).sort().join(',')
+    };
+    
+    // 状態が変わった場合のみ更新
+    const stateChanged = 
+      currentState.grantsLength !== lastMonthColumnsState.grantsLength ||
+      currentState.selectedGrantId !== lastMonthColumnsState.selectedGrantId ||
+      currentState.budgetItemsIds !== lastMonthColumnsState.budgetItemsIds;
+    
+    if (!stateChanged) return;
+    
+    lastMonthColumnsState = currentState;
+    
+    // 既存のタイマーをクリア
+    if (monthColumnsTimeout) {
+      clearTimeout(monthColumnsTimeout);
+    }
+    
+    monthColumnsTimeout = setTimeout(() => {
+      console.log('📅 月列更新:', {
+        grants: grants?.length,
+        selectedGrant: selectedGrant?.name,
+        budgetItems: budgetItems.length
+      });
+      
+      const newMonthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
+      if (JSON.stringify(monthColumns) !== JSON.stringify(newMonthColumns)) {
+        monthColumns = newMonthColumns;
+        console.log('月列が変更されました:', monthColumns.length, '個の月');
+        // テーブル更新を実行
+        handleTableUpdate();
+      }
+      
+      monthColumnsTimeout = null;
+    }, 150);
   }
+  
+  $: updateMonthColumns();
   $: console.log('selectedGrant:', selectedGrant);
 
-  // monthColumnsが更新された時にテーブルを再初期化
-  $: if (monthColumns.length > 0 && budgetItems.length > 0 && tableElement && !loading) {
-    console.log('⚡ monthColumns updated - reinitializing table with', monthColumns.length, 'months, schedulesLoaded:', schedulesLoaded);
-    // テーブルの完全な再初期化が必要な場合
-    setTimeout(() => {
-      initializeTableColumns();
-      prepareTableData();
-      updateTable();
-    }, 100); // DOMの更新を待つ
-  }
-
-  // スケジュールデータが読み込まれた時にテーブルを更新
-  $: if (schedulesLoaded && budgetItems.length > 0 && tableElement && !loading) {
-    console.log('📅 Schedules loaded - updating table data');
-    setTimeout(() => {
-      prepareTableData();
-      if (table) {
-        table.replaceData(tableData);
-      }
-    }, 50);
-  }
+  // monthColumnsとスケジュール更新は統合されたhandleTableUpdate関数で処理
 
   // インポート機能
   function openImportModal() {
@@ -1790,8 +2237,8 @@
               <p class="text-sm text-gray-500 mb-4">上の「追加」ボタンから最初の予算項目を作成してください</p>
             </div>
           {:else}
-            <div class="budget-table-container">
-              <div bind:this={tableElement} class="tabulator-table"></div>
+            <div class="budget-table-container overflow-x-auto">
+              <div bind:this={tableElement} class="tabulator-table min-w-full"></div>
             </div>
           {/if}
         </div>
