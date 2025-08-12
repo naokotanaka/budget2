@@ -15,8 +15,6 @@
   let table;
   let selectedCompany = null;
   let fetchError = null;
-  let filterMode = 'all'; // 'all', 'business', 'admin', 'custom'
-  let customFilter = '';
   let Tabulator = null;
 
   onMount(async () => {
@@ -107,83 +105,7 @@
     }
   }
 
-  // フィルター適用
-  function applyFilter() {
-    if (!previewData || previewData.length === 0) {
-      console.log('フィルター適用スキップ: データがありません');
-      return;
-    }
-    
-    if (!table) {
-      console.log('フィルター適用スキップ: テーブルが初期化されていません');
-      return;
-    }
-    
-    console.log('フィルター適用開始:', filterMode);
-    
-    let filteredData = [...previewData];
-    
-    switch (filterMode) {
-      case 'business':
-        // 【事】で始まる勘定科目のみ
-        filteredData = previewData.filter(deal => {
-          if (deal.details && deal.details[0]) {
-            const accountName = deal.details[0].account_item_name || '';
-            return accountName.startsWith('【事】');
-          }
-          return false;
-        });
-        break;
-      case 'admin':
-        // 【管】で始まる勘定科目のみ
-        filteredData = previewData.filter(deal => {
-          if (deal.details && deal.details[0]) {
-            const accountName = deal.details[0].account_item_name || '';
-            return accountName.startsWith('【管】');
-          }
-          return false;
-        });
-        break;
-      case 'custom':
-        // カスタムフィルター
-        if (customFilter) {
-          filteredData = previewData.filter(deal => {
-            if (deal.details && deal.details[0]) {
-              const accountName = deal.details[0].account_item_name || '';
-              return accountName.includes(customFilter);
-            }
-            return false;
-          });
-        }
-        break;
-      // 'all' の場合はフィルターなし
-    }
-    
-    console.log(`フィルター結果: ${filteredData.length}件 / ${previewData.length}件`);
-    
-    // テーブルデータを更新（既存の選択状態を保持）
-    try {
-      const currentData = table.getData();
-      const selectedIds = new Set(currentData.filter(row => row.selected).map(row => row.id));
-      
-      const tableData = filteredData.map(deal => ({
-        ...deal,
-        selected: selectedIds.has(deal.id) // 既存の選択状態を保持
-      }));
-      
-      table.replaceData(tableData);
-      console.log(`テーブルデータ更新完了: ${tableData.length}件表示 (選択状態${selectedIds.size}件保持)`);
-    } catch (error) {
-      console.error('テーブルデータ更新エラー:', error);
-    }
-    
-    return filteredData;
-  }
 
-  // フィルターモード変更時
-  function handleFilterChange() {
-    applyFilter();
-  }
 
   // Tabulatorテーブル初期化
   function initTable() {
@@ -225,46 +147,30 @@
     // 列定義（横スクロール対応のため幅を調整）
     const columns = [
       {
-        title: "選択",
-        field: "selected",
-        width: 50,
-        minWidth: 50,
-        hozAlign: "center",
-        headerHozAlign: "center",
-        frozen: true, // 固定列
+        title: "明細ID<br><small>detail_id</small>",
+        field: "primary_detail_id",
+        width: 110,
+        minWidth: 90,
+        sorter: "number",
+        frozen: true, // 固定列（重要なので固定）
         formatter: function(cell) {
-          const isChecked = cell.getValue();
-          return `<input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer;">`;
+          const val = cell.getValue();
+          return val ? `<span class="text-blue-600 font-mono text-xs">${val}</span>` : '-';
         },
-        cellClick: function(e, cell) {
-          e.stopPropagation();
-          const currentValue = cell.getValue();
-          const newValue = !currentValue;
-          
-          // セルの値を更新
-          cell.setValue(newValue);
-          
-          // 行データも更新してテーブル全体の整合性を保つ
-          const rowData = cell.getRow().getData();
-          rowData.selected = newValue;
-          
-          console.log(`Row ID ${rowData.id}: ${newValue ? '選択' : '選択解除'}`);
-          
-          // チェックボックスの表示を更新
-          const checkbox = cell.getElement().querySelector('input[type="checkbox"]');
-          if (checkbox) {
-            checkbox.checked = newValue;
-          }
-        },
-        headerSort: false
+        tooltip: "明細の固有ID（不変の行識別子）",
+        headerSort: true
       },
       {
-        title: "取引ID",
+        title: "取引ID<br><small>deal_id</small>",
         field: "id",
-        width: 80,
-        minWidth: 60,
+        width: 100,
+        minWidth: 80,
         sorter: "number",
         frozen: true, // 固定列
+        formatter: function(cell) {
+          const val = cell.getValue();
+          return val ? `<span class="text-gray-600 font-mono text-xs">${val}</span>` : '-';
+        },
         headerSort: true
       },
       {
@@ -530,7 +436,6 @@
 
     const tableData = previewData.map(deal => ({
       ...deal,
-      selected: false,
       // 備考欄の表示用にフィールドを正規化
       account_item_name: deal.details && deal.details.length > 0 ? deal.details[0].account_item_name : '',
       section_name: deal.details && deal.details.length > 0 ? deal.details[0].section_name : '',
@@ -594,8 +499,6 @@
       // テーブルの初期化完了を待つ
       table.on("tableBuilt", function(){
         console.log('✅ Tabulatorテーブルが正常に構築されました');
-        // フィルターを適用
-        applyFilter();
       });
 
       table.on("dataLoadError", function(error){
@@ -611,18 +514,14 @@
     console.log('=== initTable 終了 ===');
   }
 
-  // 選択されたデータを同期
-  async function syncSelectedData() {
-    if (!table) return;
-    
-    const selectedRows = table.getData().filter(row => row.selected);
-    
-    if (selectedRows.length === 0) {
-      alert('同期するデータを選択してください');
+  // すべてのデータを同期
+  async function syncAllData() {
+    if (!table || previewData.length === 0) {
+      alert('同期するデータがありません');
       return;
     }
 
-    if (!confirm(`${selectedRows.length}件のデータを同期しますか？`)) {
+    if (!confirm(`${previewData.length}件のデータをすべて同期しますか？`)) {
       return;
     }
 
@@ -635,7 +534,7 @@
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          deals: selectedRows,
+          deals: previewData,
           companyId: selectedCompany
         })
       });
@@ -660,32 +559,7 @@
     }
   }
 
-  // 全選択/全解除
-  function toggleSelectAll() {
-    if (!table) {
-      console.log('toggleSelectAll: テーブルが初期化されていません');
-      return;
-    }
-    
-    const data = table.getData();
-    if (data.length === 0) {
-      console.log('toggleSelectAll: データが空です');
-      return;
-    }
-    
-    // 現在の選択状態をチェック
-    const allSelected = data.every(row => row.selected === true);
-    const newState = !allSelected;
-    
-    console.log(`toggleSelectAll: ${allSelected ? '全解除' : '全選択'} (${data.length}件)`);
-    
-    // テーブル内の各行の選択状態を更新
-    data.forEach(row => {
-      table.updateRow(row.id, { selected: newState });
-    });
-    
-    console.log(`toggleSelectAll完了: 新しい状態=${newState}`);
-  }
+
 
   function goToSync() {
     goto('/budget2/freee/sync/');
@@ -801,55 +675,13 @@
       <!-- データプレビュー -->
       {#if previewData.length > 0}
         <div class="bg-white rounded-lg shadow p-6 mb-8">
-          <!-- フィルター設定 -->
-          <div class="border-b pb-4 mb-4">
-            <h3 class="text-lg font-medium text-gray-900 mb-3">フィルター設定</h3>
-            <div class="flex flex-wrap gap-4 items-end">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                  勘定科目フィルター
-                </label>
-                <select 
-                  bind:value={filterMode}
-                  on:change={handleFilterChange}
-                  class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">すべて表示</option>
-                  <option value="business">【事】事業費のみ</option>
-                  <option value="admin">【管】管理費のみ</option>
-                  <option value="custom">カスタムフィルター</option>
-                </select>
-              </div>
-              
-              {#if filterMode === 'custom'}
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">
-                    検索文字列
-                  </label>
-                  <input
-                    type="text"
-                    bind:value={customFilter}
-                    on:input={handleFilterChange}
-                    placeholder="例: 消耗品"
-                    class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              {/if}
-              
-              <div class="text-sm text-gray-600">
-                {#if table}
-                  表示中: {table.getData().length}件 / 全{previewData.length}件
-                {/if}
-              </div>
-            </div>
-          </div>
-
           <div class="flex justify-between items-center mb-4">
             <div>
               <h2 class="text-xl font-semibold text-gray-900">
-                取得データ
+                取得データ（支出・【事】【管】のみ）
               </h2>
               <p class="text-sm text-gray-600 mt-1">
+                支出取引で勘定科目が【事】【管】で始まるもののみ表示しています。<br>
                 <span class="text-blue-600 font-medium">管理番号</span>・
                 <span class="text-purple-600 font-medium">明細備考</span>・
                 <span class="text-orange-600 font-medium">メモタグ</span>
@@ -858,17 +690,11 @@
             </div>
             <div class="space-x-2">
               <button
-                on:click={toggleSelectAll}
-                class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                全選択/解除
-              </button>
-              <button
-                on:click={syncSelectedData}
+                on:click={syncAllData}
                 disabled={isLoading}
                 class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
               >
-                選択したデータを同期
+                すべて同期
               </button>
             </div>
           </div>

@@ -1,6 +1,3 @@
-// Prisma Schema for nagaiku-budget-v2
-// データベース: PostgreSQL (開発・本番切り替え対応)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,168 +7,126 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========== 取引管理 ==========
-
 model Transaction {
-  id                   String            @id
-  journalNumber        BigInt
-  journalLineNumber    Int
-  date                 DateTime
-  description          String?
-  amount               Int               // 金額（円単位）
-  account              String?           // 勘定科目
-  supplier             String?           // 取引先
-  item                 String?           // 取引項目
-  memo                 String?           // メモ
-  remark               String?           // 備考
-  department           String?           // 部門
-  managementNumber     String?           // 管理番号
-  freeDealId           BigInt?   @unique // freee取引ID
-  tags                 String?           // メモタグ
-  detailDescription    String?           // 明細備考（remarkから分離）  
-  detailId             BigInt?           // 明細ID（行番号）
-  receiptIds           String?           // レシートID配列（JSON）
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-
-  // リレーション
-  allocations          AllocationSplit[]
+  id                String            @id
+  journalNumber     BigInt
+  journalLineNumber Int
+  date              DateTime
+  description       String?
+  amount            Int
+  account           String?
+  supplier          String?
+  item              String?
+  memo              String?
+  remark            String?
+  department        String?
+  managementNumber  String?
+  freeDealId        BigInt?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  detailDescription String?
+  detailId          BigInt            @unique
+  receiptIds        String?
+  tags              String?
+  allocations       AllocationSplit[]
 
   @@map("transactions")
 }
 
-// ========== 助成金管理 ==========
-
 model Grant {
-  id           Int         @id @default(autoincrement())
-  name         String      // 助成金名
-  grantCode    String?     // 助成金コード
-  totalAmount  Int?        // 総額（円）
-  startDate    DateTime?   // 開始日
-  endDate      DateTime?   // 終了日
-  status       String      @default("active") // active, completed, applied
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  // リレーション
-  budgetItems  BudgetItem[]
+  id          Int          @id @default(autoincrement())
+  name        String
+  grantCode   String?
+  totalAmount Int?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String       @default("active")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  budgetItems BudgetItem[]
 
   @@map("grants")
 }
 
-// ========== 予算項目管理 ==========
-
 model BudgetItem {
-  id              Int               @id @default(autoincrement())
-  name            String            // 予算項目名
-  category        String?           // カテゴリ
-  budgetedAmount  Int?              // 予算額（円）
-  note            String?           // 🆕 備考フィールド
-  sortOrder       Int               @default(0) // 🆕 並び順
-  grantId         Int               // 助成金ID
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  // リレーション
-  grant           Grant             @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  allocations     AllocationSplit[]
-  schedules       BudgetSchedule[]  // 🆕 月別スケジュール
+  id             Int               @id @default(autoincrement())
+  name           String
+  category       String?
+  budgetedAmount Int?
+  note           String?
+  grantId        Int
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  sortOrder      Int               @default(0)
+  allocations    AllocationSplit[]
+  grant          Grant             @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  schedules      BudgetSchedule[]
 
   @@map("budget_items")
 }
 
-// ========== 🆕 予算項目月別スケジュール ==========
-
 model BudgetSchedule {
   id           Int        @id @default(autoincrement())
-  budgetItemId Int        // 予算項目ID
-  year         Int        // 年
-  month        Int        // 月 (1-12)
-  isActive     Boolean    @default(true)  // その月が有効か
+  budgetItemId Int
+  year         Int
+  month        Int
+  isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-
-  // リレーション
   budgetItem   BudgetItem @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
 
   @@unique([budgetItemId, year, month])
   @@map("budget_schedules")
 }
 
-// ========== 🆕 分割割当（1対多対応） ==========
-
 model AllocationSplit {
-  id             String      @id @default(cuid())
-  transactionId  String      // 取引ID
-  budgetItemId   Int         // 予算項目ID
-  amount         Int         // 分割金額（手動入力）
-  note           String?     // 分割理由・備考
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  // リレーション
-  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  budgetItem     BudgetItem  @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  budgetItemId Int
+  amount       Int
+  note         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  detailId     BigInt?
+  budgetItem   BudgetItem   @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
+  transaction  Transaction? @relation(fields: [detailId], references: [detailId], onDelete: Cascade)
 
   @@map("allocation_splits")
 }
 
-// ========== freee API連携 ==========
-
 model FreeeToken {
-  id           Int       @id @default(autoincrement())
-  accessToken  String    @db.Text      // アクセストークン（暗号化推奨）
-  refreshToken String    @db.Text      // リフレッシュトークン
-  expiresAt    DateTime                // 有効期限
-  tokenType    String    @default("Bearer")  // トークンタイプ
-  scope        String?                 // 認可スコープ
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id           Int      @id @default(autoincrement())
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  tokenType    String   @default("Bearer")
+  scope        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("freee_tokens")
 }
 
-// ========== データ同期管理 ==========
-
 model FreeeSync {
-  id           Int       @id @default(autoincrement())
-  lastSyncAt   DateTime                // 最終同期日時
-  syncStatus   String    @default("idle") // idle, running, success, error
-  syncMessage  String?                 // 同期メッセージ・エラー内容
-  recordCount  Int       @default(0)   // 同期レコード数
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          Int      @id @default(autoincrement())
+  lastSyncAt  DateTime
+  syncStatus  String   @default("idle")
+  syncMessage String?
+  recordCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("freee_syncs")
 }
 
-// ========== システム設定・カテゴリ ==========
-
 model Category {
   id        Int      @id @default(autoincrement())
-  name      String   @unique  // カテゴリ名
-  type      String             // transaction, budget_item, grant
-  color     String?            // 表示色
-  sortOrder Int      @default(0)  // 表示順序
-  isActive  Boolean  @default(true)  // 有効・無効
+  name      String   @unique
+  type      String
+  color     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("categories")
 }
-
-// ========== インデックス設定 ==========
-
-// 検索・ソート用インデックス
-// Transaction
-// - 日付での検索・ソート
-// - 勘定科目での検索
-// - freee取引IDでの検索
-
-// AllocationSplit  
-// - 取引IDでの検索（1対多参照）
-// - 予算項目IDでの検索
-
-// BudgetSchedule
-// - 年月での検索
-// - 予算項目IDでの検索

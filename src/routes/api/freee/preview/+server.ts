@@ -235,8 +235,13 @@ export const POST: RequestHandler = async ({ request }) => {
         offset
       );
 
+      // 支出取引のみフィルタリング（収入を除外）
+      const expenseDeals = deals.filter((deal: any) => {
+        return deal.type === 'expense' || deal.amount < 0;
+      });
+
       // マスタデータから名前を補完 & Wallet Txnsとマッチング
-      const enrichedDeals = deals.map((deal: any) => {
+      const enrichedDeals = expenseDeals.map((deal: any) => {
         // 取引先名を補完（partner_idがnullでない場合のみ）
         if (deal.partner_id !== null && deal.partner_id !== undefined) {
           const resolvedPartnerName = partnerMap.get(deal.partner_id);
@@ -325,8 +330,28 @@ export const POST: RequestHandler = async ({ request }) => {
         return deal;
       });
 
-      allDeals = allDeals.concat(enrichedDeals);
-      console.log(`このページで取得: ${deals.length}件, 累計: ${allDeals.length}件`);
+      // 【事】【管】勘定科目のみフィルタリング
+      const filteredDeals = enrichedDeals.filter((deal: any) => {
+        if (deal.details && deal.details.length > 0) {
+          const accountName = deal.details[0].account_item_name || '';
+          return accountName.startsWith('【事】') || accountName.startsWith('【管】');
+        }
+        return false;
+      });
+      
+      // 各取引に明細ベースの行番号情報を追加
+      const dealsWithDetailInfo = filteredDeals.map((deal: any) => ({
+        ...deal,
+        // 最初の明細のIDを行識別子として使用（現行システムとの互換性のため）
+        primary_detail_id: deal.details?.[0]?.id || null,
+        // 明細が複数ある場合の情報
+        detail_count: deal.details?.length || 0,
+        // 明細インデックス（0始まり）
+        detail_index: 0  // 最初の明細を使用
+      }));
+
+      allDeals = allDeals.concat(dealsWithDetailInfo);
+      console.log(`このページで取得: ${deals.length}件 → 支出のみ: ${expenseDeals.length}件 → 【事】【管】のみ: ${filteredDeals.length}件, 累計: ${allDeals.length}件`);
       
       // 取得件数がlimit未満の場合、これ以上データがないと判断
       if (deals.length < limit) {
@@ -341,10 +366,25 @@ export const POST: RequestHandler = async ({ request }) => {
 
     console.log(`=== 最終取得件数: ${allDeals.length}件 ===`);
 
+    // 元の順序を保持するためのインデックスを追加
+    // 発生日昇順→取引ID昇順でソート済みのデータに連番を付与
+    const dealsWithIndex = allDeals.map((deal, index) => ({
+      ...deal,
+      original_index: index + 1  // 1から始まる行番号
+    }));
+    
+    // 最初の5件の行番号割り当てをログ出力（確認用）
+    if (dealsWithIndex.length > 0) {
+      console.log('=== 行番号割り当て確認（最初の5件） ===');
+      dealsWithIndex.slice(0, 5).forEach(deal => {
+        console.log(`行番号 ${deal.original_index}: 取引ID ${deal.id}, 明細ID ${deal.primary_detail_id}, 発生日 ${deal.issue_date}, 金額 ${deal.amount}`);
+      });
+    }
+
     return json({
       success: true,
-      deals: allDeals,
-      totalCount: allDeals.length
+      deals: dealsWithIndex,
+      totalCount: dealsWithIndex.length
     });
 
   } catch (error) {

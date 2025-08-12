@@ -2,137 +2,129 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { FreeeAPIClient } from '$lib/freee/client';
 import { prisma } from '$lib/database';
-
-const FREEE_CLIENT_ID = process.env.FREEE_CLIENT_ID || '';
-const FREEE_CLIENT_SECRET = process.env.FREEE_CLIENT_SECRET || '';
-const FREEE_REDIRECT_URI = process.env.FREEE_REDIRECT_URI || 'https://nagaiku.top/budget2/auth/freee/callback';
-const FREEE_BASE_URL = process.env.FREEE_BASE_URL || 'https://api.freee.co.jp';
-
-function getFreeeConfig() {
-  return {
-    clientId: FREEE_CLIENT_ID,
-    clientSecret: FREEE_CLIENT_SECRET,
-    redirectUri: FREEE_REDIRECT_URI,
-    baseUrl: FREEE_BASE_URL
-  };
-}
+import { 
+  FREEE_CLIENT_ID, 
+  FREEE_CLIENT_SECRET, 
+  FREEE_REDIRECT_URI, 
+  FREEE_BASE_URL 
+} from '$env/static/private';
 
 export const GET: RequestHandler = async () => {
   try {
-    console.log('=== freee Deals API Test ===');
+    console.log('=== freee Deals Raw Data Test ===');
     
     const tokenRecord = await prisma.freeeToken.findFirst({
-      orderBy: { updatedAt: 'desc' }
+      where: { id: 1 }
     });
     
     if (!tokenRecord || new Date() >= tokenRecord.expiresAt) {
       return json({ 
         success: false, 
-        error: 'Invalid or expired token',
-        count: 0
+        error: 'Invalid or expired token'
       }, { status: 401 });
     }
     
-    const client = new FreeeAPIClient(getFreeeConfig());
+    const client = new FreeeAPIClient({
+      clientId: FREEE_CLIENT_ID,
+      clientSecret: FREEE_CLIENT_SECRET,
+      redirectUri: FREEE_REDIRECT_URI,
+      baseUrl: FREEE_BASE_URL
+    });
     
     // 会社IDを取得
     const companies = await client.getCompanies(tokenRecord.accessToken);
     if (companies.length === 0) {
       return json({
         success: false,
-        error: 'No companies found',
-        count: 0
+        error: 'No companies found'
       }, { status: 404 });
     }
     
     const companyId = companies[0].id;
-    console.log('Using company ID:', companyId);
     
-    // 直近30日の取引データを取得
-    const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    console.log('API呼び出しパラメータ:', {
-      companyId,
-      startDate,
-      endDate,
-      tokenLength: tokenRecord.accessToken.length,
-      tokenScope: tokenRecord.scope
+    // 明細が複数ある取引を探して取得
+    const params = new URLSearchParams({
+      company_id: companyId.toString(),
+      limit: '10',  // 複数明細の取引を見つけるため10件取得
+      accruals: 'with',
+      sort: 'issue_date:desc,id:desc'
     });
     
-    console.log('freee API URL:', `${FREEE_BASE_URL}/api/1/deals?company_id=${companyId}&limit=10&type=all&start_issue_date=${startDate}&end_issue_date=${endDate}`);
+    console.log('Fetching raw deal data...');
+    const response = await fetch(`${FREEE_BASE_URL}/api/1/deals?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${tokenRecord.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
     
-    const deals = await client.getDeals(
-      tokenRecord.accessToken,
-      companyId,
-      startDate,
-      endDate,
-      10 // テスト用に10件まで
-    );
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
     
-    console.log('Deals retrieved:', deals.length);
-    if (deals.length > 0) {
-      console.log('Sample deal:', JSON.stringify(deals[0], null, 2));
+    const data = await response.json();
+    console.log('Raw API response:', JSON.stringify(data, null, 2));
+    
+    // 明細が複数ある取引を探す
+    if (data.deals && data.deals.length > 0) {
+      // 複数明細の取引を探す
+      let multiDetailDeal = null;
+      for (const deal of data.deals) {
+        if (deal.details && deal.details.length > 1) {
+          multiDetailDeal = deal;
+          break;
+        }
+      }
+      
+      const sampleDeal = multiDetailDeal || data.deals[0];
+      
+      // 明細の順序と番号を確認
+      console.log('=== Deal Details Analysis ===');
+      console.log(`Deal ID: ${sampleDeal.id}`);
+      console.log(`Details count: ${sampleDeal.details?.length || 0}`);
+      
+      if (sampleDeal.details) {
+        sampleDeal.details.forEach((detail: any, index: number) => {
+          console.log(`Detail ${index}:`, {
+            array_index: index,
+            detail_id: detail.id,
+            account_item_id: detail.account_item_id,
+            amount: detail.amount,
+            entry_side: detail.entry_side,
+            // すべてのフィールドを確認
+            all_fields: Object.keys(detail).sort()
+          });
+        });
+      }
+      
+      return json({
+        success: true,
+        message: 'Check console for details analysis',
+        deal_id: sampleDeal.id,
+        details_count: sampleDeal.details?.length || 0,
+        // 明細の順序情報
+        details_order: sampleDeal.details?.map((d: any, i: number) => ({
+          array_index: i,
+          detail_id: d.id,
+          account_item_id: d.account_item_id,
+          amount: d.amount,
+          entry_side: d.entry_side
+        })) || [],
+        // 最初の明細の全フィールド
+        first_detail_fields: sampleDeal.details?.[0] ? Object.keys(sampleDeal.details[0]).sort() : []
+      });
     }
     
     return json({
-      success: true,
-      count: deals.length,
-      sample: deals.length > 0 ? {
-        id: deals[0].id,
-        partner_name: deals[0].partner_name,
-        description: deals[0].description,
-        amount: deals[0].amount,
-        details_count: deals[0].details?.length || 0
-      } : null,
-      // freeeからの完全なデータ構造を確認用に追加
-      rawData: deals.length > 0 ? deals[0] : null,
-      // 全データの構造確認
-      allFields: deals.length > 0 ? Object.keys(deals[0]) : [],
-      // detailsの中身も確認
-      detailsSample: deals.length > 0 && deals[0].details?.length > 0 ? deals[0].details[0] : null
+      success: false,
+      error: 'No deals found'
     });
     
   } catch (error) {
-    console.error('=== Deals API Test Error ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    
-    // より詳細なエラー情報を返す
-    let errorMessage = error.message;
-    let errorDetails = null;
-    
-    if (error.message?.includes('401')) {
-      errorMessage = '認証エラー - トークンが無効または権限不足';
-    } else if (error.message?.includes('403')) {
-      errorMessage = 'アクセス権限エラー - スコープ不足の可能性';
-    } else if (error.message?.includes('404')) {
-      errorMessage = 'APIエンドポイントが見つかりません';
-    } else if (error.message?.includes('Get deals failed')) {
-      errorMessage = 'freee Deals API呼び出し失敗';
-      errorDetails = {
-        suggestion: 'freee開発者コンソールでAPIアクセス権限を確認してください',
-        requiredScope: 'deals:read'
-      };
-    }
-    
-    const errorResponse = {
+    console.error('Test error:', error);
+    return json({
       success: false,
-      error: errorMessage,
-      originalError: error.message,
-      errorDetails,
-      count: 0,
-      timestamp: new Date().toISOString(),
-      debug: {
-        stack: error.stack,
-        type: error.constructor.name
-      }
-    };
-    
-    console.log('=== Returning Error Response ===');
-    console.log(JSON.stringify(errorResponse, null, 2));
-    
-    return json(errorResponse, { status: 500 });
+      error: error.message
+    }, { status: 500 });
   }
 };

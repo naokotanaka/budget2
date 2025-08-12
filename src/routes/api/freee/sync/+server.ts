@@ -188,6 +188,7 @@ export const POST: RequestHandler = async ({ request }) => {
     let errorCount = 0;
     let newCount = 0;
     let updateCount = 0;
+    let skipCount = 0;
     const errors: string[] = [];
 
     // 取引データをデータベースに保存
@@ -212,9 +213,21 @@ export const POST: RequestHandler = async ({ request }) => {
           }))
         });
 
-        // 既存の取引をチェック（freeDealIdで検索）
-        const existingTransaction = await prisma.transaction.findFirst({
-          where: { freeDealId: BigInt(deal.id) }
+        // 明細IDを取得（最初の明細のIDを使用）
+        const detailId = deal.details && deal.details.length > 0 
+          ? deal.details[0].id 
+          : null;
+        
+        // detailIdがない取引はスキップ（新しいスキーマでは必須）
+        if (!detailId) {
+          console.warn(`⚠️ 明細IDがない取引をスキップ: Deal ID ${deal.id}`);
+          skipCount++;
+          continue;
+        }
+
+        // 既存の取引をチェック（detailIdで検索）
+        const existingTransaction = await prisma.transaction.findUnique({
+          where: { detailId: BigInt(detailId) }
         });
 
         // 備考とメモタグを分離
@@ -223,11 +236,6 @@ export const POST: RequestHandler = async ({ request }) => {
         // レシートIDをJSON文字列として保存
         const receiptIdsJson = deal.receipt_ids && deal.receipt_ids.length > 0 
           ? JSON.stringify(deal.receipt_ids) 
-          : null;
-
-        // 明細IDを取得（最初の明細のIDを使用）
-        const detailId = deal.details && deal.details.length > 0 
-          ? deal.details[0].id 
           : null;
 
         // 勘定科目名を取得（マスタから取得）
@@ -284,7 +292,7 @@ export const POST: RequestHandler = async ({ request }) => {
           freeDealId: BigInt(deal.id),
           tags: tags,
           detailDescription: detailDescription,
-          detailId: detailId ? BigInt(detailId) : null,
+          detailId: BigInt(detailId),
           receiptIds: receiptIdsJson
         };
 
@@ -300,14 +308,14 @@ export const POST: RequestHandler = async ({ request }) => {
           console.log(`Updated transaction: ${existingTransaction.id} (freeDealId: ${deal.id})`);
           updateCount++;
         } else {
-          // 新しい取引を作成
+          // 新しい取引を作成（IDはdetailIdを文字列化）
           await prisma.transaction.create({
             data: {
-              id: `freee_${deal.id}`,
+              id: `detail_${detailId}`,
               ...transactionData
             }
           });
-          console.log(`Created new transaction: freee_${deal.id} (freeDealId: ${deal.id})`);
+          console.log(`Created new transaction: detail_${detailId} (freeDealId: ${deal.id})`);
           newCount++;
         }
 
@@ -334,10 +342,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json({
       success: true,
-      message: `${newCount}件新規作成, ${updateCount}件更新しました`,
+      message: `${newCount}件新規作成, ${updateCount}件更新, ${skipCount}件スキップしました`,
       syncedCount,
       newCount,
       updateCount,
+      skipCount,
       errorCount,
       errors: errors.slice(0, 10) // 最初の10件のエラーのみ返す
     });

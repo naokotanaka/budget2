@@ -212,6 +212,11 @@ export class FreeeAPIClient {
     // 詳細データを取得するためのパラメータ
     // accruals: 'with' で勘定科目名を含む詳細情報を取得
     params.append('accruals', 'with');
+    
+    // 明示的に発生日の昇順でソート（確実性のため）
+    // これにより常に同じ順序で取得される
+    // 発生日が同じ場合は取引IDでソート（完全に固定）
+    params.append('sort', 'issue_date:asc,id:asc');
 
     if (startDate) {
       params.append('start_issue_date', startDate);

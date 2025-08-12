@@ -1,0 +1,3538 @@
+[
+  {
+    "detailId": "7772542813",
+    "budgetItemId": 14,
+    "amount": 501,
+    "note": "V1から移行 (元ID: 1422, 元取引: 5070202_1)",
+    "freeDealId": "2861187034",
+    "transactionData": {
+      "journalNumber": "2861187034",
+      "journalLineNumber": 1,
+      "date": "2025-07-02T00:00:00.000Z",
+      "description": "",
+      "amount": 501,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7772318196",
+    "budgetItemId": 17,
+    "amount": 16500,
+    "note": "V1から移行 (元ID: 1423, 元取引: 5070102_1)",
+    "freeDealId": "2861111071",
+    "transactionData": {
+      "journalNumber": "2861111071",
+      "journalLineNumber": 1,
+      "date": "2025-07-01T00:00:00.000Z",
+      "description": "",
+      "amount": 16500,
+      "account": "【事】通信運搬費",
+      "supplier": "LINE株式会社"
+    }
+  },
+  {
+    "detailId": "7759001053",
+    "budgetItemId": 14,
+    "amount": 2818,
+    "note": "V1から移行 (元ID: 1424, 元取引: 5062901_1)",
+    "freeDealId": "2856715168",
+    "transactionData": {
+      "journalNumber": "2856715168",
+      "journalLineNumber": 1,
+      "date": "2025-06-29T00:00:00.000Z",
+      "description": "",
+      "amount": 2818,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7759005911",
+    "budgetItemId": 14,
+    "amount": 6116,
+    "note": "V1から移行 (元ID: 1428, 元取引: 5062712_1)",
+    "freeDealId": "2856716504",
+    "transactionData": {
+      "journalNumber": "2856716504",
+      "journalLineNumber": 1,
+      "date": "2025-06-27T00:00:00.000Z",
+      "description": "",
+      "amount": 6116,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7760119585",
+    "budgetItemId": 14,
+    "amount": 20527,
+    "note": "V1から移行 (元ID: 1429, 元取引: 5062717_1)",
+    "freeDealId": "2857024125",
+    "transactionData": {
+      "journalNumber": "2857024125",
+      "journalLineNumber": 1,
+      "date": "2025-06-27T00:00:00.000Z",
+      "description": "",
+      "amount": 20527,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7759589161",
+    "budgetItemId": 14,
+    "amount": 11166,
+    "note": "V1から移行 (元ID: 1430, 元取引: 5062716_1)",
+    "freeDealId": "2856880196",
+    "transactionData": {
+      "journalNumber": "2856880196",
+      "journalLineNumber": 1,
+      "date": "2025-06-27T00:00:00.000Z",
+      "description": "",
+      "amount": 11166,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7759521667",
+    "budgetItemId": 14,
+    "amount": 283,
+    "note": "V1から移行 (元ID: 1431, 元取引: 5062714_1)",
+    "freeDealId": "2856864957",
+    "transactionData": {
+      "journalNumber": "2856864957",
+      "journalLineNumber": 1,
+      "date": "2025-06-27T00:00:00.000Z",
+      "description": "生理用品",
+      "amount": 283,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7747887072",
+    "budgetItemId": 14,
+    "amount": 7753,
+    "note": "V1から移行 (元ID: 1432, 元取引: 5062701_1)",
+    "freeDealId": "2852988326",
+    "transactionData": {
+      "journalNumber": "2852988326",
+      "journalLineNumber": 1,
+      "date": "2025-06-27T00:00:00.000Z",
+      "description": "",
+      "amount": 7753,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7772132771",
+    "budgetItemId": 17,
+    "amount": 10780,
+    "note": "V1から移行 (元ID: 1433, 元取引: 5062609_1)",
+    "freeDealId": "2861046552",
+    "transactionData": {
+      "journalNumber": "2861046552",
+      "journalLineNumber": 1,
+      "date": "2025-06-26T00:00:00.000Z",
+      "description": "",
+      "amount": 10780,
+      "account": "【事】通信運搬費",
+      "supplier": "株式会社ミショナ"
+    }
+  },
+  {
+    "detailId": "7760216630",
+    "budgetItemId": 17,
+    "amount": 7539,
+    "note": "V1から移行 (元ID: 1434, 元取引: 5062608_1)",
+    "freeDealId": "2857053791",
+    "transactionData": {
+      "journalNumber": "2857053791",
+      "journalLineNumber": 1,
+      "date": "2025-06-26T00:00:00.000Z",
+      "description": "",
+      "amount": 7539,
+      "account": "【事】通信運搬費",
+      "supplier": "ビッグローブ株式会社"
+    }
+  },
+  {
+    "detailId": "7760124604",
+    "budgetItemId": 14,
+    "amount": 6497,
+    "note": "V1から移行 (元ID: 1436, 元取引: 5062408_1)",
+    "freeDealId": "2857025655",
+    "transactionData": {
+      "journalNumber": "2857025655",
+      "journalLineNumber": 1,
+      "date": "2025-06-24T00:00:00.000Z",
+      "description": "",
+      "amount": 6497,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7772105322",
+    "budgetItemId": 14,
+    "amount": 1628,
+    "note": "V1から移行 (元ID: 1437, 元取引: 5062410_1)",
+    "freeDealId": "2861037130",
+    "transactionData": {
+      "journalNumber": "2861037130",
+      "journalLineNumber": 1,
+      "date": "2025-06-24T00:00:00.000Z",
+      "description": "おむつ用ゴミ箱",
+      "amount": 1628,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7759650899",
+    "budgetItemId": 14,
+    "amount": 1404,
+    "note": "V1から移行 (元ID: 1438, 元取引: 5062405_1)",
+    "freeDealId": "2856893069",
+    "transactionData": {
+      "journalNumber": "2856893069",
+      "journalLineNumber": 1,
+      "date": "2025-06-24T00:00:00.000Z",
+      "description": "",
+      "amount": 1404,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7747878089",
+    "budgetItemId": 14,
+    "amount": 355,
+    "note": "V1から移行 (元ID: 1439, 元取引: 5062315_1)",
+    "freeDealId": "2852985520",
+    "transactionData": {
+      "journalNumber": "2852985520",
+      "journalLineNumber": 1,
+      "date": "2025-06-23T00:00:00.000Z",
+      "description": "",
+      "amount": 355,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7772071659",
+    "budgetItemId": 14,
+    "amount": 5900,
+    "note": "V1から移行 (元ID: 1440, 元取引: 5062316_1)",
+    "freeDealId": "2861024363",
+    "transactionData": {
+      "journalNumber": "2861024363",
+      "journalLineNumber": 1,
+      "date": "2025-06-23T00:00:00.000Z",
+      "description": "ペットボトルお茶",
+      "amount": 5900,
+      "account": "【事】食材費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7727813245",
+    "budgetItemId": 14,
+    "amount": 10343,
+    "note": "V1から移行 (元ID: 1441, 元取引: 5062201_1)",
+    "freeDealId": "2845923740",
+    "transactionData": {
+      "journalNumber": "2845923740",
+      "journalLineNumber": 1,
+      "date": "2025-06-22T00:00:00.000Z",
+      "description": "",
+      "amount": 10343,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7747874646",
+    "budgetItemId": 14,
+    "amount": 213,
+    "note": "V1から移行 (元ID: 1442, 元取引: 5062105_1)",
+    "freeDealId": "2852984575",
+    "transactionData": {
+      "journalNumber": "2852984575",
+      "journalLineNumber": 1,
+      "date": "2025-06-21T00:00:00.000Z",
+      "description": "",
+      "amount": 213,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7727523727",
+    "budgetItemId": 14,
+    "amount": 1300,
+    "note": "V1から移行 (元ID: 1444, 元取引: 5062007_1)",
+    "freeDealId": "2845821993",
+    "transactionData": {
+      "journalNumber": "2845821993",
+      "journalLineNumber": 1,
+      "date": "2025-06-20T00:00:00.000Z",
+      "description": "",
+      "amount": 1300,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7727823503",
+    "budgetItemId": 23,
+    "amount": 14001,
+    "note": "V1から移行 (元ID: 1445, 元取引: 5062016_1)",
+    "freeDealId": "2845927493",
+    "transactionData": {
+      "journalNumber": "2845927493",
+      "journalLineNumber": 1,
+      "date": "2025-06-20T00:00:00.000Z",
+      "description": "",
+      "amount": 14001,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7727576607",
+    "budgetItemId": 20,
+    "amount": 26972,
+    "note": "V1から移行 (元ID: 1446, 元取引: 5062008_1)",
+    "freeDealId": "2845842381",
+    "transactionData": {
+      "journalNumber": "2845842381",
+      "journalLineNumber": 1,
+      "date": "2025-06-20T00:00:00.000Z",
+      "description": "パック",
+      "amount": 26972,
+      "account": "【事】消耗品費",
+      "supplier": "株式会社　クレンリー"
+    }
+  },
+  {
+    "detailId": "7727466646",
+    "budgetItemId": 13,
+    "amount": 5000,
+    "note": "V1から移行 (元ID: 1447, 元取引: 5062003_1)",
+    "freeDealId": "2845800848",
+    "transactionData": {
+      "journalNumber": "2845800848",
+      "journalLineNumber": 1,
+      "date": "2025-06-20T00:00:00.000Z",
+      "description": "預り金あり",
+      "amount": 5000,
+      "account": "【事】謝金",
+      "supplier": "鈴木知佳"
+    }
+  },
+  {
+    "detailId": "7718461080",
+    "budgetItemId": 14,
+    "amount": 7377,
+    "note": "V1から移行 (元ID: 1448, 元取引: 5062001_1)",
+    "freeDealId": "2842478098",
+    "transactionData": {
+      "journalNumber": "2842478098",
+      "journalLineNumber": 1,
+      "date": "2025-06-20T00:00:00.000Z",
+      "description": "",
+      "amount": 7377,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7727718118",
+    "budgetItemId": 14,
+    "amount": 8494,
+    "note": "V1から移行 (元ID: 1449, 元取引: 5061903_1)",
+    "freeDealId": "2845889860",
+    "transactionData": {
+      "journalNumber": "2845889860",
+      "journalLineNumber": 1,
+      "date": "2025-06-19T00:00:00.000Z",
+      "description": "誕生日飾りつけ、ハンドラベラー、レジャーシート",
+      "amount": 8494,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7718454627",
+    "budgetItemId": 14,
+    "amount": 8009,
+    "note": "V1から移行 (元ID: 1450, 元取引: 5061803_1)",
+    "freeDealId": "2842475662",
+    "transactionData": {
+      "journalNumber": "2842475662",
+      "journalLineNumber": 1,
+      "date": "2025-06-18T00:00:00.000Z",
+      "description": "",
+      "amount": 8009,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7718560449",
+    "budgetItemId": 14,
+    "amount": 493,
+    "note": "V1から移行 (元ID: 1452, 元取引: 5061809_1)",
+    "freeDealId": "2842510569",
+    "transactionData": {
+      "journalNumber": "2842510569",
+      "journalLineNumber": 1,
+      "date": "2025-06-18T00:00:00.000Z",
+      "description": "カバーテープ",
+      "amount": 493,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7718471721",
+    "budgetItemId": 14,
+    "amount": 5406,
+    "note": "V1から移行 (元ID: 1453, 元取引: 5061805_1)",
+    "freeDealId": "2842482184",
+    "transactionData": {
+      "journalNumber": "2842482184",
+      "journalLineNumber": 1,
+      "date": "2025-06-18T00:00:00.000Z",
+      "description": "",
+      "amount": 5406,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7718466245",
+    "budgetItemId": 23,
+    "amount": 4914,
+    "note": "V1から移行 (元ID: 1454, 元取引: 5061804_1)",
+    "freeDealId": "2842480151",
+    "transactionData": {
+      "journalNumber": "2842480151",
+      "journalLineNumber": 1,
+      "date": "2025-06-18T00:00:00.000Z",
+      "description": "",
+      "amount": 4914,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7704730793",
+    "budgetItemId": 20,
+    "amount": 238,
+    "note": "V1から移行 (元ID: 1455, 元取引: 5061702_1)",
+    "freeDealId": "2837522707",
+    "transactionData": {
+      "journalNumber": "2837522707",
+      "journalLineNumber": 1,
+      "date": "2025-06-17T00:00:00.000Z",
+      "description": "S字フック",
+      "amount": 238,
+      "account": "【事】消耗品費",
+      "supplier": "ロイヤルホームセンター"
+    }
+  },
+  {
+    "detailId": "7704811965",
+    "budgetItemId": 14,
+    "amount": 2129,
+    "note": "V1から移行 (元ID: 1456, 元取引: 5061704_1)",
+    "freeDealId": "2837550231",
+    "transactionData": {
+      "journalNumber": "2837550231",
+      "journalLineNumber": 1,
+      "date": "2025-06-17T00:00:00.000Z",
+      "description": "",
+      "amount": 2129,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7704804763",
+    "budgetItemId": 14,
+    "amount": 2012,
+    "note": "V1から移行 (元ID: 1457, 元取引: 5061703_1)",
+    "freeDealId": "2837548250",
+    "transactionData": {
+      "journalNumber": "2837548250",
+      "journalLineNumber": 1,
+      "date": "2025-06-17T00:00:00.000Z",
+      "description": "",
+      "amount": 2012,
+      "account": "【事】食材費",
+      "supplier": "アピタ"
+    }
+  },
+  {
+    "detailId": "7704214422",
+    "budgetItemId": 14,
+    "amount": 246,
+    "note": "V1から移行 (元ID: 1458, 元取引: 5061701_1)",
+    "freeDealId": "2837338006",
+    "transactionData": {
+      "journalNumber": "2837338006",
+      "journalLineNumber": 1,
+      "date": "2025-06-17T00:00:00.000Z",
+      "description": "",
+      "amount": 246,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7704233087",
+    "budgetItemId": 14,
+    "amount": 1810,
+    "note": "V1から移行 (元ID: 1459, 元取引: 5061613_1)",
+    "freeDealId": "2837345121",
+    "transactionData": {
+      "journalNumber": "2837345121",
+      "journalLineNumber": 1,
+      "date": "2025-06-16T00:00:00.000Z",
+      "description": "",
+      "amount": 1810,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7704560152",
+    "budgetItemId": 20,
+    "amount": 539,
+    "note": "V1から移行 (元ID: 1460, 元取引: 5061615_1)",
+    "freeDealId": "2837462471",
+    "transactionData": {
+      "journalNumber": "2837462471",
+      "journalLineNumber": 1,
+      "date": "2025-06-16T00:00:00.000Z",
+      "description": "食器用スポンジ",
+      "amount": 539,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7704239829",
+    "budgetItemId": 20,
+    "amount": 1690,
+    "note": "V1から移行 (元ID: 1461, 元取引: 5061614_1)",
+    "freeDealId": "2837347740",
+    "transactionData": {
+      "journalNumber": "2837347740",
+      "journalLineNumber": 1,
+      "date": "2025-06-16T00:00:00.000Z",
+      "description": "カウンタークロス",
+      "amount": 1690,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7704210387",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1462, 元取引: 5061611_1)",
+    "freeDealId": "2837336496",
+    "transactionData": {
+      "journalNumber": "2837336496",
+      "journalLineNumber": 1,
+      "date": "2025-06-16T00:00:00.000Z",
+      "description": "高栁",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7695201791",
+    "budgetItemId": 14,
+    "amount": 16496,
+    "note": "V1から移行 (元ID: 1463, 元取引: 5061403_1)",
+    "freeDealId": "2833974959",
+    "transactionData": {
+      "journalNumber": "2833974959",
+      "journalLineNumber": 1,
+      "date": "2025-06-14T00:00:00.000Z",
+      "description": "",
+      "amount": 16496,
+      "account": "【事】食材費",
+      "supplier": "おかしのまちおか"
+    }
+  },
+  {
+    "detailId": "7695212654",
+    "budgetItemId": 13,
+    "amount": 1500,
+    "note": "V1から移行 (元ID: 1464, 元取引: 5061405_1)",
+    "freeDealId": "2833978795",
+    "transactionData": {
+      "journalNumber": "2833978795",
+      "journalLineNumber": 1,
+      "date": "2025-06-14T00:00:00.000Z",
+      "description": "野田、羽地、三村",
+      "amount": 1500,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7695204948",
+    "budgetItemId": 14,
+    "amount": 1430,
+    "note": "V1から移行 (元ID: 1465, 元取引: 5061404_1)",
+    "freeDealId": "2833976205",
+    "transactionData": {
+      "journalNumber": "2833976205",
+      "journalLineNumber": 1,
+      "date": "2025-06-14T00:00:00.000Z",
+      "description": "ペーパーカップ、テープ、ストロー",
+      "amount": 1430,
+      "account": "【事】消耗品費",
+      "supplier": "DAISO"
+    }
+  },
+  {
+    "detailId": "7693334959",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1467, 元取引: 5061304_1)",
+    "freeDealId": "2833265707",
+    "transactionData": {
+      "journalNumber": "2833265707",
+      "journalLineNumber": 1,
+      "date": "2025-06-13T00:00:00.000Z",
+      "description": "",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "朝岡真実"
+    }
+  },
+  {
+    "detailId": "7694868944",
+    "budgetItemId": 20,
+    "amount": 18982,
+    "note": "V1から移行 (元ID: 1468, 元取引: 5061308_1)",
+    "freeDealId": "2833845670",
+    "transactionData": {
+      "journalNumber": "2833845670",
+      "journalLineNumber": 1,
+      "date": "2025-06-13T00:00:00.000Z",
+      "description": "",
+      "amount": 18982,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7694832441",
+    "budgetItemId": 23,
+    "amount": 233,
+    "note": "V1から移行 (元ID: 1469, 元取引: 5061307_1)",
+    "freeDealId": "2833831925",
+    "transactionData": {
+      "journalNumber": "2833831925",
+      "journalLineNumber": 1,
+      "date": "2025-06-13T00:00:00.000Z",
+      "description": "",
+      "amount": 233,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7693307312",
+    "budgetItemId": 14,
+    "amount": 9080,
+    "note": "V1から移行 (元ID: 1470, 元取引: 5061302_1)",
+    "freeDealId": "2833256782",
+    "transactionData": {
+      "journalNumber": "2833256782",
+      "journalLineNumber": 1,
+      "date": "2025-06-13T00:00:00.000Z",
+      "description": "食材",
+      "amount": 9080,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7694838217",
+    "budgetItemId": 14,
+    "amount": 28784,
+    "note": "V1から移行 (元ID: 1471, 元取引: 5061105_1)",
+    "freeDealId": "2833834080",
+    "transactionData": {
+      "journalNumber": "2833834080",
+      "journalLineNumber": 1,
+      "date": "2025-06-11T00:00:00.000Z",
+      "description": "",
+      "amount": 28784,
+      "account": "【事】食材費",
+      "supplier": "お菓子のひろば"
+    }
+  },
+  {
+    "detailId": "7693815687",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1472, 元取引: 5061003_1)",
+    "freeDealId": "2833443114",
+    "transactionData": {
+      "journalNumber": "2833443114",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "一般社団法人運動習慣推進協会"
+    }
+  },
+  {
+    "detailId": "7694887681",
+    "budgetItemId": 14,
+    "amount": 1353,
+    "note": "V1から移行 (元ID: 1473, 元取引: 5061012_1)",
+    "freeDealId": "2833853274",
+    "transactionData": {
+      "journalNumber": "2833853274",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "オーボール",
+      "amount": 1353,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7694885642",
+    "budgetItemId": 20,
+    "amount": 2130,
+    "note": "V1から移行 (元ID: 1474, 元取引: 5061011_1)",
+    "freeDealId": "2833852423",
+    "transactionData": {
+      "journalNumber": "2833852423",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "コピー用紙",
+      "amount": 2130,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7694869587",
+    "budgetItemId": 14,
+    "amount": 8372,
+    "note": "V1から移行 (元ID: 1475, 元取引: 5061010_1)",
+    "freeDealId": "2833845926",
+    "transactionData": {
+      "journalNumber": "2833845926",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "",
+      "amount": 8372,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7694844237",
+    "budgetItemId": 18,
+    "amount": 29250,
+    "note": "V1から移行 (元ID: 1476, 元取引: 5061007_1)",
+    "freeDealId": "2833836507",
+    "transactionData": {
+      "journalNumber": "2833836507",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "サイバーリスク保険制度",
+      "amount": 29250,
+      "account": "【事】保険料",
+      "supplier": "特定非営利活動法人子育てひろば全国連絡協議会"
+    }
+  },
+  {
+    "detailId": "7693832691",
+    "budgetItemId": 14,
+    "amount": 547,
+    "note": "V1から移行 (元ID: 1477, 元取引: 5061004_1)",
+    "freeDealId": "2833448856",
+    "transactionData": {
+      "journalNumber": "2833448856",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "コピー用紙",
+      "amount": 547,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7693216960",
+    "budgetItemId": 13,
+    "amount": 500,
+    "note": "V1から移行 (元ID: 1478, 元取引: 5061001_1)",
+    "freeDealId": "2833227173",
+    "transactionData": {
+      "journalNumber": "2833227173",
+      "journalLineNumber": 1,
+      "date": "2025-06-10T00:00:00.000Z",
+      "description": "森川",
+      "amount": 500,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7727807926",
+    "budgetItemId": 14,
+    "amount": 2230,
+    "note": "V1から移行 (元ID: 1479, 元取引: 5060914_1)",
+    "freeDealId": "2845921665",
+    "transactionData": {
+      "journalNumber": "2845921665",
+      "journalLineNumber": 1,
+      "date": "2025-06-09T00:00:00.000Z",
+      "description": "防草シート",
+      "amount": 2230,
+      "account": "【事】消耗品費",
+      "supplier": "ホームセンタースーパービバホーム"
+    }
+  },
+  {
+    "detailId": "7694863057",
+    "budgetItemId": 11,
+    "amount": 2819,
+    "note": "V1から移行 (元ID: 1480, 元取引: 5060913_1)",
+    "freeDealId": "2833843862",
+    "transactionData": {
+      "journalNumber": "2833843862",
+      "journalLineNumber": 1,
+      "date": "2025-06-09T00:00:00.000Z",
+      "description": "",
+      "amount": 2819,
+      "account": "【事】水道光熱費",
+      "supplier": "愛知中部水道企業団"
+    }
+  },
+  {
+    "detailId": "7668796539",
+    "budgetItemId": 14,
+    "amount": 835,
+    "note": "V1から移行 (元ID: 1481, 元取引: 5060910_1)",
+    "freeDealId": "2824540557",
+    "transactionData": {
+      "journalNumber": "2824540557",
+      "journalLineNumber": 1,
+      "date": "2025-06-09T00:00:00.000Z",
+      "description": "",
+      "amount": 835,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7668461444",
+    "budgetItemId": 14,
+    "amount": 859,
+    "note": "V1から移行 (元ID: 1482, 元取引: 5060904_1)",
+    "freeDealId": "2824452708",
+    "transactionData": {
+      "journalNumber": "2824452708",
+      "journalLineNumber": 1,
+      "date": "2025-06-09T00:00:00.000Z",
+      "description": "",
+      "amount": 859,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7694891818",
+    "budgetItemId": 20,
+    "amount": 6200,
+    "note": "V1から移行 (元ID: 1483, 元取引: 5060801_1)",
+    "freeDealId": "2833854871",
+    "transactionData": {
+      "journalNumber": "2833854871",
+      "journalLineNumber": 1,
+      "date": "2025-06-08T00:00:00.000Z",
+      "description": "インクカートリッジ",
+      "amount": 6200,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7660825570",
+    "budgetItemId": 14,
+    "amount": 9876,
+    "note": "V1から移行 (元ID: 1484, 元取引: 5060601_1)",
+    "freeDealId": "2821679466",
+    "transactionData": {
+      "journalNumber": "2821679466",
+      "journalLineNumber": 1,
+      "date": "2025-06-06T00:00:00.000Z",
+      "description": "",
+      "amount": 9876,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7660884500",
+    "budgetItemId": 14,
+    "amount": 19676,
+    "note": "V1から移行 (元ID: 1485, 元取引: 5060602_1)",
+    "freeDealId": "2821698844",
+    "transactionData": {
+      "journalNumber": "2821698844",
+      "journalLineNumber": 1,
+      "date": "2025-06-06T00:00:00.000Z",
+      "description": "",
+      "amount": 19676,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7660712426",
+    "budgetItemId": 19,
+    "amount": 6066,
+    "note": "V1から移行 (元ID: 1486, 元取引: 5060501_1)",
+    "freeDealId": "2821640459",
+    "transactionData": {
+      "journalNumber": "2821640459",
+      "journalLineNumber": 1,
+      "date": "2025-06-05T00:00:00.000Z",
+      "description": "",
+      "amount": 6066,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7660677410",
+    "budgetItemId": 14,
+    "amount": 3759,
+    "note": "V1から移行 (元ID: 1487, 元取引: 5060401_1)",
+    "freeDealId": "2821628305",
+    "transactionData": {
+      "journalNumber": "2821628305",
+      "journalLineNumber": 1,
+      "date": "2025-06-04T00:00:00.000Z",
+      "description": "",
+      "amount": 3759,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7660818040",
+    "budgetItemId": 20,
+    "amount": 3780,
+    "note": "V1から移行 (元ID: 1488, 元取引: 5060405_1)",
+    "freeDealId": "2821676957",
+    "transactionData": {
+      "journalNumber": "2821676957",
+      "journalLineNumber": 1,
+      "date": "2025-06-04T00:00:00.000Z",
+      "description": "箸",
+      "amount": 3780,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7660708687",
+    "budgetItemId": 20,
+    "amount": 4609,
+    "note": "V1から移行 (元ID: 1489, 元取引: 5060404_1)",
+    "freeDealId": "2821639225",
+    "transactionData": {
+      "journalNumber": "2821639225",
+      "journalLineNumber": 1,
+      "date": "2025-06-04T00:00:00.000Z",
+      "description": "キッチン用品",
+      "amount": 4609,
+      "account": "【事】消耗品費",
+      "supplier": "ホームセンタースーパービバホーム"
+    }
+  },
+  {
+    "detailId": "7660695938",
+    "budgetItemId": 14,
+    "amount": 44,
+    "note": "V1から移行 (元ID: 1490, 元取引: 5060403_1)",
+    "freeDealId": "2821634770",
+    "transactionData": {
+      "journalNumber": "2821634770",
+      "journalLineNumber": 1,
+      "date": "2025-06-04T00:00:00.000Z",
+      "description": "画用紙",
+      "amount": 44,
+      "account": "【事】消耗品費",
+      "supplier": "ジムキング"
+    }
+  },
+  {
+    "detailId": "7660687500",
+    "budgetItemId": 20,
+    "amount": 2156,
+    "note": "V1から移行 (元ID: 1491, 元取引: 5060402_1)",
+    "freeDealId": "2821632181",
+    "transactionData": {
+      "journalNumber": "2821632181",
+      "journalLineNumber": 1,
+      "date": "2025-06-04T00:00:00.000Z",
+      "description": "タイマー",
+      "amount": 2156,
+      "account": "【事】消耗品費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7646878764",
+    "budgetItemId": 20,
+    "amount": 10890,
+    "note": "V1から移行 (元ID: 1492, 元取引: 5060301_1)",
+    "freeDealId": "2816904080",
+    "transactionData": {
+      "journalNumber": "2816904080",
+      "journalLineNumber": 1,
+      "date": "2025-06-03T00:00:00.000Z",
+      "description": "ムカデ忌避剤",
+      "amount": 10890,
+      "account": "【事】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7634186521",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1493, 元取引: 5060206_1)",
+    "freeDealId": "2812570774",
+    "transactionData": {
+      "journalNumber": "2812570774",
+      "journalLineNumber": 1,
+      "date": "2025-06-02T00:00:00.000Z",
+      "description": "",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "高柳公治"
+    }
+  },
+  {
+    "detailId": "7635935458",
+    "budgetItemId": 14,
+    "amount": 712,
+    "note": "V1から移行 (元ID: 1494, 元取引: 5060213_1)",
+    "freeDealId": "2813145821",
+    "transactionData": {
+      "journalNumber": "2813145821",
+      "journalLineNumber": 1,
+      "date": "2025-06-02T00:00:00.000Z",
+      "description": "ドライペット（除湿剤）",
+      "amount": 712,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7635924735",
+    "budgetItemId": 14,
+    "amount": 404,
+    "note": "V1から移行 (元ID: 1495, 元取引: 5060212_1)",
+    "freeDealId": "2813142315",
+    "transactionData": {
+      "journalNumber": "2813142315",
+      "journalLineNumber": 1,
+      "date": "2025-06-02T00:00:00.000Z",
+      "description": "",
+      "amount": 404,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7634246795",
+    "budgetItemId": 23,
+    "amount": 10874,
+    "note": "V1から移行 (元ID: 1496, 元取引: 5060208_1)",
+    "freeDealId": "2812587953",
+    "transactionData": {
+      "journalNumber": "2812587953",
+      "journalLineNumber": 1,
+      "date": "2025-06-02T00:00:00.000Z",
+      "description": "",
+      "amount": 10874,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7634196237",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1497, 元取引: 5060207_1)",
+    "freeDealId": "2812574191",
+    "transactionData": {
+      "journalNumber": "2812574191",
+      "journalLineNumber": 1,
+      "date": "2025-06-02T00:00:00.000Z",
+      "description": "",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "利光真奈"
+    }
+  },
+  {
+    "detailId": "7633718778",
+    "budgetItemId": 17,
+    "amount": 16500,
+    "note": "V1から移行 (元ID: 1498, 元取引: 5060104_1)",
+    "freeDealId": "2812414106",
+    "transactionData": {
+      "journalNumber": "2812414106",
+      "journalLineNumber": 1,
+      "date": "2025-06-01T00:00:00.000Z",
+      "description": "",
+      "amount": 16500,
+      "account": "【事】通信運搬費",
+      "supplier": "LINE株式会社"
+    }
+  },
+  {
+    "detailId": "7636481039",
+    "budgetItemId": 15,
+    "amount": 46017,
+    "note": "V1から移行 (元ID: 1499, 元取引: 5053117_1)",
+    "freeDealId": "2813308138",
+    "transactionData": {
+      "journalNumber": "2813308138",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 44608,
+      "account": "預り金",
+      "supplier": "金澤ひろみ"
+    }
+  },
+  {
+    "detailId": "7636474723",
+    "budgetItemId": 15,
+    "amount": 15400,
+    "note": "V1から移行 (元ID: 1500, 元取引: 5053116_1)",
+    "freeDealId": "2813305949",
+    "transactionData": {
+      "journalNumber": "2813305949",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 14929,
+      "account": "【事】臨時雇用費",
+      "supplier": "久野明子"
+    }
+  },
+  {
+    "detailId": "7636470349",
+    "budgetItemId": 15,
+    "amount": 10980,
+    "note": "V1から移行 (元ID: 1501, 元取引: 5053115_1)",
+    "freeDealId": "2813304652",
+    "transactionData": {
+      "journalNumber": "2813304652",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 10644,
+      "account": "【事】臨時雇用費",
+      "supplier": "荒木美弥子"
+    }
+  },
+  {
+    "detailId": "7636464589",
+    "budgetItemId": 15,
+    "amount": 22000,
+    "note": "V1から移行 (元ID: 1502, 元取引: 5053114_1)",
+    "freeDealId": "2813302851",
+    "transactionData": {
+      "journalNumber": "2813302851",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 22000,
+      "account": "【事】臨時雇用費",
+      "supplier": "追立浩貴"
+    }
+  },
+  {
+    "detailId": "7636461095",
+    "budgetItemId": 15,
+    "amount": 45467,
+    "note": "V1から移行 (元ID: 1503, 元取引: 5053113_1)",
+    "freeDealId": "2813301727",
+    "transactionData": {
+      "journalNumber": "2813301727",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 45467,
+      "account": "【事】臨時雇用費",
+      "supplier": "土井容子"
+    }
+  },
+  {
+    "detailId": "7636457182",
+    "budgetItemId": 15,
+    "amount": 55550,
+    "note": "V1から移行 (元ID: 1504, 元取引: 5053112_1)",
+    "freeDealId": "2813300362",
+    "transactionData": {
+      "journalNumber": "2813300362",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 55550,
+      "account": "【事】臨時雇用費",
+      "supplier": "佐分利麻美"
+    }
+  },
+  {
+    "detailId": "7636453625",
+    "budgetItemId": 15,
+    "amount": 16740,
+    "note": "V1から移行 (元ID: 1505, 元取引: 5053111_1)",
+    "freeDealId": "2813299101",
+    "transactionData": {
+      "journalNumber": "2813299101",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 16740,
+      "account": "【事】臨時雇用費",
+      "supplier": "西本和子"
+    }
+  },
+  {
+    "detailId": "7636431338",
+    "budgetItemId": 16,
+    "amount": 180000,
+    "note": "V1から移行 (元ID: 1506, 元取引: 5053108_1)",
+    "freeDealId": "2813292299",
+    "transactionData": {
+      "journalNumber": "2813292299",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "",
+      "amount": 142132,
+      "account": "【事】給与手当",
+      "supplier": "今枝麻里"
+    }
+  },
+  {
+    "detailId": "7634155051",
+    "budgetItemId": 13,
+    "amount": 500,
+    "note": "V1から移行 (元ID: 1507, 元取引: 5053106_1)",
+    "freeDealId": "2812558758",
+    "transactionData": {
+      "journalNumber": "2812558758",
+      "journalLineNumber": 1,
+      "date": "2025-05-31T00:00:00.000Z",
+      "description": "羽地",
+      "amount": 500,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7627779179",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1509, 元取引: 5053008_1)",
+    "freeDealId": "2810501421",
+    "transactionData": {
+      "journalNumber": "2810501421",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627850473",
+    "budgetItemId": 19,
+    "amount": 922,
+    "note": "V1から移行 (元ID: 1510, 元取引: 5053031_1)",
+    "freeDealId": "2810528540",
+    "transactionData": {
+      "journalNumber": "2810528540",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 922,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7627841985",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1511, 元取引: 5053018_1)",
+    "freeDealId": "2810525167",
+    "transactionData": {
+      "journalNumber": "2810525167",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627841646",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1512, 元取引: 5053017_1)",
+    "freeDealId": "2810525024",
+    "transactionData": {
+      "journalNumber": "2810525024",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627841207",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1513, 元取引: 5053016_1)",
+    "freeDealId": "2810524879",
+    "transactionData": {
+      "journalNumber": "2810524879",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627840819",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1514, 元取引: 5053015_1)",
+    "freeDealId": "2810524765",
+    "transactionData": {
+      "journalNumber": "2810524765",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627840461",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1515, 元取引: 5053014_1)",
+    "freeDealId": "2810524608",
+    "transactionData": {
+      "journalNumber": "2810524608",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627840049",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1516, 元取引: 5053013_1)",
+    "freeDealId": "2810524463",
+    "transactionData": {
+      "journalNumber": "2810524463",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627779645",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1517, 元取引: 5053009_1)",
+    "freeDealId": "2810501581",
+    "transactionData": {
+      "journalNumber": "2810501581",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627778809",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1518, 元取引: 5053007_1)",
+    "freeDealId": "2810501263",
+    "transactionData": {
+      "journalNumber": "2810501263",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7627778071",
+    "budgetItemId": 12,
+    "amount": 145,
+    "note": "V1から移行 (元ID: 1519, 元取引: 5053006_1)",
+    "freeDealId": "2810500968",
+    "transactionData": {
+      "journalNumber": "2810500968",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "",
+      "amount": 145,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7625258849",
+    "budgetItemId": 19,
+    "amount": 19441,
+    "note": "V1から移行 (元ID: 1520, 元取引: 5053005_1)",
+    "freeDealId": "2809619688",
+    "transactionData": {
+      "journalNumber": "2809619688",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "食材",
+      "amount": 19441,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7625227807",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1521, 元取引: 5053003_1)",
+    "freeDealId": "2809611410",
+    "transactionData": {
+      "journalNumber": "2809611410",
+      "journalLineNumber": 1,
+      "date": "2025-05-30T00:00:00.000Z",
+      "description": "助産師座談会",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "鈴木知佳"
+    }
+  },
+  {
+    "detailId": "7625487403",
+    "budgetItemId": 22,
+    "amount": 12080,
+    "note": "V1から移行 (元ID: 1522, 元取引: 5052902_1)",
+    "freeDealId": "2809688843",
+    "transactionData": {
+      "journalNumber": "2809688843",
+      "journalLineNumber": 1,
+      "date": "2025-05-29T00:00:00.000Z",
+      "description": "弁当パック、フタ",
+      "amount": 43197,
+      "account": "【事】消耗品費",
+      "supplier": "株式会社　クレンリー"
+    }
+  },
+  {
+    "detailId": "7625254587",
+    "budgetItemId": 14,
+    "amount": 11975,
+    "note": "V1から移行 (元ID: 1523, 元取引: 5052901_1)",
+    "freeDealId": "2809618374",
+    "transactionData": {
+      "journalNumber": "2809618374",
+      "journalLineNumber": 1,
+      "date": "2025-05-29T00:00:00.000Z",
+      "description": "",
+      "amount": 11975,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7624736690",
+    "budgetItemId": 14,
+    "amount": 9573,
+    "note": "V1から移行 (元ID: 1524, 元取引: 5052802_1)",
+    "freeDealId": "2809464504",
+    "transactionData": {
+      "journalNumber": "2809464504",
+      "journalLineNumber": 1,
+      "date": "2025-05-28T00:00:00.000Z",
+      "description": "駄菓子",
+      "amount": 9573,
+      "account": "【事】食材費",
+      "supplier": "お菓子のひろば"
+    }
+  },
+  {
+    "detailId": "7627880842",
+    "budgetItemId": 10,
+    "amount": 150800,
+    "note": "V1から移行 (元ID: 1525, 元取引: 5052812_1)",
+    "freeDealId": "2810537110",
+    "transactionData": {
+      "journalNumber": "2810537110",
+      "journalLineNumber": 1,
+      "date": "2025-05-28T00:00:00.000Z",
+      "description": "6月分　駐車場代含む",
+      "amount": 150800,
+      "account": "【事】地代家賃",
+      "supplier": "ミノリ土地"
+    }
+  },
+  {
+    "detailId": "7624887537",
+    "budgetItemId": 14,
+    "amount": 220,
+    "note": "V1から移行 (元ID: 1526, 元取引: 5052806_1)",
+    "freeDealId": "2809508824",
+    "transactionData": {
+      "journalNumber": "2809508824",
+      "journalLineNumber": 1,
+      "date": "2025-05-28T00:00:00.000Z",
+      "description": "画用紙　にこにこ",
+      "amount": 220,
+      "account": "【事】消耗品費",
+      "supplier": "ジムキング"
+    }
+  },
+  {
+    "detailId": "7624864175",
+    "budgetItemId": 14,
+    "amount": 3557,
+    "note": "V1から移行 (元ID: 1527, 元取引: 5052804_1)",
+    "freeDealId": "2809502770",
+    "transactionData": {
+      "journalNumber": "2809502770",
+      "journalLineNumber": 1,
+      "date": "2025-05-28T00:00:00.000Z",
+      "description": "おにぎり　総菜",
+      "amount": 3557,
+      "account": "【事】食材費",
+      "supplier": "ミニストップ"
+    }
+  },
+  {
+    "detailId": "7624726091",
+    "budgetItemId": 20,
+    "amount": 1548,
+    "note": "V1から移行 (元ID: 1528, 元取引: 5052801_1)",
+    "freeDealId": "2809461583",
+    "transactionData": {
+      "journalNumber": "2809461583",
+      "journalLineNumber": 1,
+      "date": "2025-05-28T00:00:00.000Z",
+      "description": "ゴミ袋、養生テープ",
+      "amount": 1548,
+      "account": "【事】消耗品費",
+      "supplier": "ロイヤルホームセンター"
+    }
+  },
+  {
+    "detailId": "7624716612",
+    "budgetItemId": 14,
+    "amount": 4397,
+    "note": "V1から移行 (元ID: 1529, 元取引: 5052701_1)",
+    "freeDealId": "2809458403",
+    "transactionData": {
+      "journalNumber": "2809458403",
+      "journalLineNumber": 1,
+      "date": "2025-05-27T00:00:00.000Z",
+      "description": "弁当",
+      "amount": 4397,
+      "account": "【事】食材費",
+      "supplier": "アピタ"
+    }
+  },
+  {
+    "detailId": "7600318766",
+    "budgetItemId": 17,
+    "amount": 10780,
+    "note": "V1から移行 (元ID: 1530, 元取引: 5052602_1)",
+    "freeDealId": "2801157566",
+    "transactionData": {
+      "journalNumber": "2801157566",
+      "journalLineNumber": 1,
+      "date": "2025-05-26T00:00:00.000Z",
+      "description": "",
+      "amount": 10780,
+      "account": "【事】通信運搬費",
+      "supplier": "株式会社ミショナ"
+    }
+  },
+  {
+    "detailId": "7600306662",
+    "budgetItemId": 17,
+    "amount": 7909,
+    "note": "V1から移行 (元ID: 1531, 元取引: 5052601_1)",
+    "freeDealId": "2801153330",
+    "transactionData": {
+      "journalNumber": "2801153330",
+      "journalLineNumber": 1,
+      "date": "2025-05-26T00:00:00.000Z",
+      "description": "インターネット",
+      "amount": 7909,
+      "account": "【事】通信運搬費",
+      "supplier": "ビッグローブ株式会社"
+    }
+  },
+  {
+    "detailId": "7600800356",
+    "budgetItemId": 23,
+    "amount": 8913,
+    "note": "V1から移行 (元ID: 1532, 元取引: 5052605_1)",
+    "freeDealId": "2801326378",
+    "transactionData": {
+      "journalNumber": "2801326378",
+      "journalLineNumber": 1,
+      "date": "2025-05-26T00:00:00.000Z",
+      "description": "食材",
+      "amount": 8913,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7600393630",
+    "budgetItemId": 11,
+    "amount": 6395,
+    "note": "V1から移行 (元ID: 1533, 元取引: 5052501_1)",
+    "freeDealId": "2801180911",
+    "transactionData": {
+      "journalNumber": "2801180911",
+      "journalLineNumber": 1,
+      "date": "2025-05-25T00:00:00.000Z",
+      "description": "ガス代",
+      "amount": 6395,
+      "account": "【事】水道光熱費",
+      "supplier": "名古屋プロパン瓦斯株式会社"
+    }
+  },
+  {
+    "detailId": "7600595676",
+    "budgetItemId": 14,
+    "amount": 1155,
+    "note": "V1から移行 (元ID: 1534, 元取引: 5052404_1)",
+    "freeDealId": "2801250914",
+    "transactionData": {
+      "journalNumber": "2801250914",
+      "journalLineNumber": 1,
+      "date": "2025-05-24T00:00:00.000Z",
+      "description": "食材",
+      "amount": 1155,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7600924447",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1535, 元取引: 5052405_1)",
+    "freeDealId": "2801367223",
+    "transactionData": {
+      "journalNumber": "2801367223",
+      "journalLineNumber": 1,
+      "date": "2025-05-24T00:00:00.000Z",
+      "description": "渡邊、井上、川合、野田、北崎、青木",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7600613742",
+    "budgetItemId": 20,
+    "amount": 998,
+    "note": "V1から移行 (元ID: 1536, 元取引: 5052303_1)",
+    "freeDealId": "2801257274",
+    "transactionData": {
+      "journalNumber": "2801257274",
+      "journalLineNumber": 1,
+      "date": "2025-05-23T00:00:00.000Z",
+      "description": "割り箸",
+      "amount": 998,
+      "account": "【事】消耗品費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7600884902",
+    "budgetItemId": 23,
+    "amount": 11061,
+    "note": "V1から移行 (元ID: 1537, 元取引: 5052307_1)",
+    "freeDealId": "2801357120",
+    "transactionData": {
+      "journalNumber": "2801357120",
+      "journalLineNumber": 1,
+      "date": "2025-05-23T00:00:00.000Z",
+      "description": "食材",
+      "amount": 11061,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7600860354",
+    "budgetItemId": 19,
+    "amount": 18892,
+    "note": "V1から移行 (元ID: 1538, 元取引: 5052306_1)",
+    "freeDealId": "2801348927",
+    "transactionData": {
+      "journalNumber": "2801348927",
+      "journalLineNumber": 1,
+      "date": "2025-05-23T00:00:00.000Z",
+      "description": "食材",
+      "amount": 18892,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7600724790",
+    "budgetItemId": 20,
+    "amount": 2087,
+    "note": "V1から移行 (元ID: 1539, 元取引: 5052305_1)",
+    "freeDealId": "2801298205",
+    "transactionData": {
+      "journalNumber": "2801298205",
+      "journalLineNumber": 1,
+      "date": "2025-05-23T00:00:00.000Z",
+      "description": "オムツ用ゴミ袋",
+      "amount": 2087,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7600675146",
+    "budgetItemId": 19,
+    "amount": 8569,
+    "note": "V1から移行 (元ID: 1540, 元取引: 5052304_1)",
+    "freeDealId": "2801279547",
+    "transactionData": {
+      "journalNumber": "2801279547",
+      "journalLineNumber": 1,
+      "date": "2025-05-23T00:00:00.000Z",
+      "description": "食材",
+      "amount": 8569,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7586032936",
+    "budgetItemId": 14,
+    "amount": 792,
+    "note": "V1から移行 (元ID: 1541, 元取引: 5052201_1)",
+    "freeDealId": "2796070136",
+    "transactionData": {
+      "journalNumber": "2796070136",
+      "journalLineNumber": 1,
+      "date": "2025-05-22T00:00:00.000Z",
+      "description": "食材",
+      "amount": 792,
+      "account": "【事】食材費",
+      "supplier": "APITA"
+    }
+  },
+  {
+    "detailId": "7586054649",
+    "budgetItemId": 14,
+    "amount": 3580,
+    "note": "V1から移行 (元ID: 1542, 元取引: 5052202_1)",
+    "freeDealId": "2796078453",
+    "transactionData": {
+      "journalNumber": "2796078453",
+      "journalLineNumber": 1,
+      "date": "2025-05-22T00:00:00.000Z",
+      "description": "パン",
+      "amount": 3580,
+      "account": "【事】食材費",
+      "supplier": "アヴァンセ"
+    }
+  },
+  {
+    "detailId": "7584353176",
+    "budgetItemId": 21,
+    "amount": 10593,
+    "note": "V1から移行 (元ID: 1543, 元取引: 5052102_1)",
+    "freeDealId": "2795488195",
+    "transactionData": {
+      "journalNumber": "2795488195",
+      "journalLineNumber": 1,
+      "date": "2025-05-21T00:00:00.000Z",
+      "description": "食材",
+      "amount": 10593,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7584476023",
+    "budgetItemId": 21,
+    "amount": 963,
+    "note": "V1から移行 (元ID: 1544, 元取引: 5052002_1)",
+    "freeDealId": "2795530570",
+    "transactionData": {
+      "journalNumber": "2795530570",
+      "journalLineNumber": 1,
+      "date": "2025-05-20T00:00:00.000Z",
+      "description": "食材",
+      "amount": 963,
+      "account": "【事】食材費",
+      "supplier": "JAあいち尾東"
+    }
+  },
+  {
+    "detailId": "7584509188",
+    "budgetItemId": 13,
+    "amount": 500,
+    "note": "V1から移行 (元ID: 1545, 元取引: 5052004_1)",
+    "freeDealId": "2795541802",
+    "transactionData": {
+      "journalNumber": "2795541802",
+      "journalLineNumber": 1,
+      "date": "2025-05-20T00:00:00.000Z",
+      "description": "森川",
+      "amount": 500,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7584504178",
+    "budgetItemId": 13,
+    "amount": 5000,
+    "note": "V1から移行 (元ID: 1546, 元取引: 5052003_1)",
+    "freeDealId": "2795540135",
+    "transactionData": {
+      "journalNumber": "2795540135",
+      "journalLineNumber": 1,
+      "date": "2025-05-20T00:00:00.000Z",
+      "description": "出張サロン",
+      "amount": 5000,
+      "account": "【事】謝金",
+      "supplier": "鈴木知佳"
+    }
+  },
+  {
+    "detailId": "7584446458",
+    "budgetItemId": 11,
+    "amount": 20088,
+    "note": "V1から移行 (元ID: 1547, 元取引: 5052001_1)",
+    "freeDealId": "2795520864",
+    "transactionData": {
+      "journalNumber": "2795520864",
+      "journalLineNumber": 1,
+      "date": "2025-05-20T00:00:00.000Z",
+      "description": "電気代",
+      "amount": 20088,
+      "account": "【事】水道光熱費",
+      "supplier": "中部電力ミライズ株式会社"
+    }
+  },
+  {
+    "detailId": "7571282883",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1548, 元取引: 5051905_1)",
+    "freeDealId": "2790907543",
+    "transactionData": {
+      "journalNumber": "2790907543",
+      "journalLineNumber": 1,
+      "date": "2025-05-19T00:00:00.000Z",
+      "description": "",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "原川千穂"
+    }
+  },
+  {
+    "detailId": "7571355515",
+    "budgetItemId": 9,
+    "amount": 4140,
+    "note": "V1から移行 (元ID: 1549, 元取引: 5051908_1)",
+    "freeDealId": "2790932994",
+    "transactionData": {
+      "journalNumber": "2790932994",
+      "journalLineNumber": 1,
+      "date": "2025-05-19T00:00:00.000Z",
+      "description": "おやこ食堂チラシ",
+      "amount": 4140,
+      "account": "【事】印刷製本費",
+      "supplier": "プリントパック"
+    }
+  },
+  {
+    "detailId": "7570939786",
+    "budgetItemId": 21,
+    "amount": 3230,
+    "note": "V1から移行 (元ID: 1550, 元取引: 5051903_1)",
+    "freeDealId": "2790788162",
+    "transactionData": {
+      "journalNumber": "2790788162",
+      "journalLineNumber": 1,
+      "date": "2025-05-19T00:00:00.000Z",
+      "description": "食材",
+      "amount": 3230,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7570911279",
+    "budgetItemId": 14,
+    "amount": 217,
+    "note": "V1から移行 (元ID: 1551, 元取引: 5051801_1)",
+    "freeDealId": "2790780224",
+    "transactionData": {
+      "journalNumber": "2790780224",
+      "journalLineNumber": 1,
+      "date": "2025-05-18T00:00:00.000Z",
+      "description": "培養土",
+      "amount": 217,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7570936147",
+    "budgetItemId": 21,
+    "amount": 6118,
+    "note": "V1から移行 (元ID: 1552, 元取引: 5051803_1)",
+    "freeDealId": "2790787159",
+    "transactionData": {
+      "journalNumber": "2790787159",
+      "journalLineNumber": 1,
+      "date": "2025-05-18T00:00:00.000Z",
+      "description": "食材",
+      "amount": 6118,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7564992330",
+    "budgetItemId": 22,
+    "amount": 250,
+    "note": "V1から移行 (元ID: 1554, 元取引: 5051605_1)",
+    "freeDealId": "2788573138",
+    "transactionData": {
+      "journalNumber": "2788573138",
+      "journalLineNumber": 1,
+      "date": "2025-05-16T00:00:00.000Z",
+      "description": "クッキングシート",
+      "amount": 250,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7564953155",
+    "budgetItemId": 19,
+    "amount": 21103,
+    "note": "V1から移行 (元ID: 1555, 元取引: 5051604_1)",
+    "freeDealId": "2788555933",
+    "transactionData": {
+      "journalNumber": "2788555933",
+      "journalLineNumber": 1,
+      "date": "2025-05-16T00:00:00.000Z",
+      "description": "食材",
+      "amount": 21103,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7555941233",
+    "budgetItemId": 21,
+    "amount": 8876,
+    "note": "V1から移行 (元ID: 1556, 元取引: 5051502_1)",
+    "freeDealId": "2785523401",
+    "transactionData": {
+      "journalNumber": "2785523401",
+      "journalLineNumber": 1,
+      "date": "2025-05-15T00:00:00.000Z",
+      "description": "食材",
+      "amount": 8876,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7554105714",
+    "budgetItemId": 14,
+    "amount": 2479,
+    "note": "V1から移行 (元ID: 1557, 元取引: 5051501_1)",
+    "freeDealId": "2784924366",
+    "transactionData": {
+      "journalNumber": "2784924366",
+      "journalLineNumber": 1,
+      "date": "2025-05-15T00:00:00.000Z",
+      "description": "食材　菓子含む",
+      "amount": 2479,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7555928742",
+    "budgetItemId": 22,
+    "amount": 2420,
+    "note": "V1から移行 (元ID: 1559, 元取引: 5051412_1)",
+    "freeDealId": "2785518809",
+    "transactionData": {
+      "journalNumber": "2785518809",
+      "journalLineNumber": 1,
+      "date": "2025-05-14T00:00:00.000Z",
+      "description": "食洗機洗剤",
+      "amount": 2420,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7554144610",
+    "budgetItemId": 17,
+    "amount": 10890,
+    "note": "V1から移行 (元ID: 1560, 元取引: 5051409_1)",
+    "freeDealId": "2784937679",
+    "transactionData": {
+      "journalNumber": "2784937679",
+      "journalLineNumber": 1,
+      "date": "2025-05-14T00:00:00.000Z",
+      "description": "メールワイズ",
+      "amount": 10890,
+      "account": "【事】通信運搬費",
+      "supplier": "サイボウズ株式会社"
+    }
+  },
+  {
+    "detailId": "7554141403",
+    "budgetItemId": 17,
+    "amount": 10890,
+    "note": "V1から移行 (元ID: 1561, 元取引: 5051408_1)",
+    "freeDealId": "2784936722",
+    "transactionData": {
+      "journalNumber": "2784936722",
+      "journalLineNumber": 1,
+      "date": "2025-05-14T00:00:00.000Z",
+      "description": "キントーン",
+      "amount": 10890,
+      "account": "【事】通信運搬費",
+      "supplier": "サイボウズ株式会社"
+    }
+  },
+  {
+    "detailId": "7550246846",
+    "budgetItemId": 22,
+    "amount": 530,
+    "note": "V1から移行 (元ID: 1562, 元取引: 5051402_1)",
+    "freeDealId": "2783623830",
+    "transactionData": {
+      "journalNumber": "2783623830",
+      "journalLineNumber": 1,
+      "date": "2025-05-14T00:00:00.000Z",
+      "description": "ゴミ袋",
+      "amount": 530,
+      "account": "【事】消耗品費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7550230805",
+    "budgetItemId": 14,
+    "amount": 213,
+    "note": "V1から移行 (元ID: 1563, 元取引: 5051401_1)",
+    "freeDealId": "2783617827",
+    "transactionData": {
+      "journalNumber": "2783617827",
+      "journalLineNumber": 1,
+      "date": "2025-05-14T00:00:00.000Z",
+      "description": "食材",
+      "amount": 213,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7550221943",
+    "budgetItemId": 23,
+    "amount": 857,
+    "note": "V1から移行 (元ID: 1564, 元取引: 5051310_1)",
+    "freeDealId": "2783614520",
+    "transactionData": {
+      "journalNumber": "2783614520",
+      "journalLineNumber": 1,
+      "date": "2025-05-13T00:00:00.000Z",
+      "description": "おやつ作り材料",
+      "amount": 857,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7550216632",
+    "budgetItemId": 23,
+    "amount": 5105,
+    "note": "V1から移行 (元ID: 1565, 元取引: 5051309_1)",
+    "freeDealId": "2783612659",
+    "transactionData": {
+      "journalNumber": "2783612659",
+      "journalLineNumber": 1,
+      "date": "2025-05-13T00:00:00.000Z",
+      "description": "食材",
+      "amount": 5105,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7550177133",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1566, 元取引: 5051306_1)",
+    "freeDealId": "2783598044",
+    "transactionData": {
+      "journalNumber": "2783598044",
+      "journalLineNumber": 1,
+      "date": "2025-05-13T00:00:00.000Z",
+      "description": "講師謝金",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "一般社団法人運動習慣推進協会"
+    }
+  },
+  {
+    "detailId": "7540235431",
+    "budgetItemId": 14,
+    "amount": 1520,
+    "note": "V1から移行 (元ID: 1567, 元取引: 5051202_1)",
+    "freeDealId": "2780159448",
+    "transactionData": {
+      "journalNumber": "2780159448",
+      "journalLineNumber": 1,
+      "date": "2025-05-12T00:00:00.000Z",
+      "description": "駄菓子",
+      "amount": 1520,
+      "account": "【事】食材費",
+      "supplier": "おかしのまちおか"
+    }
+  },
+  {
+    "detailId": "7538305476",
+    "budgetItemId": 21,
+    "amount": 3453,
+    "note": "V1から移行 (元ID: 1568, 元取引: 5051101_1)",
+    "freeDealId": "2779494822",
+    "transactionData": {
+      "journalNumber": "2779494822",
+      "journalLineNumber": 1,
+      "date": "2025-05-11T00:00:00.000Z",
+      "description": "食材",
+      "amount": 3453,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7538221024",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1569, 元取引: 5051001_1)",
+    "freeDealId": "2779467644",
+    "transactionData": {
+      "journalNumber": "2779467644",
+      "journalLineNumber": 1,
+      "date": "2025-05-10T00:00:00.000Z",
+      "description": "青木、渡邉、井上、三村、鋤柄、羽地",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7538296949",
+    "budgetItemId": 23,
+    "amount": 434,
+    "note": "V1から移行 (元ID: 1570, 元取引: 5050912_1)",
+    "freeDealId": "2779491933",
+    "transactionData": {
+      "journalNumber": "2779491933",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "食材",
+      "amount": 434,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7538292793",
+    "budgetItemId": 19,
+    "amount": 5910,
+    "note": "V1から移行 (元ID: 1571, 元取引: 5050911_1)",
+    "freeDealId": "2779490573",
+    "transactionData": {
+      "journalNumber": "2779490573",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "食材",
+      "amount": 5910,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7538286336",
+    "budgetItemId": 19,
+    "amount": 22578,
+    "note": "V1から移行 (元ID: 1572, 元取引: 5050910_1)",
+    "freeDealId": "2779488252",
+    "transactionData": {
+      "journalNumber": "2779488252",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "食材",
+      "amount": 22578,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7538245813",
+    "budgetItemId": 21,
+    "amount": 9155,
+    "note": "V1から移行 (元ID: 1573, 元取引: 5050909_1)",
+    "freeDealId": "2779476338",
+    "transactionData": {
+      "journalNumber": "2779476338",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "食材",
+      "amount": 9155,
+      "account": "【事】食材費",
+      "supplier": "Felna"
+    }
+  },
+  {
+    "detailId": "7538143514",
+    "budgetItemId": 9,
+    "amount": 320,
+    "note": "V1から移行 (元ID: 1574, 元取引: 5050903_1)",
+    "freeDealId": "2779443602",
+    "transactionData": {
+      "journalNumber": "2779443602",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "ひろば案内、駐車場案内　輪転機コピー",
+      "amount": 320,
+      "account": "【事】印刷製本費",
+      "supplier": "長久手市役所"
+    }
+  },
+  {
+    "detailId": "7538079271",
+    "budgetItemId": 13,
+    "amount": 3000,
+    "note": "V1から移行 (元ID: 1575, 元取引: 5050902_1)",
+    "freeDealId": "2779422797",
+    "transactionData": {
+      "journalNumber": "2779422797",
+      "journalLineNumber": 1,
+      "date": "2025-05-09T00:00:00.000Z",
+      "description": "講師謝金",
+      "amount": 3000,
+      "account": "【事】謝金",
+      "supplier": "岡田薫"
+    }
+  },
+  {
+    "detailId": "7521199521",
+    "budgetItemId": 14,
+    "amount": 1408,
+    "note": "V1から移行 (元ID: 1576, 元取引: 5050801_1)",
+    "freeDealId": "2773492699",
+    "transactionData": {
+      "journalNumber": "2773492699",
+      "journalLineNumber": 1,
+      "date": "2025-05-08T00:00:00.000Z",
+      "description": "食材",
+      "amount": 1408,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7521170972",
+    "budgetItemId": 21,
+    "amount": 5732,
+    "note": "V1から移行 (元ID: 1577, 元取引: 5050703_1)",
+    "freeDealId": "2773482544",
+    "transactionData": {
+      "journalNumber": "2773482544",
+      "journalLineNumber": 1,
+      "date": "2025-05-07T00:00:00.000Z",
+      "description": "食材",
+      "amount": 5732,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7521266336",
+    "budgetItemId": 14,
+    "amount": 1771,
+    "note": "V1から移行 (元ID: 1579, 元取引: 5050301_1)",
+    "freeDealId": "2773516034",
+    "transactionData": {
+      "journalNumber": "2773516034",
+      "journalLineNumber": 1,
+      "date": "2025-05-03T00:00:00.000Z",
+      "description": "幼児教室　手形スタンプ",
+      "amount": 1771,
+      "account": "【事】消耗品費",
+      "supplier": "ジムキング"
+    }
+  },
+  {
+    "detailId": "7521548689",
+    "budgetItemId": 19,
+    "amount": 14158,
+    "note": "V1から移行 (元ID: 1580, 元取引: 5050213_1)",
+    "freeDealId": "2773611014",
+    "transactionData": {
+      "journalNumber": "2773611014",
+      "journalLineNumber": 1,
+      "date": "2025-05-02T00:00:00.000Z",
+      "description": "食材",
+      "amount": 14158,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7521227070",
+    "budgetItemId": 19,
+    "amount": 10120,
+    "note": "V1から移行 (元ID: 1581, 元取引: 5050205_1)",
+    "freeDealId": "2773502281",
+    "transactionData": {
+      "journalNumber": "2773502281",
+      "journalLineNumber": 1,
+      "date": "2025-05-02T00:00:00.000Z",
+      "description": "食材",
+      "amount": 10120,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7521238986",
+    "budgetItemId": 14,
+    "amount": 576,
+    "note": "V1から移行 (元ID: 1582, 元取引: 5050109_1)",
+    "freeDealId": "2773505981",
+    "transactionData": {
+      "journalNumber": "2773505981",
+      "journalLineNumber": 1,
+      "date": "2025-05-01T00:00:00.000Z",
+      "description": "食材",
+      "amount": 576,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7521543582",
+    "budgetItemId": 23,
+    "amount": 1770,
+    "note": "V1から移行 (元ID: 1583, 元取引: 5050110_1)",
+    "freeDealId": "2773609232",
+    "transactionData": {
+      "journalNumber": "2773609232",
+      "journalLineNumber": 1,
+      "date": "2025-05-01T00:00:00.000Z",
+      "description": "食材",
+      "amount": 1770,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7493380708",
+    "budgetItemId": 17,
+    "amount": 16500,
+    "note": "V1から移行 (元ID: 1584, 元取引: 5050102_1)",
+    "freeDealId": "2764117517",
+    "transactionData": {
+      "journalNumber": "2764117517",
+      "journalLineNumber": 1,
+      "date": "2025-05-01T00:00:00.000Z",
+      "description": "",
+      "amount": 16500,
+      "account": "【事】通信運搬費",
+      "supplier": "LINE株式会社"
+    }
+  },
+  {
+    "detailId": "7489686391",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1585, 元取引: 5043018_1)",
+    "freeDealId": "2762915127",
+    "transactionData": {
+      "journalNumber": "2762915127",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7496267694",
+    "budgetItemId": 15,
+    "amount": 66000,
+    "note": "V1から移行 (元ID: 1586, 元取引: 5043045_1)",
+    "freeDealId": "2765034338",
+    "transactionData": {
+      "journalNumber": "2765034338",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 63979,
+      "account": "預り金",
+      "supplier": "金澤ひろみ"
+    }
+  },
+  {
+    "detailId": "7496265514",
+    "budgetItemId": 15,
+    "amount": 26400,
+    "note": "V1から移行 (元ID: 1587, 元取引: 5043044_1)",
+    "freeDealId": "2765033643",
+    "transactionData": {
+      "journalNumber": "2765033643",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 25592,
+      "account": "【事】臨時雇用費",
+      "supplier": "久野明子"
+    }
+  },
+  {
+    "detailId": "7496261005",
+    "budgetItemId": 15,
+    "amount": 45360,
+    "note": "V1から移行 (元ID: 1588, 元取引: 5043043_1)",
+    "freeDealId": "2765032248",
+    "transactionData": {
+      "journalNumber": "2765032248",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 43971,
+      "account": "【事】臨時雇用費",
+      "supplier": "荒木美弥子"
+    }
+  },
+  {
+    "detailId": "7496253574",
+    "budgetItemId": 15,
+    "amount": 28800,
+    "note": "V1から移行 (元ID: 1589, 元取引: 5043042_1)",
+    "freeDealId": "2765030047",
+    "transactionData": {
+      "journalNumber": "2765030047",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 28800,
+      "account": "【事】臨時雇用費",
+      "supplier": "追立浩貴"
+    }
+  },
+  {
+    "detailId": "7496246326",
+    "budgetItemId": 15,
+    "amount": 35200,
+    "note": "V1から移行 (元ID: 1590, 元取引: 5043041_1)",
+    "freeDealId": "2765027596",
+    "transactionData": {
+      "journalNumber": "2765027596",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 35200,
+      "account": "【事】臨時雇用費",
+      "supplier": "土井容子"
+    }
+  },
+  {
+    "detailId": "7496242909",
+    "budgetItemId": 15,
+    "amount": 43450,
+    "note": "V1から移行 (元ID: 1591, 元取引: 5043040_1)",
+    "freeDealId": "2765026510",
+    "transactionData": {
+      "journalNumber": "2765026510",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 43450,
+      "account": "【事】臨時雇用費",
+      "supplier": "佐分利麻美"
+    }
+  },
+  {
+    "detailId": "7496240966",
+    "budgetItemId": 15,
+    "amount": 17280,
+    "note": "V1から移行 (元ID: 1592, 元取引: 5043039_1)",
+    "freeDealId": "2765025934",
+    "transactionData": {
+      "journalNumber": "2765025934",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 17280,
+      "account": "【事】臨時雇用費",
+      "supplier": "西本和子"
+    }
+  },
+  {
+    "detailId": "7496232999",
+    "budgetItemId": 16,
+    "amount": 180000,
+    "note": "V1から移行 (元ID: 1593, 元取引: 5043036_1)",
+    "freeDealId": "2765023695",
+    "transactionData": {
+      "journalNumber": "2765023695",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 143732,
+      "account": "【事】給与手当",
+      "supplier": "今枝麻里"
+    }
+  },
+  {
+    "detailId": "7489971850",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1594, 元取引: 5043031_1)",
+    "freeDealId": "2762993542",
+    "transactionData": {
+      "journalNumber": "2762993542",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489707195",
+    "budgetItemId": 12,
+    "amount": 55,
+    "note": "V1から移行 (元ID: 1595, 元取引: 5043029_1)",
+    "freeDealId": "2762920599",
+    "transactionData": {
+      "journalNumber": "2762920599",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 55,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489705601",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1596, 元取引: 5043028_1)",
+    "freeDealId": "2762920182",
+    "transactionData": {
+      "journalNumber": "2762920182",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489704444",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1597, 元取引: 5043027_1)",
+    "freeDealId": "2762919835",
+    "transactionData": {
+      "journalNumber": "2762919835",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489703350",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1598, 元取引: 5043026_1)",
+    "freeDealId": "2762919509",
+    "transactionData": {
+      "journalNumber": "2762919509",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489702428",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1599, 元取引: 5043025_1)",
+    "freeDealId": "2762919258",
+    "transactionData": {
+      "journalNumber": "2762919258",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489699346",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1600, 元取引: 5043024_1)",
+    "freeDealId": "2762918430",
+    "transactionData": {
+      "journalNumber": "2762918430",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489694384",
+    "budgetItemId": 12,
+    "amount": 55,
+    "note": "V1から移行 (元ID: 1601, 元取引: 5043023_1)",
+    "freeDealId": "2762917180",
+    "transactionData": {
+      "journalNumber": "2762917180",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 55,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489692606",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1602, 元取引: 5043022_1)",
+    "freeDealId": "2762916675",
+    "transactionData": {
+      "journalNumber": "2762916675",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489691055",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1603, 元取引: 5043021_1)",
+    "freeDealId": "2762916258",
+    "transactionData": {
+      "journalNumber": "2762916258",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489689512",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1604, 元取引: 5043020_1)",
+    "freeDealId": "2762915911",
+    "transactionData": {
+      "journalNumber": "2762915911",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489687825",
+    "budgetItemId": 12,
+    "amount": 160,
+    "note": "V1から移行 (元ID: 1605, 元取引: 5043019_1)",
+    "freeDealId": "2762915540",
+    "transactionData": {
+      "journalNumber": "2762915540",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 160,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7489126101",
+    "budgetItemId": 14,
+    "amount": 6482,
+    "note": "V1から移行 (元ID: 1606, 元取引: 5043005_1)",
+    "freeDealId": "2762749370",
+    "transactionData": {
+      "journalNumber": "2762749370",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "食材",
+      "amount": 6482,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7489046283",
+    "budgetItemId": 12,
+    "amount": 165,
+    "note": "V1から移行 (元ID: 1607, 元取引: 5043003_1)",
+    "freeDealId": "2762727445",
+    "transactionData": {
+      "journalNumber": "2762727445",
+      "journalLineNumber": 1,
+      "date": "2025-04-30T00:00:00.000Z",
+      "description": "",
+      "amount": 165,
+      "account": "【管】支払手数料",
+      "supplier": "取引先未設定"
+    }
+  },
+  {
+    "detailId": "7478200455",
+    "budgetItemId": 19,
+    "amount": 3936,
+    "note": "V1から移行 (元ID: 1608, 元取引: 5042801_1)",
+    "freeDealId": "2759158898",
+    "transactionData": {
+      "journalNumber": "2759158898",
+      "journalLineNumber": 1,
+      "date": "2025-04-28T00:00:00.000Z",
+      "description": "食材",
+      "amount": 3936,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7490074481",
+    "budgetItemId": 10,
+    "amount": 150800,
+    "note": "V1から移行 (元ID: 1609, 元取引: 5042808_1)",
+    "freeDealId": "2763024087",
+    "transactionData": {
+      "journalNumber": "2763024087",
+      "journalLineNumber": 1,
+      "date": "2025-04-28T00:00:00.000Z",
+      "description": "5月分　駐車場代含む",
+      "amount": 150800,
+      "account": "【事】地代家賃",
+      "supplier": "ミノリ土地"
+    }
+  },
+  {
+    "detailId": "7489996610",
+    "budgetItemId": 17,
+    "amount": 8225,
+    "note": "V1から移行 (元ID: 1610, 元取引: 5042807_1)",
+    "freeDealId": "2763001020",
+    "transactionData": {
+      "journalNumber": "2763001020",
+      "journalLineNumber": 1,
+      "date": "2025-04-28T00:00:00.000Z",
+      "description": "インターネット",
+      "amount": 8225,
+      "account": "【事】通信運搬費",
+      "supplier": "ビッグローブ株式会社"
+    }
+  },
+  {
+    "detailId": "7489118985",
+    "budgetItemId": 14,
+    "amount": 2283,
+    "note": "V1から移行 (元ID: 1611, 元取引: 5042803_1)",
+    "freeDealId": "2762747488",
+    "transactionData": {
+      "journalNumber": "2762747488",
+      "journalLineNumber": 1,
+      "date": "2025-04-28T00:00:00.000Z",
+      "description": "食材",
+      "amount": 2283,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7473853607",
+    "budgetItemId": 14,
+    "amount": 2409,
+    "note": "V1から移行 (元ID: 1612, 元取引: 5042601_1)",
+    "freeDealId": "2757515469",
+    "transactionData": {
+      "journalNumber": "2757515469",
+      "journalLineNumber": 1,
+      "date": "2025-04-26T00:00:00.000Z",
+      "description": "ホワイトボード",
+      "amount": 2409,
+      "account": "【事】消耗品費",
+      "supplier": "ロイヤルホームセンター"
+    }
+  },
+  {
+    "detailId": "7478139428",
+    "budgetItemId": 17,
+    "amount": 10780,
+    "note": "V1から移行 (元ID: 1613, 元取引: 5042605_1)",
+    "freeDealId": "2759138231",
+    "transactionData": {
+      "journalNumber": "2759138231",
+      "journalLineNumber": 1,
+      "date": "2025-04-26T00:00:00.000Z",
+      "description": "",
+      "amount": 10780,
+      "account": "【事】通信運搬費",
+      "supplier": "株式会社ミショナ"
+    }
+  },
+  {
+    "detailId": "7473856095",
+    "budgetItemId": 14,
+    "amount": 20711,
+    "note": "V1から移行 (元ID: 1615, 元取引: 5042501_1)",
+    "freeDealId": "2757516505",
+    "transactionData": {
+      "journalNumber": "2757516505",
+      "journalLineNumber": 1,
+      "date": "2025-04-25T00:00:00.000Z",
+      "description": "食材",
+      "amount": 20711,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7490062618",
+    "budgetItemId": 11,
+    "amount": 8349,
+    "note": "V1から移行 (元ID: 1616, 元取引: 5042405_1)",
+    "freeDealId": "2763020491",
+    "transactionData": {
+      "journalNumber": "2763020491",
+      "journalLineNumber": 1,
+      "date": "2025-04-24T00:00:00.000Z",
+      "description": "",
+      "amount": 8349,
+      "account": "【事】水道光熱費",
+      "supplier": "名古屋プロパン瓦斯株式会社"
+    }
+  },
+  {
+    "detailId": "7465026748",
+    "budgetItemId": 14,
+    "amount": 7687,
+    "note": "V1から移行 (元ID: 1617, 元取引: 5042401_1)",
+    "freeDealId": "2754552967",
+    "transactionData": {
+      "journalNumber": "2754552967",
+      "journalLineNumber": 1,
+      "date": "2025-04-24T00:00:00.000Z",
+      "description": "食材",
+      "amount": 7687,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7462049190",
+    "budgetItemId": 19,
+    "amount": 16823,
+    "note": "V1から移行 (元ID: 1618, 元取引: 5042203_1)",
+    "freeDealId": "2753492605",
+    "transactionData": {
+      "journalNumber": "2753492605",
+      "journalLineNumber": 1,
+      "date": "2025-04-22T00:00:00.000Z",
+      "description": "食材",
+      "amount": 16823,
+      "account": "【事】食材費",
+      "supplier": "アミカ"
+    }
+  },
+  {
+    "detailId": "7461984649",
+    "budgetItemId": 13,
+    "amount": 500,
+    "note": "V1から移行 (元ID: 1619, 元取引: 5042201_1)",
+    "freeDealId": "2753473534",
+    "transactionData": {
+      "journalNumber": "2753473534",
+      "journalLineNumber": 1,
+      "date": "2025-04-22T00:00:00.000Z",
+      "description": "森川",
+      "amount": 500,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7450792259",
+    "budgetItemId": 14,
+    "amount": 896,
+    "note": "V1から移行 (元ID: 1620, 元取引: 5042102_1)",
+    "freeDealId": "2749600557",
+    "transactionData": {
+      "journalNumber": "2749600557",
+      "journalLineNumber": 1,
+      "date": "2025-04-21T00:00:00.000Z",
+      "description": "食材",
+      "amount": 896,
+      "account": "【事】食材費",
+      "supplier": "JAあいち尾東"
+    }
+  },
+  {
+    "detailId": "7450787606",
+    "budgetItemId": 14,
+    "amount": 637,
+    "note": "V1から移行 (元ID: 1621, 元取引: 5042101_1)",
+    "freeDealId": "2749598668",
+    "transactionData": {
+      "journalNumber": "2749598668",
+      "journalLineNumber": 1,
+      "date": "2025-04-21T00:00:00.000Z",
+      "description": "食材",
+      "amount": 637,
+      "account": "【事】食材費",
+      "supplier": "ウエルシア薬局"
+    }
+  },
+  {
+    "detailId": "7451130056",
+    "budgetItemId": 13,
+    "amount": 2000,
+    "note": "V1から移行 (元ID: 1623, 元取引: 5041902_1)",
+    "freeDealId": "2749722368",
+    "transactionData": {
+      "journalNumber": "2749722368",
+      "journalLineNumber": 1,
+      "date": "2025-04-19T00:00:00.000Z",
+      "description": "渡邉、鋤柄、羽地、野田",
+      "amount": 2000,
+      "account": "【事】謝金",
+      "supplier": "ボランティア"
+    }
+  },
+  {
+    "detailId": "7456188873",
+    "budgetItemId": 19,
+    "amount": 1974,
+    "note": "V1から移行 (元ID: 1624, 元取引: 5041804_1)",
+    "freeDealId": "2751507391",
+    "transactionData": {
+      "journalNumber": "2751507391",
+      "journalLineNumber": 1,
+      "date": "2025-04-18T00:00:00.000Z",
+      "description": "食材",
+      "amount": 1974,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7444070227",
+    "budgetItemId": 19,
+    "amount": 20601,
+    "note": "V1から移行 (元ID: 1625, 元取引: 5041803_1)",
+    "freeDealId": "2747132534",
+    "transactionData": {
+      "journalNumber": "2747132534",
+      "journalLineNumber": 1,
+      "date": "2025-04-18T00:00:00.000Z",
+      "description": "食材",
+      "amount": 20601,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7436793640",
+    "budgetItemId": 11,
+    "amount": 25962,
+    "note": "V1から移行 (元ID: 1626, 元取引: 5041703_1)",
+    "freeDealId": "2744653205",
+    "transactionData": {
+      "journalNumber": "2744653205",
+      "journalLineNumber": 1,
+      "date": "2025-04-17T00:00:00.000Z",
+      "description": "電気代",
+      "amount": 25962,
+      "account": "【事】水道光熱費",
+      "supplier": "中部電力ミライズ株式会社"
+    }
+  },
+  {
+    "detailId": "7436506415",
+    "budgetItemId": 14,
+    "amount": 9776,
+    "note": "V1から移行 (元ID: 1627, 元取引: 5041701_1)",
+    "freeDealId": "2744550789",
+    "transactionData": {
+      "journalNumber": "2744550789",
+      "journalLineNumber": 1,
+      "date": "2025-04-17T00:00:00.000Z",
+      "description": "食材",
+      "amount": 9776,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7428005421",
+    "budgetItemId": 14,
+    "amount": 8000,
+    "note": "V1から移行 (元ID: 1628, 元取引: 5041501_1)",
+    "freeDealId": "2741587825",
+    "transactionData": {
+      "journalNumber": "2741587825",
+      "journalLineNumber": 1,
+      "date": "2025-04-15T00:00:00.000Z",
+      "description": "だがし",
+      "amount": 8000,
+      "account": "【事】食材費",
+      "supplier": "お菓子のひろば"
+    }
+  },
+  {
+    "detailId": "7427947933",
+    "budgetItemId": 23,
+    "amount": 7269,
+    "note": "V1から移行 (元ID: 1629, 元取引: 5041401_1)",
+    "freeDealId": "2741568145",
+    "transactionData": {
+      "journalNumber": "2741568145",
+      "journalLineNumber": 1,
+      "date": "2025-04-14T00:00:00.000Z",
+      "description": "食材",
+      "amount": 7269,
+      "account": "【事】食材費",
+      "supplier": "イオンリテール株式会社"
+    }
+  },
+  {
+    "detailId": "7428542518",
+    "budgetItemId": 20,
+    "amount": 699,
+    "note": "V1から移行 (元ID: 1630, 元取引: 5041405_1)",
+    "freeDealId": "2741779218",
+    "transactionData": {
+      "journalNumber": "2741779218",
+      "journalLineNumber": 1,
+      "date": "2025-04-14T00:00:00.000Z",
+      "description": "キッチンスケール",
+      "amount": 699,
+      "account": "【管】消耗品費",
+      "supplier": "アマゾンジャパン合同会社"
+    }
+  },
+  {
+    "detailId": "7433116079",
+    "budgetItemId": 19,
+    "amount": 20204,
+    "note": "V1から移行 (元ID: 1631, 元取引: 5041105_1)",
+    "freeDealId": "2743346471",
+    "transactionData": {
+      "journalNumber": "2743346471",
+      "journalLineNumber": 1,
+      "date": "2025-04-11T00:00:00.000Z",
+      "description": "",
+      "amount": 20204,
+      "account": "【事】食材費",
+      "supplier": "株式会社タチヤ"
+    }
+  },
+  {
+    "detailId": "7407210581",
+    "budgetItemId": 23,
+    "amount": 7436,
+    "note": "V1から移行 (元ID: 1632, 元取引: 5040903_1)",
+    "freeDealId": "2734243929",
+    "transactionData": {
+      "journalNumber": "2734243929",
+      "journalLineNumber": 1,
+      "date": "2025-04-09T00:00:00.000Z",
+      "description": "食材",
+      "amount": 7436,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7407195693",
+    "budgetItemId": 11,
+    "amount": 3094,
+    "note": "V1から移行 (元ID: 1633, 元取引: 5040901_1)",
+    "freeDealId": "2734239115",
+    "transactionData": {
+      "journalNumber": "2734239115",
+      "journalLineNumber": 1,
+      "date": "2025-04-09T00:00:00.000Z",
+      "description": "水道代",
+      "amount": 3094,
+      "account": "【事】水道光熱費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7399514613",
+    "budgetItemId": 13,
+    "amount": 500,
+    "note": "V1から移行 (元ID: 1634, 元取引: 5040805_1)",
+    "freeDealId": "2731529999",
+    "transactionData": {
+      "journalNumber": "2731529999",
+      "journalLineNumber": 1,
+      "date": "2025-04-08T00:00:00.000Z",
+      "description": "森川",
+      "amount": 500,
+      "account": "【事】謝金",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7392308706",
+    "budgetItemId": 14,
+    "amount": 110,
+    "note": "V1から移行 (元ID: 1635, 元取引: 5040702_1)",
+    "freeDealId": "2729053062",
+    "transactionData": {
+      "journalNumber": "2729053062",
+      "journalLineNumber": 1,
+      "date": "2025-04-07T00:00:00.000Z",
+      "description": "はがき",
+      "amount": 110,
+      "account": "【事】消耗品費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7428320182",
+    "budgetItemId": 19,
+    "amount": 2980,
+    "note": "V1から移行 (元ID: 1636, 元取引: 5040407_1)",
+    "freeDealId": "2741701130",
+    "transactionData": {
+      "journalNumber": "2741701130",
+      "journalLineNumber": 1,
+      "date": "2025-04-07T00:00:00.000Z",
+      "description": "ペットボトルお茶",
+      "amount": 2980,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390606705",
+    "budgetItemId": 23,
+    "amount": 7534,
+    "note": "V1から移行 (元ID: 1637, 元取引: 5040701_1)",
+    "freeDealId": "2728477578",
+    "transactionData": {
+      "journalNumber": "2728477578",
+      "journalLineNumber": 1,
+      "date": "2025-04-07T00:00:00.000Z",
+      "description": "",
+      "amount": 7534,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390761133",
+    "budgetItemId": 14,
+    "amount": 2322,
+    "note": "V1から移行 (元ID: 1638, 元取引: 5040504_1)",
+    "freeDealId": "2728535198",
+    "transactionData": {
+      "journalNumber": "2728535198",
+      "journalLineNumber": 1,
+      "date": "2025-04-05T00:00:00.000Z",
+      "description": "おにぎりなど",
+      "amount": 2322,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390615188",
+    "budgetItemId": 13,
+    "amount": 1500,
+    "note": "V1から移行 (元ID: 1639, 元取引: 5040502_1)",
+    "freeDealId": "2728480862",
+    "transactionData": {
+      "journalNumber": "2728480862",
+      "journalLineNumber": 1,
+      "date": "2025-04-05T00:00:00.000Z",
+      "description": "渡邉、鋤柄、若杉",
+      "amount": 1500,
+      "account": "【事】謝金",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390602482",
+    "budgetItemId": 19,
+    "amount": 20057,
+    "note": "V1から移行 (元ID: 1640, 元取引: 5040402_1)",
+    "freeDealId": "2728476164",
+    "transactionData": {
+      "journalNumber": "2728476164",
+      "journalLineNumber": 1,
+      "date": "2025-04-04T00:00:00.000Z",
+      "description": "",
+      "amount": 20057,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390504012",
+    "budgetItemId": 19,
+    "amount": 8348,
+    "note": "V1から移行 (元ID: 1641, 元取引: 5040401_1)",
+    "freeDealId": "2728439934",
+    "transactionData": {
+      "journalNumber": "2728439934",
+      "journalLineNumber": 1,
+      "date": "2025-04-04T00:00:00.000Z",
+      "description": "食材",
+      "amount": 8348,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7386851239",
+    "budgetItemId": 14,
+    "amount": 598,
+    "note": "V1から移行 (元ID: 1642, 元取引: 5040304_1)",
+    "freeDealId": "2727125503",
+    "transactionData": {
+      "journalNumber": "2727125503",
+      "journalLineNumber": 1,
+      "date": "2025-04-03T00:00:00.000Z",
+      "description": "菓子",
+      "amount": 598,
+      "account": "【管】会議費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7375518203",
+    "budgetItemId": 14,
+    "amount": 5044,
+    "note": "V1から移行 (元ID: 1643, 元取引: 5040202_1)",
+    "freeDealId": "2723236013",
+    "transactionData": {
+      "journalNumber": "2723236013",
+      "journalLineNumber": 1,
+      "date": "2025-04-02T00:00:00.000Z",
+      "description": "",
+      "amount": 5044,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7375370156",
+    "budgetItemId": 30,
+    "amount": 60000,
+    "note": "V1から移行 (元ID: 1644, 元取引: 5040105_1)",
+    "freeDealId": "2723186291",
+    "transactionData": {
+      "journalNumber": "2723186291",
+      "journalLineNumber": 1,
+      "date": "2025-04-01T00:00:00.000Z",
+      "description": "プチハウス制作ワークショップ",
+      "amount": 60000,
+      "account": "【事】謝金",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7375282855",
+    "budgetItemId": 17,
+    "amount": 16500,
+    "note": "V1から移行 (元ID: 1645, 元取引: 5040102_1)",
+    "freeDealId": "2723155338",
+    "transactionData": {
+      "journalNumber": "2723155338",
+      "journalLineNumber": 1,
+      "date": "2025-04-01T00:00:00.000Z",
+      "description": "LINE公式アカウント",
+      "amount": 16500,
+      "account": "【事】通信運搬費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7390597028",
+    "budgetItemId": 23,
+    "amount": 2184,
+    "note": "V1から移行 (元ID: 1646, 元取引: 5040113_1)",
+    "freeDealId": "2728474188",
+    "transactionData": {
+      "journalNumber": "2728474188",
+      "journalLineNumber": 1,
+      "date": "2025-04-01T00:00:00.000Z",
+      "description": "",
+      "amount": 2184,
+      "account": "【事】食材費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7375521943",
+    "budgetItemId": 13,
+    "amount": 1000,
+    "note": "V1から移行 (元ID: 1647, 元取引: 5040111_1)",
+    "freeDealId": "2723237218",
+    "transactionData": {
+      "journalNumber": "2723237218",
+      "journalLineNumber": 1,
+      "date": "2025-04-01T00:00:00.000Z",
+      "description": "森川、松本",
+      "amount": 1000,
+      "account": "【事】謝金",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7375367729",
+    "budgetItemId": 30,
+    "amount": 336469,
+    "note": "V1から移行 (元ID: 1648, 元取引: 5040103_1)",
+    "freeDealId": "2723185348",
+    "transactionData": {
+      "journalNumber": "2723185348",
+      "journalLineNumber": 1,
+      "date": "2025-04-01T00:00:00.000Z",
+      "description": "プチハウス材料",
+      "amount": 336469,
+      "account": "【事】教養娯楽費",
+      "supplier": null
+    }
+  },
+  {
+    "detailId": "7795294082",
+    "budgetItemId": 16,
+    "amount": 180000,
+    "note": "V1から移行 (元ID: 1649, 元取引: 5063034_1)",
+    "freeDealId": "2869133915",
+    "transactionData": {
+      "journalNumber": "2869133915",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 142932,
+      "account": "【事】給与手当",
+      "supplier": "今枝麻里"
+    }
+  },
+  {
+    "detailId": "7795305827",
+    "budgetItemId": 15,
+    "amount": 18540,
+    "note": "V1から移行 (元ID: 1650, 元取引: 5063037_1)",
+    "freeDealId": "2869138414",
+    "transactionData": {
+      "journalNumber": "2869138414",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 18540,
+      "account": "【事】臨時雇用費",
+      "supplier": "西本和子"
+    }
+  },
+  {
+    "detailId": "7795310502",
+    "budgetItemId": 15,
+    "amount": 50234,
+    "note": "V1から移行 (元ID: 1651, 元取引: 5063038_1)",
+    "freeDealId": "2869140200",
+    "transactionData": {
+      "journalNumber": "2869140200",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 50234,
+      "account": "【事】臨時雇用費",
+      "supplier": "佐分利麻美"
+    }
+  },
+  {
+    "detailId": "7795313975",
+    "budgetItemId": 15,
+    "amount": 59767,
+    "note": "V1から移行 (元ID: 1652, 元取引: 5063039_1)",
+    "freeDealId": "2869141541",
+    "transactionData": {
+      "journalNumber": "2869141541",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 59767,
+      "account": "【事】臨時雇用費",
+      "supplier": "土井容子"
+    }
+  },
+  {
+    "detailId": "7795322922",
+    "budgetItemId": 15,
+    "amount": 14940,
+    "note": "V1から移行 (元ID: 1653, 元取引: 5063041_1)",
+    "freeDealId": "2869144807",
+    "transactionData": {
+      "journalNumber": "2869144807",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 14483,
+      "account": "【事】臨時雇用費",
+      "supplier": "荒木美弥子"
+    }
+  },
+  {
+    "detailId": "7795354379",
+    "budgetItemId": 15,
+    "amount": 20534,
+    "note": "V1から移行 (元ID: 1654, 元取引: 5063042_1)",
+    "freeDealId": "2869156925",
+    "transactionData": {
+      "journalNumber": "2869156925",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 19906,
+      "account": "【事】臨時雇用費",
+      "supplier": "久野明子"
+    }
+  },
+  {
+    "detailId": "7795360636",
+    "budgetItemId": 15,
+    "amount": 56467,
+    "note": "V1から移行 (元ID: 1655, 元取引: 5063043_1)",
+    "freeDealId": "2869159438",
+    "transactionData": {
+      "journalNumber": "2869159438",
+      "journalLineNumber": 1,
+      "date": "2025-06-30T00:00:00.000Z",
+      "description": "",
+      "amount": 54738,
+      "account": "預り金",
+      "supplier": "金澤ひろみ"
+    }
+  }
+]
