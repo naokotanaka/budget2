@@ -768,24 +768,26 @@
   };
 
   // アクション関数（グローバルスコープで定義）
-  window.editBudgetItem = (id) => {
-    console.log('Edit budget item:', id);
-    // TODO: 編集モーダルを開く
-    // 簡易実装: グリッドの編集モードを有効化
-    if (gridApi) {
-      gridApi.startEditMode(id, 'name'); // 名前フィールドを編集モードに
-    }
-  };
+  if (typeof window !== 'undefined') {
+    window.editBudgetItem = (id) => {
+      console.log('Edit budget item:', id);
+      // TODO: 編集モーダルを開く
+      // 簡易実装: グリッドの編集モードを有効化
+      if (gridApi) {
+        gridApi.startEditMode(id, 'name'); // 名前フィールドを編集モードに
+      }
+    };
 
-  window.viewDetails = (id) => {
-    console.log('View details:', id);
-    // TODO: 詳細ビューを開く
-    // 簡易実装: 該当行をハイライト
-    if (gridApi) {
-      gridApi.selectRow(id);
-      gridApi.scrollToRow(id);
-    }
-  };
+    window.viewDetails = (id) => {
+      console.log('View details:', id);
+      // TODO: 詳細ビューを開く
+      // 簡易実装: 該当行をハイライト
+      if (gridApi) {
+        gridApi.selectRow(id);
+        gridApi.scrollToRow(id);
+      }
+    };
+  }
 
   // 月別データを生成・処理する関数
   const getMonthlyData = (budgetItem) => {
@@ -1221,7 +1223,11 @@
           
           <button 
             class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            on:click={() => window.location.reload()}
+            on:click={() => {
+              if (typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            }}
           >
             <svg class="-ml-0.5 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1291,6 +1297,12 @@
 
       <!-- wx-svelte-grid -->
       <div class="border border-gray-200 rounded-lg overflow-hidden {isUpdating ? 'opacity-75 pointer-events-none' : ''}">
+        <!-- Grid component temporarily disabled -->
+        <div class="p-8 text-center text-gray-500">
+          <p>グリッド表示は現在開発中です</p>
+          <p class="text-sm mt-2">予算項目: {budgetItems.length}件</p>
+        </div>
+        <!-- 
         <Grid 
           bind:api={gridApi}
           data={displayData} 
@@ -1301,6 +1313,7 @@
           on:sort={handleSort}
           on:filter={handleFilter}
         />
+        -->
       </div>
       
       <!-- グリッド情報 -->
@@ -1364,7 +1377,9 @@
         importType="budget-items"
         onSuccess={() => {
           showCSVImporter = false;
-          window.location.reload();
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
         }}
         onError={(errorMessage) => {
           updateError = errorMessage;

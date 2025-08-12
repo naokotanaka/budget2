@@ -53,7 +53,7 @@ export class LegacyCSVImporter {
   constructor(config: LegacyImportConfig = {}) {
     this.config = {
       skipInvalidDates: true,
-      defaultGrantStatus: 'in_progress',
+      defaultGrantStatus: 'active',
       preserveLegacyIds: true,
       validateRelationships: true,
       encoding: 'auto',

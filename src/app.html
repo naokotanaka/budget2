@@ -7,23 +7,5 @@
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
-		
-		<!-- デバッグ用スクリプト -->
-		<script>
-			if (typeof window !== 'undefined') {
-				console.log('🔍 Current URL:', window.location.href);
-				console.log('🔍 Pathname:', window.location.pathname);
-				
-				// SvelteKit navigation events
-				document.addEventListener('sveltekit:navigation-start', (e) => {
-					console.log('🚀 Navigation start to:', e.detail.to?.url?.pathname);
-				});
-				
-				document.addEventListener('sveltekit:navigation-end', (e) => {
-					console.log('✅ Navigation end:', window.location.pathname);
-				});
-			}
-		</script>
-	</body>
+		<div style="display: contents">%sveltekit.body%</div></body>
 </html>

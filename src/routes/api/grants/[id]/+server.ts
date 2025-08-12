@@ -112,7 +112,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
         totalAmount: totalAmount ? parseInt(totalAmount) : null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
-        status: status || 'in_progress'
+        status: status || 'active'
       }
     });
     

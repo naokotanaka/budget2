@@ -43,12 +43,12 @@ export const GET: RequestHandler = async () => {
     // カスタムソート：稼働中を上に、終了・報告済みを下に
     const sortedGrants = grantsWithStats.sort((a, b) => {
       // 1. ステータスでグループ分け（進行中が最優先）
-      const statusPriority = { in_progress: 0, completed: 1, reported: 1 };
+      const statusPriority = { active: 0, completed: 1, applied: 1 };
       const statusDiff = statusPriority[a.status] - statusPriority[b.status];
       if (statusDiff !== 0) return statusDiff;
       
       // 2. 進行中の場合：終了日順（近い順）、次に開始日順（新しい順）
-      if (a.status === 'in_progress') {
+      if (a.status === 'active') {
         if (a.endDate && b.endDate) {
           const endDateDiff = new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
           if (endDateDiff !== 0) return endDateDiff; // 終了日が近い順
@@ -109,7 +109,7 @@ export const POST: RequestHandler = async ({ request }) => {
         totalAmount: totalAmount ? parseInt(totalAmount) : null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
-        status: status || 'in_progress'
+        status: status || 'active'
       }
     });
     

@@ -9,6 +9,40 @@ import {
   FREEE_BASE_URL 
 } from '$env/static/private';
 
+// ヘルパー関数：備考とメモタグを分離
+function parseRemarkAndTags(description: string | null, deal: any): { remark: string | null, tags: string | null, detailDescription: string | null } {
+  let remark = null;
+  let tags = null;
+  let detailDescription = null;
+
+  // 明細レベルの備考を抽出
+  if (deal.details && deal.details.length > 0) {
+    detailDescription = deal.details[0]?.description || null;
+  }
+
+  // メモからタグを抽出（現行システムの実装を参照）
+  if (deal.memo) {
+    // メモからタグ部分を抽出（例：#タグ1 #タグ2 のような形式）
+    const tagMatches = deal.memo.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g);
+    if (tagMatches) {
+      tags = tagMatches.join(' ');
+    }
+    
+    // タグ以外の部分を備考として抽出
+    const remarkText = deal.memo.replace(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g, '').trim();
+    if (remarkText) {
+      remark = remarkText;
+    }
+  }
+
+  // descriptionが別途ある場合は備考に追加
+  if (description && description !== detailDescription) {
+    remark = remark ? `${remark} ${description}` : description;
+  }
+
+  return { remark, tags, detailDescription };
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const { startDate, endDate, companyId } = await request.json();
@@ -73,14 +107,72 @@ export const POST: RequestHandler = async ({ request }) => {
       selectedCompanyId = companies[0].id; // 最初の会社を使用
     }
 
-    // 取引データを取得
-    const deals = await client.getDeals(
-      accessToken, 
-      selectedCompanyId, 
-      startDate, 
-      endDate,
-      500 // 最大500件
+    // 勘定科目マスタを取得してIDと名前のマッピングを作成
+    console.log('=== 勘定科目マスタ取得開始 ===');
+    const accountItemsResponse = await fetch(
+      `${FREEE_BASE_URL}/api/1/account_items?company_id=${selectedCompanyId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
     );
+
+    if (!accountItemsResponse.ok) {
+      console.error('勘定科目マスタ取得エラー:', accountItemsResponse.status);
+      return json({ 
+        success: false, 
+        error: '勘定科目マスタの取得に失敗しました' 
+      }, { status: 500 });
+    }
+
+    const accountItemsData = await accountItemsResponse.json();
+    const accountItemMap = new Map<number, string>();
+    
+    if (accountItemsData.account_items) {
+      accountItemsData.account_items.forEach((item: any) => {
+        accountItemMap.set(item.id, item.name);
+      });
+      console.log(`勘定科目マスタ取得完了: ${accountItemMap.size}件`);
+    }
+
+    // 取引データを全件取得（ページネーション実装）
+    let allDeals = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMoreData = true;
+
+    console.log('=== 取引データ全件取得開始 ===');
+    
+    while (hasMoreData) {
+      console.log(`ページ取得中: offset=${offset}, limit=${limit}`);
+      
+      const deals = await client.getDeals(
+        accessToken, 
+        selectedCompanyId, 
+        startDate, 
+        endDate,
+        limit,
+        offset
+      );
+
+      allDeals = allDeals.concat(deals);
+      console.log(`このページで取得: ${deals.length}件, 累計: ${allDeals.length}件`);
+      
+      // 取得件数がlimit未満の場合、これ以上データがないと判断
+      if (deals.length < limit) {
+        hasMoreData = false;
+        console.log('全データ取得完了');
+      } else {
+        offset += limit;
+        // APIレート制限を考慮して少し待機
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    const deals = allDeals;
+    console.log(`=== 最終取得件数: ${deals.length}件 ===`);
 
     // 同期開始ログを記録
     const syncRecord = await prisma.freeeSync.create({
@@ -94,49 +186,129 @@ export const POST: RequestHandler = async ({ request }) => {
 
     let syncedCount = 0;
     let errorCount = 0;
+    let newCount = 0;
+    let updateCount = 0;
     const errors: string[] = [];
 
     // 取引データをデータベースに保存
     for (const deal of deals) {
       try {
-        // 既存の取引をチェック
-        const existingTransaction = await prisma.transaction.findUnique({
-          where: { id: `freee_${deal.id}` }
+        // デバッグ用：取引データの詳細をログ出力
+        console.log(`=== Processing Deal ID ${deal.id} ===`);
+        console.log('Deal data:', {
+          id: deal.id,
+          description: deal.description,
+          memo: deal.memo,
+          ref_number: deal.ref_number,
+          partner_name: deal.partner_name,
+          type: deal.type,
+          amount: deal.amount,
+          receipt_ids: deal.receipt_ids,
+          details: deal.details?.map(detail => ({
+            account_item_name: detail.account_item_name,
+            item_name: detail.item_name,
+            description: detail.description,
+            section_name: detail.section_name
+          }))
         });
+
+        // 既存の取引をチェック（freeDealIdで検索）
+        const existingTransaction = await prisma.transaction.findFirst({
+          where: { freeDealId: BigInt(deal.id) }
+        });
+
+        // 備考とメモタグを分離
+        const { remark, tags, detailDescription } = parseRemarkAndTags(deal.details[0]?.description, deal);
+        
+        // レシートIDをJSON文字列として保存
+        const receiptIdsJson = deal.receipt_ids && deal.receipt_ids.length > 0 
+          ? JSON.stringify(deal.receipt_ids) 
+          : null;
+
+        // 明細IDを取得（最初の明細のIDを使用）
+        const detailId = deal.details && deal.details.length > 0 
+          ? deal.details[0].id 
+          : null;
+
+        // 勘定科目名を取得（マスタから取得）
+        let accountName = '不明';
+        if (deal.details && deal.details.length > 0) {
+          const detail = deal.details[0];
+          
+          // デバッグ: 取得したデータを確認
+          console.log(`=== 勘定科目取得 Deal ID: ${deal.id} ===`);
+          console.log('  account_item_id:', detail.account_item_id);
+          console.log('  account_item_name:', detail.account_item_name);
+          
+          // まずaccount_item_nameがあればそれを使用
+          if (detail.account_item_name) {
+            accountName = detail.account_item_name;
+            console.log(`  ✅ account_item_nameから取得: ${accountName}`);
+          } 
+          // なければaccount_item_idからマスタを参照
+          else if (detail.account_item_id) {
+            const masterName = accountItemMap.get(detail.account_item_id);
+            if (masterName) {
+              accountName = masterName;
+              console.log(`  ✅ マスタから取得: ${accountName}`);
+            } else {
+              console.log(`  ❌ 勘定科目マスタに存在しないID: ${detail.account_item_id}`);
+            }
+          }
+          
+          // それでも取得できない場合のデバッグ
+          if (accountName === '不明') {
+            console.log(`  ❌ 勘定科目が取得できません！`);
+            console.log('  Detail全データ:', detail);
+          }
+          
+          console.log(`  最終勘定科目名: ${accountName}`);
+        } else {
+          console.log(`⚠️ 明細データなし - Deal ID: ${deal.id}`);
+        }
+
+        // 共通のデータオブジェクト
+        const transactionData = {
+          journalNumber: BigInt(deal.id),
+          journalLineNumber: 1,
+          date: new Date(deal.issue_date),
+          description: deal.description,
+          amount: Math.abs(deal.amount),
+          account: accountName,
+          supplier: deal.partner_name,
+          department: deal.details[0]?.section_name,
+          item: deal.details[0]?.item_name || null,
+          memo: deal.memo || null,
+          remark: remark,
+          managementNumber: deal.ref_number || null,
+          freeDealId: BigInt(deal.id),
+          tags: tags,
+          detailDescription: detailDescription,
+          detailId: detailId ? BigInt(detailId) : null,
+          receiptIds: receiptIdsJson
+        };
 
         if (existingTransaction) {
           // 既存の取引を更新
           await prisma.transaction.update({
-            where: { id: `freee_${deal.id}` },
+            where: { id: existingTransaction.id },
             data: {
-              journalNumber: deal.id,
-              journalLineNumber: 1,
-              date: new Date(deal.issue_date),
-              description: deal.description || `${deal.partner_name || '不明'} - ${deal.type === 'income' ? '収入' : '支出'}`,
-              amount: Math.abs(deal.amount),
-              account: deal.details[0]?.account_item_name || '不明',
-              supplier: deal.partner_name,
-              department: deal.details[0]?.section_name,
-              freeDealId: deal.id,
+              ...transactionData,
               updatedAt: new Date()
             }
           });
+          console.log(`Updated transaction: ${existingTransaction.id} (freeDealId: ${deal.id})`);
+          updateCount++;
         } else {
           // 新しい取引を作成
           await prisma.transaction.create({
             data: {
               id: `freee_${deal.id}`,
-              journalNumber: deal.id,
-              journalLineNumber: 1,
-              date: new Date(deal.issue_date),
-              description: deal.description || `${deal.partner_name || '不明'} - ${deal.type === 'income' ? '収入' : '支出'}`,
-              amount: Math.abs(deal.amount),
-              account: deal.details[0]?.account_item_name || '不明',
-              supplier: deal.partner_name,
-              department: deal.details[0]?.section_name,
-              freeDealId: deal.id
+              ...transactionData
             }
           });
+          console.log(`Created new transaction: freee_${deal.id} (freeDealId: ${deal.id})`);
+          newCount++;
         }
 
         syncedCount++;
@@ -144,6 +316,7 @@ export const POST: RequestHandler = async ({ request }) => {
         errorCount++;
         errors.push(`取引ID ${deal.id}: ${error.message}`);
         console.error(`取引同期エラー (ID: ${deal.id}):`, error);
+        console.error('Deal data:', JSON.stringify(deal, null, 2));
       }
     }
 
@@ -151,18 +324,20 @@ export const POST: RequestHandler = async ({ request }) => {
     await prisma.freeeSync.update({
       where: { id: syncRecord.id },
       data: {
-        syncStatus: errorCount > 0 ? 'success' : 'success',
+        syncStatus: errorCount > 0 ? 'warning' : 'success',
         syncMessage: errorCount > 0 
-          ? `同期完了（警告あり）: ${syncedCount}件成功, ${errorCount}件エラー`
-          : `同期完了: ${syncedCount}件の取引を同期`,
+          ? `同期完了（警告あり）: ${newCount}件新規, ${updateCount}件更新, ${errorCount}件エラー`
+          : `同期完了: ${newCount}件新規, ${updateCount}件更新`,
         recordCount: syncedCount
       }
     });
 
     return json({
       success: true,
-      message: `${syncedCount}件の取引を同期しました`,
+      message: `${newCount}件新規作成, ${updateCount}件更新しました`,
       syncedCount,
+      newCount,
+      updateCount,
       errorCount,
       errors: errors.slice(0, 10) // 最初の10件のエラーのみ返す
     });

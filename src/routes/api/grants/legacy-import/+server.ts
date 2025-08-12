@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request }) => {
               grant.totalAmount || null,
               grant.startDate || null,
               grant.endDate || null,
-              grant.status || 'in_progress'
+              grant.status || 'active'
             ]
           );
 

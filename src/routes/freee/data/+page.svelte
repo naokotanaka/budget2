@@ -59,59 +59,27 @@
         companyId: selectedCompanyId
       };
       
-      console.log('=== リクエスト詳細 ===');
-      console.log('URL:', requestUrl);
-      console.log('Body:', requestBody);
-      console.log('Headers:', { 'Content-Type': 'application/json' });
-      
       const response = await fetch(requestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
       
-      console.log('=== レスポンス詳細 ===');
-      console.log('Status:', response.status);
-      console.log('StatusText:', response.statusText);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
-      console.log('OK:', response.ok);
-      
-      // レスポンステキストを先に取得（デバッグ用）
       const responseText = await response.text();
-      console.log('Response Text Length:', responseText.length);
-      console.log('Response Text Preview:', responseText.substring(0, 200));
-      
       let result;
       try {
         result = JSON.parse(responseText);
-        console.log('Parsed JSON:', result);
       } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        console.log('Raw Response Text:', responseText);
         throw new Error(`JSON解析エラー: ${parseError.message}`);
       }
       
       if (!response.ok) {
-        console.error('HTTP Error - Status:', response.status, 'Response:', result);
         throw new Error(`HTTP ${response.status}: ${result?.error || response.statusText}`);
       }
       
       if (result.success) {
         transactions = result.data;
         successMessage = result.message;
-        console.log('=== 取得したデータ詳細 ===');
-        console.log('件数:', transactions.length);
-        console.log('最初のデータ:', transactions[0]);
-        console.log('全データ:', transactions);
-        
-        // 各フィールドの値を確認
-        if (transactions.length > 0) {
-          const sample = transactions[0];
-          console.log('=== サンプルデータのフィールド値 ===');
-          Object.keys(sample).forEach(key => {
-            console.log(`${key}:`, sample[key], `(type: ${typeof sample[key]})`);
-          });
-        }
       } else {
         errorMessage = result.error;
         if (result.needsSetup) {
@@ -119,10 +87,6 @@
         }
       }
     } catch (error) {
-      console.error('=== エラー詳細 ===');
-      console.error('Error Type:', error.constructor.name);
-      console.error('Error Message:', error.message);
-      console.error('Error Stack:', error.stack);
       errorMessage = `データ取得中にエラーが発生しました: ${error.message}`;
     } finally {
       loading = false;
@@ -211,14 +175,13 @@
     </div>
   </div>
 
-  <!-- データ取得フォーム（Phase 2実装） -->
+  <!-- データ取得フォーム -->
   <div class="bg-white shadow rounded-lg">
     <div class="px-4 py-5 sm:p-6">
       <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
         データ取得
       </h3>
       
-      <!-- Phase 2で有効化 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label for="startDate" class="block text-sm font-medium text-gray-700">
@@ -340,105 +303,4 @@
     </div>
   </div>
 
-  <!-- データ表示エリア（Phase 2実装） -->
-  <div class="bg-white shadow rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-      <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-        取得結果
-      </h3>
-      
-      {#if transactions.length > 0}
-        <div class="mt-4">
-          <p class="text-sm text-gray-600 mb-4">
-            {transactions.length}件のデータを表示中
-            <span class="text-xs text-gray-500 ml-2">
-              ※ freee APIの制限により、一部の詳細情報が取得できない場合があります
-            </span>
-          </p>
-          
-          <!-- シンプルなHTMLテーブル（Phase 2版） -->
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    発生日
-                  </th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    取引先
-                  </th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    摘要
-                  </th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    勘定科目
-                  </th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    金額
-                  </th>
-                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    freee ID
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                {#each transactions as transaction}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.issue_date ? new Date(transaction.issue_date).toLocaleDateString('ja-JP') : '日付なし'}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {#if transaction.partner_name && transaction.partner_name !== '－'}
-                        {transaction.partner_name}
-                      {:else}
-                        <span class="text-gray-400 italic">取引先情報なし</span>
-                      {/if}
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      <div class="max-w-xs truncate" title={transaction.description || '摘要情報なし'}>
-                        {#if transaction.description && !transaction.description.includes('不明')}
-                          {transaction.description}
-                        {:else}
-                          <span class="text-gray-400 italic">
-                            {transaction.type === 'income' ? '収入' : '支出'} (ID: {transaction.id})
-                          </span>
-                        {/if}
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {#if transaction.account_item_name && transaction.account_item_name !== '不明'}
-                        {transaction.account_item_name}
-                      {:else}
-                        <span class="text-gray-400 italic">勘定科目情報なし</span>
-                      {/if}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                        {transaction.amount ? formatCurrency(transaction.amount) : '¥0'}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {transaction.id || 'ID不明'}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      {:else}
-        <div class="text-center py-8 text-gray-500">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
-          </svg>
-          <p class="mt-2 text-sm">
-            まだデータが取得されていません
-          </p>
-          <p class="text-xs text-gray-400">
-            上のフォームからデータを取得してください
-          </p>
-        </div>
-      {/if}
-    </div>
-  </div>
 </div>

@@ -186,7 +186,7 @@ export class LegacyCSVValidator {
       }
 
       // ステータスの検証
-      const validStatuses = ['active', 'completed', 'reported', 'inactive'];
+      const validStatuses = ['active', 'completed', 'applied', 'inactive'];
       if (grant.ステータス && !validStatuses.includes(grant.ステータス.toLowerCase())) {
         this.addWarning(`助成金ID ${grant.ID}: 不明なステータス値: ${grant.ステータス}`);
       }

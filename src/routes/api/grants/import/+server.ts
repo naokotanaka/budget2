@@ -29,7 +29,7 @@ try {
       totalAmount INTEGER,
       startDate TEXT,
       endDate TEXT,
-      status TEXT CHECK(status IN ('in_progress', 'completed', 'reported')) DEFAULT 'in_progress',
+      status TEXT CHECK(status IN ('active', 'completed', 'applied')) DEFAULT 'active',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -137,17 +137,17 @@ export const POST: RequestHandler = async ({ request }) => {
         }
         
         // ステータスの正規化
-        let status = 'in_progress';
+        let status = 'active';
         if (row.status && typeof row.status === 'string') {
           const statusMap: { [key: string]: string } = {
-            '進行中': 'in_progress',
+            '進行中': 'active',
             '終了': 'completed',
-            '報告済み': 'reported',
-            'in_progress': 'in_progress',
+            '報告済み': 'applied',
+            'active': 'active',
             'completed': 'completed',
-            'reported': 'reported'
+            'applied': 'applied'
           };
-          status = statusMap[row.status] || 'in_progress';
+          status = statusMap[row.status] || 'active';
         }
         
         // データ挿入

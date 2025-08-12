@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "https://vocal-flounder-45021.upstash.io",
+        "UPSTASH_REDIS_REST_TOKEN": "Aa_dAAIjcDE5ZDVlYTJlM2E5ZWE0NzA1OGE5YmRiZjVhZWM2Y2NmMnAxMA"
+      }
+    }
+  }
+}

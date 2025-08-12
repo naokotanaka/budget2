@@ -16,7 +16,7 @@
     totalAmount?: number;
     startDate?: string;
     endDate?: string;
-    status: 'in_progress' | 'completed' | 'reported';
+    status: 'active' | 'completed' | 'applied';
     budgetItemsCount?: number;
     usedAmount?: number;
   }
@@ -62,7 +62,66 @@
   
   // 月データ表示制御（既に上で定義済みのため削除）
   
-  // 月列生成時に自動的にフィルター範囲を調整
+  // 進行中助成金の期間に基づいて月絞り込み範囲を設定
+  function setDefaultFilterRangeFromInProgressGrants() {
+    // 進行中の助成金を取得
+    const inProgressGrants = grants.filter(grant => grant.status === 'active');
+    
+    if (inProgressGrants.length === 0) {
+      console.log('📅 進行中の助成金がないため、デフォルト範囲を維持');
+      return;
+    }
+    
+    let earliestStart: Date | null = null;
+    let latestEnd: Date | null = null;
+    
+    inProgressGrants.forEach(grant => {
+      if (grant.startDate) {
+        const startDate = new Date(grant.startDate);
+        if (!earliestStart || startDate < earliestStart) {
+          earliestStart = startDate;
+        }
+      }
+      
+      if (grant.endDate) {
+        const endDate = new Date(grant.endDate);
+        if (!latestEnd || endDate > latestEnd) {
+          latestEnd = endDate;
+        }
+      }
+    });
+    
+    console.log('📅 進行中助成金の期間調査:', {
+      inProgressGrantsCount: inProgressGrants.length,
+      earliestStart: earliestStart?.toISOString(),
+      latestEnd: latestEnd?.toISOString()
+    });
+    
+    // 初期値のままの場合のみ設定（ユーザーの手動設定を尊重）
+    const isDefaultRange = (monthFilterStartYear === 2025 && monthFilterEndYear === 2025);
+    
+    if (isDefaultRange) {
+      
+      if (earliestStart) {
+        monthFilterStartYear = earliestStart.getFullYear();
+        monthFilterStartMonth = earliestStart.getMonth() + 1;
+      }
+      
+      if (latestEnd) {
+        monthFilterEndYear = latestEnd.getFullYear();
+        monthFilterEndMonth = latestEnd.getMonth() + 1;
+      }
+      
+      console.log('📅 進行中助成金の期間に基づいてフィルター範囲を設定:', {
+        startYear: monthFilterStartYear,
+        startMonth: monthFilterStartMonth,
+        endYear: monthFilterEndYear,
+        endMonth: monthFilterEndMonth
+      });
+    }
+  }
+  
+  // 月列生成時に自動的にフィルター範囲を調整（既存ロジック）
   function adjustFilterRangeToData() {
     if (monthColumns && monthColumns.length > 0) {
       const years = monthColumns.map(col => col.year);
@@ -76,11 +135,11 @@
         dataMaxYear: maxYear
       });
       
-      // 初回のみ自動調整（ユーザーの手動設定を尊重）
+      // フォールバック：月列データがある場合の調整
       if (monthFilterStartYear === 2025 && monthFilterEndYear === 2025) {
         monthFilterStartYear = minYear;
         monthFilterEndYear = maxYear;
-        console.log('📅 フィルター範囲を自動調整:', {
+        console.log('📅 フィルター範囲をフォールバック調整:', {
           newStartYear: monthFilterStartYear,
           newEndYear: monthFilterEndYear
         });
@@ -161,18 +220,17 @@
         totalBudget += monthlyBudget;
       }
       
-      // 使用額：実際に数値が表示される場合のみ合計（過去・現在月の0も含む）
+      // 使用額：現在月まで0を合計、未来月は"-"表示なので合計に含めない
       if (isCurrentOrPast) {
-        const monthlyUsed = 0; // 実際は実データを取得予定
+        const monthlyUsed = 0; // 現在月まで使用額は0
         totalUsed += monthlyUsed;
       }
       // 未来の月は "-" 表示なので合計に含めない
       
-      // 残額：実際に数値が表示される場合のみ合計
+      // 残額：現在月までは予算額がそのまま残額、未来月は"-"表示なので合計に含めない
       if (isCurrentOrPast && monthlyBudget > 0) {
-        // 過去・現在で予算がある場合のみ
-        const monthlyUsed = 0;
-        const monthlyRemaining = monthlyBudget - monthlyUsed;
+        const monthlyUsed = 0; // 使用額0
+        const monthlyRemaining = monthlyBudget - monthlyUsed; // 予算額がそのまま残額
         totalRemaining += monthlyRemaining;
       }
       // 未来の月や予算が0の月は "-" 表示なので合計に含めない
@@ -186,15 +244,15 @@
   let budgetItemForm: Partial<BudgetItem> = {};
 
   const statusLabels = {
-    in_progress: '進行中',
+    active: '進行中',
     completed: '終了',
-    reported: '報告済み'
+    applied: '報告済み'
   };
 
   const statusColors = {
-    in_progress: 'bg-blue-100 text-blue-800',
+    active: 'bg-blue-100 text-blue-800',
     completed: 'bg-yellow-100 text-yellow-800',
-    reported: 'bg-green-100 text-green-800'
+    applied: 'bg-green-100 text-green-800'
   };
 
   onMount(async () => {
@@ -214,12 +272,15 @@
       });
       
       if (grants.length > 0 && budgetItems.length > 0) {
+        // 進行中助成金の期間に基づいて月絞り込み範囲を設定
+        setDefaultFilterRangeFromInProgressGrants();
+        
         // 月列生成
         if (monthColumns.length === 0) {
           monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
           console.log('🔄 初期monthColumns生成完了:', monthColumns.length);
           
-          // フィルター範囲を自動調整
+          // フィルター範囲を自動調整（フォールバック）
           adjustFilterRangeToData();
           
           // 月列生成後にテーブル再構築
@@ -515,17 +576,13 @@
     
     const filtered = items.filter(item => {
       const status = item.grantStatus || item.grant?.status;
-      console.log(`項目${item.id}(${item.name}) - grantStatus: ${item.grantStatus}, grant.status: ${item.grant?.status}, 判定status: ${status}`);
-      
-      // ステータスが未定義の場合は表示（デバッグ用）
+      // ステータスが未定義の場合は表示
       if (!status) {
-        console.log(`項目${item.id}(${item.name}) - ステータス未定義、表示`);
         return true;
       }
       
       // 基本表示: 進行中のみ
-      if (status === 'in_progress') {
-        console.log(`項目${item.id}(${item.name}) - 進行中、表示`);
+      if (status === 'active') {
         return true;
       }
       
@@ -536,7 +593,7 @@
       }
       
       // 報告済み表示がONの場合、報告済みステータスも表示
-      if (showReportedGrants && status === 'reported') {
+      if (showReportedGrants && status === 'applied') {
         console.log(`項目${item.id}(${item.name}) - 報告済み表示ON、表示`);
         return true;
       }
@@ -619,7 +676,7 @@
         endDate: formatDateForInput(grant.endDate)
       };
     } else {
-      grantForm = { status: 'in_progress' };
+      grantForm = { status: 'active' };
     }
     showGrantForm = true;
   }
@@ -1289,11 +1346,7 @@
     if (monthColumns && monthColumns.length > 0) {
       // 月フィルタリングを適用
       const filteredMonthColumns = getFilteredMonthColumns();
-      console.log('🔧 月列を追加中...', {
-        totalMonthColumns: monthColumns.length,
-        filteredMonthColumns: filteredMonthColumns.length,
-        filterRange: `${monthFilterStartYear}/${monthFilterStartMonth} - ${monthFilterEndYear}/${monthFilterEndMonth}`
-      });
+  
       
       // フィルタリングされた月列のみを追加
       filteredMonthColumns.forEach((monthCol, index) => {
@@ -1309,12 +1362,29 @@
             const rowData = cell.getRow().getData();
             const fieldName = cell.getField();
             
-            // デバッグログ削除
+            // 現在の年月を取得
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+            
+            // 対象月が過去・現在・未来かを判定
+            const isCurrentOrPast = 
+              monthCol.year < currentYear || 
+              (monthCol.year === currentYear && monthCol.month <= currentMonth);
             
             // チェックボックス設定に基づく表示制御
             const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
-            const usedDisplay = '-'; // 今後実装
-            const remainingDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+            
+            // 使用額：現在月まで0、未来月は'-'
+            const usedDisplay = isCurrentOrPast ? '0' : '-';
+            
+            // 残額：現在月までは予算額、未来月は'-'
+            let remainingDisplay = '-';
+            if (isCurrentOrPast && monthlyBudget > 0) {
+              remainingDisplay = monthlyBudget.toLocaleString(); // 使用額0なので予算額がそのまま残額
+            } else if (!isCurrentOrPast) {
+              remainingDisplay = '-'; // 未来月
+            }
             
             const items = [];
             if (showMonthlyBudget) {
@@ -1568,12 +1638,29 @@
               const rowData = cell.getRow().getData();
               const fieldName = cell.getField();
               
-              // デバッグログ削除
+              // 現在の年月を取得
+              const now = new Date();
+              const currentYear = now.getFullYear();
+              const currentMonth = now.getMonth() + 1;
+              
+              // 対象月が過去・現在・未来かを判定
+              const isCurrentOrPast = 
+                monthCol.year < currentYear || 
+                (monthCol.year === currentYear && monthCol.month <= currentMonth);
               
               // チェックボックス設定に基づく表示制御  
               const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
-              const usedDisplay = '-'; // 今後実装
-              const remainingDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+              
+              // 使用額：現在月まで0、未来月は'-'
+              const usedDisplay = isCurrentOrPast ? '0' : '-';
+              
+              // 残額：現在月までは予算額、未来月は'-'
+              let remainingDisplay = '-';
+              if (isCurrentOrPast && monthlyBudget > 0) {
+                remainingDisplay = monthlyBudget.toLocaleString(); // 使用額0なので予算額がそのまま残額
+              } else if (!isCurrentOrPast) {
+                remainingDisplay = '-'; // 未来月
+              }
               
               const items = [];
               if (showMonthlyBudget) {
@@ -1693,7 +1780,7 @@
 
   // 報告済み助成金の年度フィルタリング
   function getFilteredReportedGrants(grants: Grant[]): Grant[] {
-    const reportedGrants = grants.filter(g => g.status === 'reported');
+    const reportedGrants = grants.filter(g => g.status === 'applied');
     
     if (!filterYear) {
       return reportedGrants;
@@ -1710,7 +1797,7 @@
   function getAvailableYears(grants: Grant[]): string[] {
     const years = new Set<string>();
     grants
-      .filter(g => g.status === 'completed' || g.status === 'reported')
+      .filter(g => g.status === 'completed' || g.status === 'applied')
       .forEach(grant => {
         if (grant.endDate) {
           const year = new Date(grant.endDate).getFullYear().toString();
@@ -1744,7 +1831,7 @@
     }
     
     // 暫定：全ての進行中の助成金から月列を生成
-    const displayedGrantIds = new Set(grantsData.filter(g => g.status === 'in_progress').map(g => g.id));
+    const displayedGrantIds = new Set(grantsData.filter(g => g.status === 'active').map(g => g.id));
     console.log('Using all active grants for month generation:', Array.from(displayedGrantIds));
     
     if (displayedGrantIds.size === 0) {
@@ -2116,17 +2203,17 @@
     return null;
   }
 
-  function parseStatus(value: string): 'in_progress' | 'completed' | 'reported' {
+  function parseStatus(value: string): 'active' | 'completed' | 'applied' {
     const trimmed = value?.trim() || '';
     switch (trimmed) {
       case '終了':
       case 'completed':
         return 'completed';
       case '報告済み':
-      case 'reported':
-        return 'reported';
+      case 'applied':
+        return 'applied';
       default:
-        return 'in_progress';
+        return 'active';
     }
   }
 
@@ -2346,10 +2433,10 @@
         </div>
       {:else}
         <!-- 稼働中の助成金（水平スクロール） -->
-        {#if grants.filter(g => g.status === 'in_progress').length > 0}
+        {#if grants.filter(g => g.status === 'active').length > 0}
           <div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {#each grants.filter(g => g.status === 'in_progress') as grant}
+              {#each grants.filter(g => g.status === 'active') as grant}
                 <div 
                   class="border rounded-lg px-3 py-3 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} relative group"
                 >
@@ -2840,9 +2927,9 @@
             bind:value={grantForm.status}
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="in_progress">進行中</option>
+            <option value="active">進行中</option>
             <option value="completed">終了</option>
-            <option value="reported">報告済み</option>
+            <option value="applied">報告済み</option>
           </select>
         </div>
         

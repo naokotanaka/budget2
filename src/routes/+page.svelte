@@ -1,8 +1,6 @@
 <script>
   // import { Grid } from "wx-svelte-grid";
-  import DebugInfo from '$lib/components/DebugInfo.svelte';
-  
-  export let data;
+export let data;
   
   $: ({ grants, recentTransactions, stats } = data);
 
@@ -201,4 +199,3 @@
 </div>
 
 <!-- デバッグ情報コンポーネント -->
-<DebugInfo />

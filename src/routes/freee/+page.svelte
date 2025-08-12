@@ -222,14 +222,16 @@
       return;
     }
 
-    // 列定義（API項目名と日本語名を両方表示）
+    // 列定義（横スクロール対応のため幅を調整）
     const columns = [
       {
         title: "選択",
         field: "selected",
-        width: 60,
+        width: 50,
+        minWidth: 50,
         hozAlign: "center",
         headerHozAlign: "center",
+        frozen: true, // 固定列
         formatter: function(cell) {
           const isChecked = cell.getValue();
           return `<input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer;">`;
@@ -257,17 +259,20 @@
         headerSort: false
       },
       {
-        title: "ID<br>id",
+        title: "取引ID",
         field: "id",
-        width: 100,
-        sorter: "number"
+        width: 80,
+        minWidth: 60,
+        sorter: "number",
+        frozen: true, // 固定列
+        headerSort: true
       },
       {
-        title: "発生日<br>issue_date",
+        title: "発生日",
         field: "issue_date",
-        width: 100,
+        width: 90,
+        minWidth: 80,
         sorter: function(a, b) {
-          // カスタム日付ソーター（Luxon不要）
           const dateA = a ? new Date(a) : new Date(0);
           const dateB = b ? new Date(b) : new Date(0);
           return dateA.getTime() - dateB.getTime();
@@ -278,19 +283,19 @@
           try {
             const date = new Date(val);
             return date.toLocaleDateString('ja-JP', {
-              year: 'numeric',
               month: '2-digit',
               day: '2-digit'
             });
           } catch (error) {
-            return val; // エラー時は元の値をそのまま表示
+            return val;
           }
         }
       },
       {
-        title: "金額<br>amount",
+        title: "金額",
         field: "amount",
-        width: 100,
+        width: 90,
+        minWidth: 70,
         sorter: "number",
         hozAlign: "right",
         formatter: function(cell) {
@@ -299,82 +304,216 @@
         }
       },
       {
-        title: "取引先<br>partner_name",
+        title: "取引先<br><small>partner_id</small>",
         field: "partner_name",
-        width: 150
+        width: 120,
+        minWidth: 80,
+        sorter: "string",
+        headerSort: true
       },
       {
-        title: "取引内容<br>description",
+        title: "取引内容<br><small>wallet_description</small>",
         field: "description",
-        width: 150
+        width: 180,
+        minWidth: 120,
+        formatter: function(cell) {
+          const row = cell.getRow().getData();
+          // Wallet Txnsからの詳細説明を優先表示
+          if (row.wallet_description) {
+            return `<span class="text-indigo-600 font-medium" title="Wallet Txnsより">${row.wallet_description}</span>`;
+          }
+          // 明細の説明を次に表示
+          if (row.details && row.details[0] && row.details[0].description) {
+            return row.details[0].description;
+          }
+          // その他のフォールバック
+          return row.description || row.ref_number || '';
+        },
+        sorter: "string",
+        headerSort: true
       },
       {
-        title: "勘定科目<br>account_item_name",
+        title: "勘定科目<br><small>details.account_item_id</small>",
         field: "account_item_name",
-        width: 150,
+        width: 120,
+        minWidth: 100,
         formatter: function(cell) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
-            return row.details[0].account_item_name || '(未設定)';
+            return row.details[0].account_item_name || '(Not Set)';
           }
-          return '(未設定)';
-        }
+          return '(Not Set)';
+        },
+        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+          const aVal = aRow.getData().details?.[0]?.account_item_name || '';
+          const bVal = bRow.getData().details?.[0]?.account_item_name || '';
+          return aVal.localeCompare(bVal, 'ja');
+        },
+        headerSort: true
       },
       {
-        title: "部門<br>section_name",
+        title: "部門<br><small>details.section_id</small>",
         field: "section_name",
-        width: 100,
+        width: 80,
+        minWidth: 60,
         formatter: function(cell) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
             return row.details[0].section_name || '';
           }
           return '';
-        }
+        },
+        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+          const aVal = aRow.getData().details?.[0]?.section_name || '';
+          const bVal = bRow.getData().details?.[0]?.section_name || '';
+          return aVal.localeCompare(bVal, 'ja');
+        },
+        headerSort: true
       },
       {
-        title: "品目<br>item_name",
+        title: "品目<br><small>details.item_id</small>",
         field: "item_name",
-        width: 100,
+        width: 80,
+        minWidth: 60,
         formatter: function(cell) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
             return row.details[0].item_name || '';
           }
           return '';
-        }
+        },
+        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+          const aVal = aRow.getData().details?.[0]?.item_name || '';
+          const bVal = bRow.getData().details?.[0]?.item_name || '';
+          return aVal.localeCompare(bVal, 'ja');
+        },
+        headerSort: true
       },
       {
-        title: "管理番号<br>ref_number",
-        field: "ref_number",
-        width: 100
-      },
-      {
-        title: "メモ<br>memo",
-        field: "memo",
-        width: 150
-      },
-      {
-        title: "明細備考<br>detail.description",
-        field: "detail_description",
+        title: "メモタグ<br><small>tag_names</small>",
+        field: "tag_names",
         width: 150,
+        minWidth: 100,
         formatter: function(cell) {
           const row = cell.getRow().getData();
-          if (row.details && row.details[0]) {
-            return row.details[0].description || '';
+          // 取引レベルのタグを優先表示
+          if (row.tag_names) {
+            return `<span class="text-orange-600 font-medium">${row.tag_names}</span>`;
           }
-          return '';
-        }
+          // 明細レベルのタグを表示
+          if (row.details && row.details[0] && row.details[0].tag_names) {
+            return `<span class="text-orange-500">${row.details[0].tag_names}</span>`;
+          }
+          return '<span class="text-gray-400">-</span>';
+        },
+        tooltip: function(cell) {
+          const row = cell.getRow().getData();
+          const dealTags = row.tag_names;
+          const detailTags = row.details?.[0]?.tag_names;
+          if (dealTags && detailTags) {
+            return `取引タグ: ${dealTags}
+明細タグ: ${detailTags}`;
+          } else if (dealTags) {
+            return `取引タグ: ${dealTags}`;
+          } else if (detailTags) {
+            return `明細タグ: ${detailTags}`;
+          }
+          return 'メモタグなし';
+        },
+        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+          const aVal = aRow.getData().tag_names || aRow.getData().details?.[0]?.tag_names || '';
+          const bVal = bRow.getData().tag_names || bRow.getData().details?.[0]?.tag_names || '';
+          return aVal.localeCompare(bVal, 'ja');
+        },
+        headerSort: true
       },
       {
-        title: "ステータス<br>status",
+        title: "管理番号<br><small>ref_number</small>",
+        field: "ref_number",
+        width: 100,
+        minWidth: 80,
+        formatter: function(cell) {
+          const value = cell.getValue();
+          return value ? `<span class="text-blue-600 font-medium">${value}</span>` : '<span class="text-gray-400">-</span>';
+        },
+        tooltip: "freee管理番号",
+        sorter: "string",
+        headerSort: true
+      },
+      {
+        title: "明細備考<br><small>details.description</small>",
+        field: "detail_description",
+        width: 140,
+        minWidth: 100,
+        formatter: function(cell) {
+          const row = cell.getRow().getData();
+          if (row.details && row.details.length > 0 && row.details[0].description) {
+            const desc = row.details[0].description;
+            return `<span class="text-purple-600">${desc}</span>`;
+          }
+          return '<span class="text-gray-400">-</span>';
+        },
+        tooltip: function(cell) {
+          const row = cell.getRow().getData();
+          if (row.details && row.details.length > 0) {
+            return row.details[0].description || '明細レベルの備考情報';
+          }
+          return '明細レベルの備考情報';
+        },
+        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+          const aVal = aRow.getData().details?.[0]?.description || '';
+          const bVal = bRow.getData().details?.[0]?.description || '';
+          return aVal.localeCompare(bVal, 'ja');
+        },
+        headerSort: true
+      },
+      {
+        title: "支払方法<br><small>walletable_type</small>",
+        field: "walletable_type",
+        width: 100,
+        minWidth: 80,
+        formatter: function(cell) {
+          const value = cell.getValue();
+          const row = cell.getRow().getData();
+          if (value) {
+            let displayText = value;
+            let colorClass = "text-gray-600";
+            switch(value) {
+              case 'credit_card':
+                displayText = 'カード';
+                colorClass = "text-blue-600";
+                break;
+              case 'bank_account':
+                displayText = '銀行';
+                colorClass = "text-green-600";
+                break;
+              case 'wallet':
+                displayText = '現金';
+                colorClass = "text-yellow-600";
+                break;
+            }
+            return `<span class="${colorClass} font-medium">${displayText}</span>`;
+          }
+          return '<span class="text-gray-400">-</span>';
+        },
+        sorter: "string",
+        headerSort: true
+      },
+      {
+        title: "ステータス",
         field: "status",
-        width: 100
+        width: 80,
+        minWidth: 60,
+        sorter: "string",
+        headerSort: true
       },
       {
-        title: "タイプ<br>type",
+        title: "タイプ",
         field: "type",
-        width: 100
+        width: 80,
+        minWidth: 60,
+        sorter: "string",
+        headerSort: true
       }
     ];
 
@@ -391,8 +530,25 @@
 
     const tableData = previewData.map(deal => ({
       ...deal,
-      selected: false
+      selected: false,
+      // 備考欄の表示用にフィールドを正規化
+      account_item_name: deal.details && deal.details.length > 0 ? deal.details[0].account_item_name : '',
+      section_name: deal.details && deal.details.length > 0 ? deal.details[0].section_name : '',
+      item_name: deal.details && deal.details.length > 0 ? deal.details[0].item_name : '',
+      detail_description: deal.details && deal.details.length > 0 ? deal.details[0].description : ''
     }));
+
+    // 備考データが存在する取引をコンソールに出力（デバッグ用）
+    const dealsWithMemo = tableData.filter(deal => deal.ref_number || deal.memo || deal.detail_description);
+    console.log(`=== 備考データを持つ取引: ${dealsWithMemo.length}件 ===`);
+    dealsWithMemo.forEach(deal => {
+      console.log(`取引ID ${deal.id}:`, {
+        ref_number: deal.ref_number,
+        memo: deal.memo, 
+        detail_description: deal.detail_description,
+        partner_name: deal.partner_name
+      });
+    });
 
     console.log(`テーブル初期化開始: ${tableData.length}件のデータ`);
 
@@ -400,18 +556,19 @@
       table = new Tabulator(tableElement, {
         data: tableData,
         columns: columns,
-        layout: "fitDataStretch",
-        height: "500px",
+        layout: "fitColumns", // 横スクロール対応レイアウト
+        height: "600px", // 高さを少し増加
         pagination: "local",
         paginationSize: 20,
         paginationSizeSelector: [10, 20, 50, 100],
         movableColumns: true,
         resizableColumns: true,
         headerVisible: true,
-        responsiveLayout: "hide",
+        responsiveLayout: false, // レスポンシブ無効（普通のグリッド表示）
         tooltips: true,
         addRowPos: "top",
         history: true,
+        virtualDomHoz: true, // 水平方向の仮想DOM（大きなテーブル対応）
         langs: {
           "ja-jp": {
             "pagination": {
@@ -688,9 +845,17 @@
           </div>
 
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-900">
-              取得データ
-            </h2>
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">
+                取得データ
+              </h2>
+              <p class="text-sm text-gray-600 mt-1">
+                <span class="text-blue-600 font-medium">管理番号</span>・
+                <span class="text-purple-600 font-medium">明細備考</span>・
+                <span class="text-orange-600 font-medium">メモタグ</span>
+                が色付きで表示されます（横スクロールで確認）
+              </p>
+            </div>
             <div class="space-x-2">
               <button
                 on:click={toggleSelectAll}
@@ -708,15 +873,18 @@
             </div>
           </div>
           
-          <div bind:this={tableElement} class="min-h-[500px] w-full">
-            {#if !table && previewData.length > 0}
-              <div class="flex items-center justify-center h-32">
-                <div class="text-center">
-                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p class="text-gray-600">テーブルを初期化しています...</p>
+          <!-- テーブルコンテナ（備考欄表示を確実にするための横スクロール対応） -->
+          <div class="border rounded-lg overflow-hidden">
+            <div bind:this={tableElement} class="w-full" style="min-height: 600px;">
+              {#if !table && previewData.length > 0}
+                <div class="flex items-center justify-center h-32">
+                  <div class="text-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p class="text-gray-600">テーブルを初期化しています...</p>
+                  </div>
                 </div>
-              </div>
-            {/if}
+              {/if}
+            </div>
           </div>
         </div>
       {/if}
@@ -736,10 +904,11 @@
 </div>
 
 <style>
-  /* Tabulatorのスタイルカスタマイズ */
+  /* Tabulatorのスタイルカスタマイズ（横スクロール対応） */
   :global(.tabulator) {
     background-color: white !important;
     border: 1px solid #e5e7eb !important;
+    overflow-x: auto !important; /* 横スクロール有効化 */
   }
   
   :global(.tabulator-header) {
@@ -749,16 +918,41 @@
   
   :global(.tabulator-header .tabulator-col-title) {
     white-space: normal !important;
-    line-height: 1.2;
-    padding: 8px 4px !important;
-    font-size: 12px;
+    line-height: 1.4;
+    padding: 6px 3px !important;
+    font-size: 11px;
     font-weight: 600 !important;
   }
   
+  /* ヘッダーの2行目（英語名）を表示 */
+  :global(.tabulator-header .tabulator-col-title small) {
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 400 !important;
+    color: #6b7280 !important;
+    margin-top: 2px !important;
+  }
+  
+  /* 固定列のスタイル */
+  :global(.tabulator .tabulator-col.tabulator-frozen) {
+    background-color: #f8fafc !important;
+    border-right: 2px solid #cbd5e1 !important;
+  }
+  
   :global(.tabulator-cell) {
-    padding: 4px !important;
-    font-size: 13px;
+    padding: 3px !important;
+    font-size: 12px;
     border-right: 1px solid #f3f4f6 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* 備考欄の特別スタイル */
+  :global(.tabulator-cell) .text-blue-600,
+  :global(.tabulator-cell) .text-green-600,
+  :global(.tabulator-cell) .text-purple-600 {
+    font-weight: 500 !important;
   }
   
   :global(.tabulator-row) {
@@ -772,5 +966,16 @@
   :global(.tabulator-footer) {
     background-color: #f9fafb !important;
     border-top: 1px solid #e5e7eb !important;
+  }
+
+  /* 横スクロールバーの強制表示 */
+  :global(.tabulator-tableholder) {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+  }
+  
+  /* テーブル全体の最小幅を設定 */
+  :global(.tabulator-table) {
+    min-width: 1200px !important; /* 全列が表示される最小幅 */
   }
 </style>

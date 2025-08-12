@@ -9,7 +9,7 @@ async function updateSampleData() {
     // 既存データのステータス更新
     await prisma.grant.updateMany({
       where: { status: 'active' },
-      data: { status: 'in_progress' }
+      data: { status: 'active' }
     });
 
     // テスト用の終了・報告済みデータを作成
@@ -20,7 +20,7 @@ async function updateSampleData() {
         totalAmount: 2000000,
         startDate: new Date('2023-04-01'),
         endDate: new Date('2024-03-31'),
-        status: 'reported'
+        status: 'applied'
       },
       {
         name: '2024年度教育支援金',
@@ -36,7 +36,7 @@ async function updateSampleData() {
         totalAmount: 3000000,
         startDate: new Date('2022-06-01'),
         endDate: new Date('2023-05-31'),
-        status: 'reported'
+        status: 'applied'
       }
     ];
 

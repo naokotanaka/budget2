@@ -143,21 +143,126 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     // 取引データ（deals）をメインで使用 - 仕訳ID + 行番号で管理
     console.log('取引データ取得開始:', { companyId: selectedCompanyId, startDate, endDate });
     
-    let deals;
+    // 取引データを全件取得（ページネーション実装）
+    let allDeals = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMoreData = true;
+
+    console.log('=== 取引データ全件取得開始 ===');
+    
     try {
-      deals = await client.getDeals(
-        accessToken,
-        selectedCompanyId,
-        startDate,
-        endDate,
-        100 // Phase 2では100件まで
-      );
-      console.log('Deals取得成功:', deals.length, '件');
+      while (hasMoreData) {
+        console.log(`ページ取得中: offset=${offset}, limit=${limit}`);
+        
+        const deals = await client.getDeals(
+          accessToken,
+          selectedCompanyId,
+          startDate,
+          endDate,
+          limit,
+          offset
+        );
+
+        allDeals = allDeals.concat(deals);
+        console.log(`このページで取得: ${deals.length}件, 累計: ${allDeals.length}件`);
+        
+        // 取得件数がlimit未満の場合、これ以上データがないと判断
+        if (deals.length < limit) {
+          hasMoreData = false;
+          console.log('全データ取得完了');
+        } else {
+          offset += limit;
+          // APIレート制限を考慮して少し待機
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      console.log('Deals取得成功:', allDeals.length, '件');
       
     } catch (dealsError) {
       console.error('Deals取得失敗:', dealsError);
       throw dealsError;
     }
+    
+    const deals = allDeals;
+    console.log(`=== 最終取得件数: ${deals.length}件 ===`);
+    
+    // CSVベースの仕訳帳データ取得（詳細な取引内容とメモタグ用）
+    console.log('=== 仕訳帳CSV取得開始（処理開始） ===');
+    console.log('journals API呼び出し準備:', { selectedCompanyId, startDate, endDate });
+    let journalCsvData = null;
+    
+    // 一時的に journals API をスキップして deals API のデータ構造を確認
+    console.log('=== journals API は一時的にスキップ（deals API データ構造確認のため） ===');
+    /* 
+    try {
+      console.log('=== 簡易journals API呼び出し中... ===');
+      const journalData = await client.getJournals(
+        accessToken,
+        selectedCompanyId,
+        startDate,
+        endDate,
+        500, // より多くのレコードを取得
+        0
+      );
+      console.log('=== getJournalsComplete呼び出し完了 ===');
+      journalCsvData = journalData;
+      console.log(`=== 仕訳帳CSV取得完了: ${journalData ? journalData.length : '0'}行 ===`);
+      
+      // CSVデータから取引内容サンプルをログ出力
+      if (journalData.length > 0) {
+        console.log('=== CSVヘッダー確認 ===');
+        console.log('Available keys:', Object.keys(journalData[0]));
+        
+        const sampleEntries = journalData.slice(0, 3);
+        sampleEntries.forEach((entry, index) => {
+          console.log(`=== 仕訳サンプル ${index + 1} ===`);
+          console.log('取引内容:', entry['取引内容']);
+          console.log('借方メモ:', entry['借方メモ']);
+          console.log('管理番号:', entry['管理番号']);
+          console.log('仕訳番号:', entry['仕訳番号']);
+          console.log('取引ID:', entry['取引ID']);
+        });
+      } else {
+        console.log('=== CSVデータが空です ===');
+      }
+    } catch (journalError) {
+      console.error('=== JOURNALS CSV ERROR ===');
+      console.error('仕訳帳CSV取得エラー:', journalError.message);
+      console.error('エラー詳細:', journalError);
+      // エラーがあっても処理を継続
+    }
+    */
+    
+    // 名前解決用のマスタデータを取得
+    console.log('=== マスタデータ取得開始 ===');
+    let accountItems = [];
+    let partners = [];
+    let sections = [];
+    let items = [];
+    
+    try {
+      [accountItems, partners, sections, items] = await Promise.all([
+        client.getAccountItems(accessToken, selectedCompanyId),
+        client.getPartners(accessToken, selectedCompanyId),
+        client.getSections(accessToken, selectedCompanyId),
+        client.getItems(accessToken, selectedCompanyId)
+      ]);
+      
+      console.log(`勘定科目: ${accountItems.length}件`);
+      console.log(`取引先: ${partners.length}件`);
+      console.log(`部門: ${sections.length}件`);
+      console.log(`品目: ${items.length}件`);
+    } catch (masterError) {
+      console.error('マスタデータ取得エラー:', masterError);
+      // エラーがあっても処理を継続
+    }
+    
+    // 名前解決用のマップを作成
+    const accountItemMap = new Map(accountItems.map(item => [item.id, item.name]));
+    const partnerMap = new Map(partners.map(partner => [partner.id, partner.name]));
+    const sectionMap = new Map(sections.map(section => [section.id, section.name]));
+    const itemMap = new Map(items.map(item => [item.id, item.name]));
     
     console.log(`${deals.length}件の取引データを取得`);
     
@@ -288,11 +393,222 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
       // 名前解決に失敗してもデータは返す
     }
     
+    // データベースへの保存処理
+    console.log('=== transactionsテーブルへの保存開始 ===');
+    let syncedCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+    
+    // 備考とメモタグを分離する関数
+    function parseRemarkAndTags(description: string | null, deal: any): { remark: string | null, tags: string | null, detailDescription: string | null } {
+      let remark = null;
+      let tags = null;
+      let detailDescription = null;
+
+      // 明細レベルの備考を抽出
+      if (deal.details && deal.details.length > 0) {
+        detailDescription = deal.details[0]?.description || null;
+      }
+
+      // メモからタグを抽出
+      if (deal.memo) {
+        const tagMatches = deal.memo.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g);
+        if (tagMatches) {
+          tags = tagMatches.join(' ');
+        }
+        
+        const remarkText = deal.memo.replace(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g, '').trim();
+        if (remarkText) {
+          remark = remarkText;
+        }
+      }
+
+      if (description && description !== detailDescription) {
+        remark = remark ? `${remark} ${description}` : description;
+      }
+
+      return { remark, tags, detailDescription };
+    }
+    
+    // CSVデータから詳細情報を取得するためのマップを作成
+    const journalDetailsMap = new Map();
+    if (journalCsvData && journalCsvData.length > 0) {
+      console.log('=== CSVヘッダー確認 ===');
+      console.log('Available keys:', Object.keys(journalCsvData[0]));
+      
+      for (const entry of journalCsvData) {
+        const dealId = entry['取引ID'];
+        const lineNumber = entry['仕訳行番号'] || 1; // 行番号も考慮
+        
+        if (dealId) {
+          // 取引IDと行番号の組み合わせでキーを作成
+          const key = `${dealId}_${lineNumber}`;
+          journalDetailsMap.set(dealId, {
+            description: entry['取引内容'] || '',
+            memo: entry['借方メモ'] || '',
+            managementNumber: entry['管理番号'] || '',
+            lineNumber: lineNumber
+          });
+          
+          // デバッグ用ログ（最初の3件のみ）
+          if (journalDetailsMap.size <= 3) {
+            console.log(`=== CSV詳細マッピング ${journalDetailsMap.size} ===`);
+            console.log('Deal ID:', dealId);
+            console.log('Line Number:', lineNumber);
+            console.log('取引内容:', entry['取引内容']);
+            console.log('借方メモ:', entry['借方メモ']);
+            console.log('管理番号:', entry['管理番号']);
+          }
+        }
+      }
+      console.log(`=== 仕訳詳細マップ作成完了: ${journalDetailsMap.size}件 ===`);
+    } else {
+      console.log('=== CSVデータなし、仕訳詳細マップはスキップ ===');
+    }
+
+    for (const deal of deals) {
+      try {
+        // CSVから詳細情報を取得
+        const journalDetail = journalDetailsMap.get(deal.id);
+        
+        // デバッグ：取引データの構造を確認（取引内容関連）
+        if (deal.id && syncedCount < 3) { // 最初の3件のみ詳細ログ
+          console.log(`=== Deal ${deal.id} 取引内容確認 ===`);
+          console.log('CSV取引内容:', journalDetail?.description);
+          console.log('CSV借方メモ:', journalDetail?.memo);
+          console.log('CSV管理番号:', journalDetail?.managementNumber);
+          console.log('deal.ref_number:', deal.ref_number);
+          console.log('deal.description:', deal.description);
+          console.log('deal.memo:', deal.memo);
+          console.log('deal details:', deal.details?.map(d => ({ 
+            id: d.id, 
+            description: d.description, 
+            account_item_name: d.account_item_name 
+          })));
+        }
+        
+        // 既存の取引をチェック
+        const existingTransaction = await prisma.transaction.findUnique({
+          where: { id: `freee_${deal.id}` }
+        });
+
+        const { remark, tags, detailDescription } = parseRemarkAndTags(deal.details[0]?.description, deal);
+        
+        // deals APIから取引内容を適切に抽出
+        let dealsDescription = '';
+        
+        // 1. deal.descriptionから取得を試行
+        if (deal.description && deal.description.trim()) {
+          dealsDescription = deal.description.trim();
+        }
+        // 2. 詳細の最初のdescriptionから取得を試行
+        else if (deal.details && deal.details.length > 0 && deal.details[0].description && deal.details[0].description.trim()) {
+          dealsDescription = deal.details[0].description.trim();
+        }
+        // 3. パートナー名から取得を試行
+        else if (deal.partner_name && deal.partner_name.trim()) {
+          dealsDescription = deal.partner_name.trim();
+        }
+        // 4. 勘定科目名から取得を試行  
+        else if (deal.details && deal.details.length > 0 && deal.details[0].account_item_name) {
+          dealsDescription = `${deal.details[0].account_item_name}取引`;
+        }
+        // 5. 最終フォールバック
+        else {
+          dealsDescription = `取引 ${deal.id}`;
+        }
+        
+        // CSVデータがある場合は優先して使用、なければ deals API から抽出した内容
+        const finalDescription = journalDetail?.description || dealsDescription;
+        const finalTags = journalDetail?.memo || tags;
+        const finalManagementNumber = journalDetail?.managementNumber || deal.ref_number || null;
+        
+        // レシートIDをJSON文字列として保存
+        const receiptIdsJson = deal.receipt_ids && deal.receipt_ids.length > 0 
+          ? JSON.stringify(deal.receipt_ids) 
+          : null;
+
+        // 明細IDを取得
+        const detailId = deal.details && deal.details.length > 0 
+          ? deal.details[0].id 
+          : null;
+
+        if (existingTransaction) {
+          // 既存の取引を更新
+          await prisma.transaction.update({
+            where: { id: `freee_${deal.id}` },
+            data: {
+              journalNumber: deal.id,
+              journalLineNumber: 1,
+              date: new Date(deal.issue_date),
+              description: finalDescription,
+              amount: Math.abs(deal.amount),
+              account: deal.details[0]?.account_item_name || 
+                      (deal.details[0]?.account_item_id ? accountItemMap.get(deal.details[0].account_item_id) || `勘定科目ID:${deal.details[0].account_item_id}` : '勘定科目未設定'),
+              supplier: deal.partner_name || 
+                       (deal.partner_id ? partnerMap.get(deal.partner_id) || `取引先ID:${deal.partner_id}` : '取引先未設定'),
+              department: deal.details[0]?.section_name || 
+                         (deal.details[0]?.section_id ? sectionMap.get(deal.details[0].section_id) || null : null),
+              item: deal.details[0]?.item_name || 
+                   (deal.details[0]?.item_id ? itemMap.get(deal.details[0].item_id) || null : null),
+              memo: deal.memo || '※freee APIから詳細情報を取得できませんでした',
+              remark: remark,
+              managementNumber: finalManagementNumber,
+              freeDealId: deal.id,
+              tags: finalTags,
+              detailDescription: detailDescription,
+              detailId: detailId ? BigInt(detailId) : null,
+              receiptIds: receiptIdsJson,
+              updatedAt: new Date()
+            }
+          });
+        } else {
+          // 新しい取引を作成
+          await prisma.transaction.create({
+            data: {
+              id: `freee_${deal.id}`,
+              journalNumber: deal.id,
+              journalLineNumber: 1,
+              date: new Date(deal.issue_date),
+              description: finalDescription,
+              amount: Math.abs(deal.amount),
+              account: deal.details[0]?.account_item_name || 
+                      (deal.details[0]?.account_item_id ? accountItemMap.get(deal.details[0].account_item_id) || `勘定科目ID:${deal.details[0].account_item_id}` : '勘定科目未設定'),
+              supplier: deal.partner_name || 
+                       (deal.partner_id ? partnerMap.get(deal.partner_id) || `取引先ID:${deal.partner_id}` : '取引先未設定'),
+              department: deal.details[0]?.section_name || 
+                         (deal.details[0]?.section_id ? sectionMap.get(deal.details[0].section_id) || null : null),
+              item: deal.details[0]?.item_name || 
+                   (deal.details[0]?.item_id ? itemMap.get(deal.details[0].item_id) || null : null),
+              memo: deal.memo || '※freee APIから詳細情報を取得できませんでした',
+              remark: remark,
+              managementNumber: finalManagementNumber,
+              freeDealId: deal.id,
+              tags: finalTags,
+              detailDescription: detailDescription,
+              detailId: detailId ? BigInt(detailId) : null,
+              receiptIds: receiptIdsJson
+            }
+          });
+        }
+
+        syncedCount++;
+      } catch (error) {
+        errorCount++;
+        errors.push(`取引ID ${deal.id}: ${error.message}`);
+        console.error(`取引保存エラー (ID: ${deal.id}):`, error);
+      }
+    }
+    
+    console.log(`=== 保存完了: ${syncedCount}件成功, ${errorCount}件エラー ===`);
+    
     const responseData = {
       success: true,
       data: transformedData,
       count: transformedData.length,
-      message: `${transformedData.length}件のデータを取得しました`
+      message: `${transformedData.length}件のデータを取得し、${syncedCount}件をデータベースに保存しました`,
+      syncedCount,
+      errorCount
     };
     
     console.log('=== API レスポンス送信 ===');

@@ -15,6 +15,7 @@ const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'));
 
 export default defineConfig(({ command, mode }) => ({
 	plugins: [sveltekit()],
+	base: '/budget2/', // 開発・本番統一（VPS環境でNginx経由アクセスのため）
 	define: {
 		__BUILD_VERSION__: JSON.stringify(pkg.version),
 		__BUILD_TIME__: JSON.stringify(new Date().toISOString()),
@@ -31,13 +32,13 @@ export default defineConfig(({ command, mode }) => ({
 		fs: {
 			allow: ['..']
 		},
+		// CSRF保護のため、プロキシ設定を追加
+		origin: 'https://nagaiku.top',
 		// プロダクション用：HTTPで起動（nginxがHTTPS終端を行う）
 		// https: {
 		//     key: fs.readFileSync('certs/key.pem'),
 		//     cert: fs.readFileSync('certs/cert.pem')
 		// },
-		// WebSocket HMR設定 - HTTPS環境では問題があるため無効化
-		hmr: false
 	},
 	// プロダクションビルドの最適化
 	build: {

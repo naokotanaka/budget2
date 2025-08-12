@@ -24,7 +24,7 @@ export class LegacyCSVConverter {
   constructor(config: ConversionConfig = {}) {
     this.config = {
       skipInvalidDates: true,
-      defaultGrantStatus: 'in_progress',
+      defaultGrantStatus: 'active',
       preserveLegacyIds: true,
       validateRelationships: true,
       encoding: 'utf-8',
@@ -137,7 +137,7 @@ export class LegacyCSVConverter {
         return {
           name: grant.名称 || `助成金_${grant.ID}`,
           legacyId: grant.ID,
-          status: this.config.defaultGrantStatus || 'in_progress'
+          status: this.config.defaultGrantStatus || 'active'
         };
       }
     });
@@ -241,9 +241,9 @@ export class LegacyCSVConverter {
   /**
    * ステータスを新システム形式に変換
    */
-  private convertStatus(legacyStatus: string): 'in_progress' | 'completed' | 'reported' {
+  private convertStatus(legacyStatus: string): 'active' | 'completed' | 'applied' {
     const normalizedStatus = legacyStatus.toLowerCase().trim();
-    return LEGACY_STATUS_MAPPING[normalizedStatus] || this.config.defaultGrantStatus || 'in_progress';
+    return LEGACY_STATUS_MAPPING[normalizedStatus] || this.config.defaultGrantStatus || 'active';
   }
 
   /**

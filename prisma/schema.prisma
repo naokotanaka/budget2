@@ -14,7 +14,7 @@ datasource db {
 
 model Transaction {
   id                   String            @id
-  journalNumber        Int
+  journalNumber        BigInt
   journalLineNumber    Int
   date                 DateTime
   description          String?
@@ -26,7 +26,11 @@ model Transaction {
   remark               String?           // 備考
   department           String?           // 部門
   managementNumber     String?           // 管理番号
-  freeDealId           Int?              // freee取引ID
+  freeDealId           BigInt?   @unique // freee取引ID
+  tags                 String?           // メモタグ
+  detailDescription    String?           // 明細備考（remarkから分離）  
+  detailId             BigInt?           // 明細ID（行番号）
+  receiptIds           String?           // レシートID配列（JSON）
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -45,7 +49,7 @@ model Grant {
   totalAmount  Int?        // 総額（円）
   startDate    DateTime?   // 開始日
   endDate      DateTime?   // 終了日
-  status       String      @default("in_progress") // in_progress, completed, reported
+  status       String      @default("active") // active, completed, applied
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 

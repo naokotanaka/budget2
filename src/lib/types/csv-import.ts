@@ -34,7 +34,7 @@ export interface GrantImportData {
   totalAmount?: number;
   startDate?: string;
   endDate?: string;
-  status?: 'in_progress' | 'completed' | 'reported';
+  status?: 'active' | 'completed' | 'applied';
 }
 
 // 予算項目インポート用の型

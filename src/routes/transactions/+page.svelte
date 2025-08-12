@@ -1,11 +1,19 @@
 <script>
-  // import { Grid } from "wx-svelte-grid";
+  import { onMount } from 'svelte';
+  import { TabulatorFull as Tabulator } from 'tabulator-tables';
+  import 'tabulator-tables/dist/css/tabulator.min.css';
   import { base } from '$app/paths';
-  import DebugInfo from '$lib/components/DebugInfo.svelte';
-  
+  import TransactionDetailPanel from '$lib/components/TransactionDetailPanel.svelte';
+
   export let data;
   
   $: ({ transactions, budgetItems } = data);
+  
+  let tableElement;
+  let table;
+  let selectedTransaction = null;
+  let showDetailPanel = false;
+  let tableBuilt = false;
 
   // 取引データを表示用にフォーマット
   $: formattedTransactions = transactions.map(tx => ({
@@ -16,6 +24,17 @@
     amount: tx.amount,
     supplier: tx.supplier || '',
     department: tx.department || '',
+    item: tx.item || '',
+    memo: tx.memo || '',
+    remark: tx.remark || '',
+    detailDescription: tx.detailDescription || '',
+    tags: tx.tags || '',
+    managementNumber: tx.managementNumber || '',
+    freeDealId: tx.freeDealId,
+    receiptIds: tx.receiptIds || null,
+    detailId: tx.detailId || null,
+    journalNumber: tx.journalNumber || null,
+    journalLineNumber: tx.journalLineNumber || null,
     allocations: tx.allocations.length > 0 
       ? tx.allocations.map(a => `${a.budgetItem.grant.name} - ${a.budgetItem.name} (¥${a.amount.toLocaleString()})`).join(', ')
       : '',
@@ -24,81 +43,126 @@
     remaining: tx.amount - tx.allocations.reduce((sum, a) => sum + a.amount, 0)
   }));
 
-  // DataGrid用の列定義
+  // Tabulator用の列定義（最終仕様に更新）
   const columns = [
     { 
-      id: "date", 
-      header: "日付", 
-      width: 120, 
-      sort: true 
+      title: "発生日", 
+      field: "date", 
+      width: 100,
+      sorter: "string",
+      headerSort: true
     },
     { 
-      id: "description", 
-      header: "摘要", 
-      width: 200, 
-      sort: true
+      title: "金額", 
+      field: "amount", 
+      width: 100,
+      sorter: "number",
+      headerSort: true,
+      hozAlign: "right",
+      formatter: (cell) => `¥${cell.getValue().toLocaleString()}`
     },
     { 
-      id: "account", 
-      header: "勘定科目", 
-      width: 120, 
-      sort: true 
+      title: "取引内容", 
+      field: "description", 
+      width: 120,
+      sorter: "string",
+      headerSort: true
     },
     { 
-      id: "amount", 
-      header: "金額", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => `¥${value.toLocaleString()}`
+      title: "勘定科目", 
+      field: "account", 
+      width: 120,
+      sorter: "string",
+      headerSort: true
     },
     { 
-      id: "supplier", 
-      header: "取引先", 
-      width: 150, 
-      sort: true
+      title: "部門", 
+      field: "department", 
+      width: 80,
+      sorter: "string",
+      headerSort: true
     },
     { 
-      id: "department", 
-      header: "部門", 
-      width: 100, 
-      sort: true
+      title: "取引先名", 
+      field: "supplier", 
+      width: 120,
+      sorter: "string",
+      headerSort: true
     },
     { 
-      id: "allocationStatus", 
-      header: "割当状況", 
-      width: 100, 
-      sort: true,
-      template: (value) => {
+      title: "備考", 
+      field: "detailDescription", 
+      width: 120,
+      sorter: "string",
+      headerSort: true
+    },
+    { 
+      title: "メモタグ", 
+      field: "tags", 
+      width: 100,
+      sorter: "string",
+      headerSort: true,
+      formatter: (cell) => {
+        const value = cell.getValue();
+        return value ? `<span class="text-blue-600">${value}</span>` : '';
+      }
+    },
+    { 
+      title: "品目", 
+      field: "item", 
+      width: 100,
+      sorter: "string",
+      headerSort: true
+    },
+    { 
+      title: "メモ", 
+      field: "memo", 
+      width: 120,
+      sorter: "string",
+      headerSort: true
+    },
+    { 
+      title: "管理番号", 
+      field: "managementNumber", 
+      width: 100,
+      sorter: "string",
+      headerSort: true
+    },
+    { 
+      title: "割当状況", 
+      field: "allocationStatus", 
+      width: 80,
+      sorter: "string",
+      headerSort: true,
+      formatter: (cell) => {
+        const value = cell.getValue();
         if (value === '割当済') {
-          return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">${value}</span>`;
+          return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">${value}</span>`;
         } else {
-          return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">${value}</span>`;
+          return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">${value}</span>`;
         }
       }
     },
     { 
-      id: "totalAllocated", 
-      header: "割当合計", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => value > 0 ? `¥${value.toLocaleString()}` : '-'
-    },
-    { 
-      id: "remaining", 
-      header: "残額", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => {
-        if (value > 0) {
-          return `<span class="text-orange-600">¥${value.toLocaleString()}</span>`;
-        } else if (value < 0) {
-          return `<span class="text-red-600">¥${value.toLocaleString()}</span>`;
-        } else {
-          return `<span class="text-green-600">¥0</span>`;
+      title: "ファイル", 
+      field: "receiptIds", 
+      width: 60,
+      sorter: false,
+      headerSort: false,
+      formatter: (cell) => {
+        const rowData = cell.getRow().getData();
+        const receiptIds = rowData.receiptIds;
+        if (receiptIds) {
+          try {
+            const ids = JSON.parse(receiptIds);
+            return ids && ids.length > 0 ? 
+              `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">📎${ids.length}</span>` : 
+              '';
+          } catch (e) {
+            return '';
+          }
         }
+        return '';
       }
     }
   ];
@@ -114,66 +178,139 @@
     )
   };
 
-  // freee同期状態
-  let syncing = false;
-  let syncMessage = '';
-
-  // freee同期実行
-  async function syncFromFreee() {
-    if (syncing) return;
-    
-    syncing = true;
-    syncMessage = 'freeeから取引データを同期中...';
-    
-    try {
-      // 過去3ヶ月のデータを同期
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 3);
-      
-      const response = await fetch(`/budget2/api/freee/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        syncMessage = result.message;
-        // ページをリロードしてデータを更新
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        syncMessage = `同期エラー: ${result.error}`;
-        if (response.status === 401) {
-          // 認証が必要な場合は認証ページにリダイレクト
-          setTimeout(() => {
-            window.location.href = `/budget2/auth/freee`;
-          }, 3000);
-        }
-      }
-    } catch (error) {
-      syncMessage = `同期エラー: ${error.message}`;
-      console.error('Sync error:', error);
-    } finally {
-      syncing = false;
-      // 5秒後にメッセージをクリア
-      setTimeout(() => {
-        syncMessage = '';
-      }, 5000);
+  // 取引詳細パネルを開く
+  function openTransactionDetail(transaction) {
+    // 元の取引データを取得
+    const originalTransaction = transactions.find(tx => tx.id === transaction.id);
+    if (originalTransaction) {
+      selectedTransaction = originalTransaction;
+      showDetailPanel = true;
     }
+  }
+
+  // 取引詳細パネルを閉じる
+  function closeTransactionDetail() {
+    showDetailPanel = false;
+    selectedTransaction = null;
+  }
+
+  // 取引データが更新されたとき
+  function handleTransactionUpdate(event) {
+    const updatedTransaction = event.detail;
+    // データを再取得するか、ローカル更新
+    console.log('Transaction updated:', updatedTransaction);
+  }
+
+  onMount(() => {
+    if (tableElement) {
+      table = new Tabulator(tableElement, {
+        data: formattedTransactions,
+        columns: columns,
+        layout: "fitColumns",
+        height: "600px",
+        pagination: "local",
+        paginationSize: 20,
+        paginationSizeSelector: [10, 20, 50, 100],
+        movableColumns: true,
+        resizableRows: false,
+        resizableColumns: true,
+        selectable: 1,
+        langs: {
+          "ja-jp": {
+            "pagination": {
+              "first": "最初",
+              "first_title": "最初のページ",
+              "last": "最後",
+              "last_title": "最後のページ", 
+              "prev": "前",
+              "prev_title": "前のページ",
+              "next": "次",
+              "next_title": "次のページ",
+              "counter": {
+                "showing": "表示中",
+                "of": "の",
+                "rows": "行"
+              }
+            }
+          }
+        },
+        locale: "ja-jp",
+        // 行クリックイベントを追加
+        rowClick: function(e, row) {
+          const rowData = row.getData();
+          openTransactionDetail(rowData);
+        }
+      });
+      
+      // テーブル初期化完了イベント
+      table.on("tableBuilt", function(){
+        tableBuilt = true;
+        console.log("Table built successfully");
+      });
+    }
+  });
+
+  // データが更新されたときにテーブルを再描画（テーブル初期化完了後のみ）
+  $: if (table && tableBuilt && formattedTransactions.length > 0) {
+    table.setData(formattedTransactions);
   }
 </script>
 
-<div class="space-y-6">
-  <!-- ページヘッダー -->
+<style>
+  /* Tabulatorのスタイルカスタマイズ */
+  :global(.tabulator) {
+    background: white;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+  }
+
+  :global(.tabulator-header) {
+    background: #f9fafb;
+    border-radius: 0.5rem 0.5rem 0 0;
+  }
+
+  :global(.tabulator-col) {
+    border-right: 1px solid #e5e7eb;
+  }
+
+  :global(.tabulator-col-title) {
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  :global(.tabulator-row) {
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  :global(.tabulator-row:hover) {
+    background-color: #f9fafb;
+  }
+
+  :global(.tabulator-row .tabulator-cell) {
+    border-right: 1px solid #e5e7eb;
+    padding: 0.75rem 1rem;
+  }
+
+  :global(.tabulator-paginator) {
+    color: #374151;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  :global(.tabulator-page.active) {
+    background: #3b82f6;
+    color: white;
+  }
+</style>
+
+<div class="flex h-screen bg-gray-100">
+  <!-- メインコンテンツ -->
+  <div class="flex-1 {showDetailPanel ? 'w-3/4' : 'w-full'} transition-all duration-300">
+    <div class="p-6 space-y-6">
+      <!-- ページヘッダー -->
   <div class="flex justify-between items-center">
     <div>
       <h2 class="text-2xl font-bold text-gray-900">
@@ -185,51 +322,22 @@
     </div>
     
     <div class="flex space-x-3">
-      <button 
-        on:click={syncFromFreee}
-        disabled={syncing}
-        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      <a 
+        href="/budget2/freee"
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       >
-        {#if syncing}
-          <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          同期中...
-        {:else}
-          freeeから同期
-        {/if}
-      </button>
+        <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        freee連携へ
+      </a>
       <button class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
         CSVエクスポート
       </button>
     </div>
   </div>
 
-  <!-- 同期メッセージ -->
-  {#if syncMessage}
-    <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          {#if syncing}
-            <svg class="animate-spin h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          {:else}
-            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-            </svg>
-          {/if}
-        </div>
-        <div class="ml-3">
-          <p class="text-sm text-blue-700">
-            {syncMessage}
-          </p>
-        </div>
-      </div>
-    </div>
-  {/if}
+
 
   <!-- 統計情報 -->
   <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -336,12 +444,29 @@
     </div>
     
     <div class="p-4">
-      <div style="height: 600px;">
-        <!-- <Grid data={formattedTransactions} {columns} /> -->
+      {#if formattedTransactions.length > 0}
+        <!-- Tabulatorデータグリッド -->
+        <div bind:this={tableElement} class="w-full"></div>
+      {:else}
+        <div class="text-center py-12">
+          <div class="text-gray-500">
+            <p>取引データがありません</p>
+            <p class="text-sm mt-2">freee連携ページでデータを同期してください</p>
+          </div>
+        </div>
+      {/if}
       </div>
     </div>
+    </div>
   </div>
-</div>
 
-<!-- デバッグ情報コンポーネント -->
-<DebugInfo />
+  <!-- 取引詳細パネル -->
+  {#if showDetailPanel && selectedTransaction}
+    <TransactionDetailPanel 
+      transaction={selectedTransaction}
+      budgetItems={budgetItems}
+      on:close={closeTransactionDetail}
+      on:update={handleTransactionUpdate}
+    />
+  {/if}
+</div>

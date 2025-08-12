@@ -56,6 +56,7 @@ export const ROUTES = {
   BUDGET_ITEMS: '/budget-items',
   ALLOCATIONS: '/allocations',
   GRANTS: '/grants',
+  FREEE: '/freee',
   FREEE_DATA: '/freee/data',
   FREEE_SYNC: '/freee/sync',
   FREEE_AUTH: '/auth/freee',
@@ -76,6 +77,7 @@ export const createRouteUrl = {
   budgetItems: () => createUrl(ROUTES.BUDGET_ITEMS),
   allocations: () => createUrl(ROUTES.ALLOCATIONS),
   grants: () => createUrl(ROUTES.GRANTS),
+  freee: () => createUrl(ROUTES.FREEE),
   freeeData: () => createUrl(ROUTES.FREEE_DATA),
   freeeSync: () => createUrl(ROUTES.FREEE_SYNC),
   freeeAuth: () => createUrl(ROUTES.FREEE_AUTH),
@@ -87,20 +89,3 @@ export const createRouteUrl = {
   apiGrants: () => createUrl(ROUTES.API_GRANTS)
 } as const;
 
-/**
- * 開発時のデバッグ情報を生成
- */
-export function getDebugInfo(currentPath: string) {
-  return {
-    currentPath,
-    base,
-    pathWithoutBase: removeBasePath(currentPath),
-    isBaseMatch: currentPath.startsWith(base),
-    availableRoutes: Object.entries(ROUTES).map(([key, path]) => ({
-      name: key,
-      path,
-      fullUrl: createUrl(path),
-      isActive: isActivePath(currentPath, path)
-    }))
-  };
-}

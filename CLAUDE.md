@@ -7,15 +7,33 @@
 
 ## 環境設定
 
+### 【重要】VPS環境での制約
+- **VPS環境**：localhostは外部からアクセス不可
+- **開発・本番どちらも**：Nginx経由でアクセスする
+- **開発・本番どちらも**：`/budget2/`パス必須
+
 ### ポート設定
 - **開発環境**: PORT 3002
 - **本番環境**: PORT 3002
 - **ポート変更禁止** - Nginx設定と連動しているため
 
+### アクセス構成
+#### 開発時
+```
+外部 → Nginx → Vite開発サーバー（localhost:3002）
+URL: https://nagaiku.top/budget2/
+```
+
+#### 本番時
+```
+外部 → Nginx → Node.js（ビルド済み、localhost:3002）
+URL: https://nagaiku.top/budget2/
+```
+
 ### URL設定
-- **本番URL**: https://nagaiku.top/budget2/
-- **開発URL**: https://localhost:3002
+- **両環境共通URL**: https://nagaiku.top/budget2/
 - **HTTPSアクセス必須** - HTTPは使用不可
+- **重要**：開発時も本番時も同じURL・同じパス
 
 ### tmuxセッション
 - **開発用セッション名**: 
@@ -42,29 +60,70 @@ PGPASSWORD=$DB_PASSWORD psql -h localhost -U nagaiku_user -d nagaiku_budget_v2_d
 
 ## 開発ルール
 
-### 開発モード
-- **必ずtmux使用** - systemctlは本番環境のみ
+### 事前確認ルール（必須）
+- **ファイル変更前は必ず確認を取る**
+- **推測が必要な場合は質問する**
+- **大きな作業は段階的に進める**
+- **エージェント使用前も確認する**
+
+#### 確認が必要なタイミング：
+1. ファイルを変更・作成・削除する前
+2. データベースを操作する前  
+3. 複数の解釈ができる指示を受けた時
+4. 「たぶんこうだろう」と推測が必要な時
+5. 大きな作業やエージェント使用を開始する前
+
+#### 確認方法の例：
+```
+✅ 良い例：「このエラーの原因は○○だと思います。△△ファイルの□□行を修正しますが、よろしいですか？」
+❌ 悪い例：「エラーを修正します」→ いきなり変更
+
+✅ 良い例：「以下のSQLを実行する予定ですが、内容を確認してください：[SQL表示]」  
+❌ 悪い例：「データベースを更新します」→ いきなり実行
+```
+
+### 開発と本番の違い
+
+#### 開発モード（現在）
+- **プロセス管理**: tmux使用（systemctl不使用）
+- **アプリケーション**: Vite開発サーバー（ホットリロード付き）
 - **起動コマンド**: 
   ```bash
   tmux new-session -d -s nagaiku-dev
   tmux send-keys -t nagaiku-dev "cd /home/tanaka/projects/nagaiku-budget-v2 && PORT=3002 npm run dev" Enter
   ```
+- **データベース**: nagaiku_budget_v2_dev
 
-### 本番モード
-- **systemd管理**: 
+#### 本番モード（将来）
+- **プロセス管理**: systemd管理
+- **アプリケーション**: ビルド済みNode.jsアプリ
+- **起動コマンド**: 
   ```bash
-  sudo systemctl start nagaiku-budget-v2
-  sudo systemctl status nagaiku-budget-v2
+  npm run build  # ビルド
+  sudo systemctl start nagaiku-budget-v2  # systemdで起動
+  sudo systemctl status nagaiku-budget-v2  # 状態確認
   ```
+- **データベース**: nagaiku_budget_v2_prod
+
+#### 共通部分
+- **ポート**: 3002（変更禁止）
+- **URL**: https://nagaiku.top/budget2/
+- **Nginx**: リバースプロキシとして動作
 
 ### テストコマンド
 ```bash
-# 本番環境テスト（VPSから実行）
+# 両環境共通テスト（VPSから実行）
 timeout 10 curl -k https://nagaiku.top/budget2/grants
 
-# ローカル開発テスト
-timeout 10 curl -k https://localhost:3002/grants
+# 注意：localhost直接アクセスは不可（VPS環境のため）
+# ❌ timeout 10 curl -k https://localhost:3002/grants
 ```
+
+### 【重要】開発・本番統一ルール
+1. **URLパスは常に `/budget2/`**
+2. **アクセスは常に `https://nagaiku.top/budget2/`**  
+3. **localhost直接アクセスは使わない**
+4. **Vite設定もNginx設定も `/budget2/` で統一**
 
 ## 技術スタック
 

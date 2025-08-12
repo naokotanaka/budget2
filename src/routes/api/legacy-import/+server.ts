@@ -170,7 +170,7 @@ async function performDatabaseImport(conversionResult: any) {
             totalAmount: grantData.totalAmount || null,
             startDate: grantData.startDate || null,
             endDate: grantData.endDate || null,
-            status: grantData.status || 'in_progress'
+            status: grantData.status || 'active'
           }
         });
 

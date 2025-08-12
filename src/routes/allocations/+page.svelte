@@ -2,7 +2,6 @@
   // import { Grid } from "wx-svelte-grid";
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import DebugInfo from '$lib/components/DebugInfo.svelte';
   
   export let data;
   export let form;
@@ -473,5 +472,4 @@
 </div>
 {/if}
 
-<!-- デバッグ情報コンポーネント -->
-<DebugInfo />
+<!-- デバッグ情報は削除済み -->

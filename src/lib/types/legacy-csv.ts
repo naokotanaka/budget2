@@ -47,7 +47,7 @@ export interface ConvertedGrantData {
   totalAmount?: number;
   startDate?: Date;
   endDate?: Date;
-  status: 'in_progress' | 'completed' | 'reported';
+  status: 'active' | 'completed' | 'applied';
   legacyId: string; // 元のレガシーIDを保持
 }
 
@@ -94,10 +94,10 @@ export interface ParseError {
 }
 
 // レガシーステータスマッピング
-export const LEGACY_STATUS_MAPPING: { [key: string]: 'in_progress' | 'completed' | 'reported' } = {
-  'active': 'in_progress',
+export const LEGACY_STATUS_MAPPING: { [key: string]: 'active' | 'completed' | 'applied' } = {
+  'active': 'active',
   'completed': 'completed',
-  'reported': 'reported',
+  'reported': 'applied',
   'inactive': 'completed'
 };
 
@@ -136,7 +136,7 @@ export const FIELD_MAPPING = {
 // データ変換設定
 export interface ConversionConfig {
   skipInvalidDates?: boolean;
-  defaultGrantStatus?: 'in_progress' | 'completed' | 'reported';
+  defaultGrantStatus?: 'active' | 'completed' | 'applied';
   preserveLegacyIds?: boolean;
   validateRelationships?: boolean;
   encoding?: 'utf-8' | 'shift_jis' | 'euc-jp';
