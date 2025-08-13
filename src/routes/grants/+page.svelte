@@ -560,14 +560,30 @@
   }
 
   function selectGrant(grant: Grant) {
+    console.log('🔍 selectGrant called:', grant.name, grant.id);
+    console.log('🔍 現在のselectedGrant:', selectedGrant);
+    console.log('🔍 allBudgetItems数:', allBudgetItems.length);
+    
     if (selectedGrant?.id === grant.id) {
       // 同じ助成金をクリックした場合は絞り込みを解除
+      console.log('🔍 絞り込み解除');
       selectedGrant = null;
       budgetItems = getFilteredBudgetItems(allBudgetItems);
     } else {
       // 助成金で絞り込み
+      console.log('🔍 絞り込み実行: grantId =', grant.id);
       selectedGrant = grant;
-      budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === grant.id));
+      const filtered = allBudgetItems.filter(item => item.grantId === grant.id);
+      console.log('🔍 絞り込み結果:', filtered.length, '件');
+      budgetItems = getFilteredBudgetItems(filtered);
+    }
+    
+    console.log('🔍 最終budgetItems数:', budgetItems.length);
+    
+    // テーブルを再描画
+    if (table) {
+      console.log('🔍 テーブル再描画実行');
+      handleTableUpdate();
     }
   }
 
@@ -576,9 +592,8 @@
     console.log('getFilteredBudgetItems - 入力:', items.length, '件');
     console.log('最初の3件のデータ:', items.slice(0, 3));
     
-    // 🚨 一時的にフィルタリングを無効化してテスト
-    console.log('⚠️ フィルタリングを一時的に無効化中 - 全項目を返します');
-    return items;
+    // フィルタリングを有効化（一時的な無効化を削除）
+    // return items; // ← これが原因でフィルタリングが効いていなかった！
     
     const filtered = items.filter(item => {
       const status = item.grantStatus || item.grant?.status;
