@@ -795,12 +795,18 @@
 
   async function saveBudgetItemSchedule(budgetItemId: number) {
     try {
+      // 月割り予算額を計算
+      const calculatedMonthlyBudget = budgetItemForm.budgetedAmount && selectedMonths.size > 0 
+        ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
+        : 0;
+
       const schedules = Array.from(selectedMonths).map(monthKey => {
         const [year, month] = monthKey.split('-');
         return {
           year: parseInt(year),
           month: parseInt(month),
-          isActive: true
+          isActive: true,
+          monthlyBudget: calculatedMonthlyBudget // 月割り予算額を追加
         };
       });
 
@@ -838,6 +844,11 @@
   // 月別スケジュール管理
   let availableMonths: Array<{year: number, month: number, label: string}> = [];
   let selectedMonths: Set<string> = new Set(); // "2025-04" 形式
+
+  // 月割り予算額の計算（リアクティブ）
+  $: monthlyBudget = budgetItemForm && budgetItemForm.budgetedAmount && selectedMonths.size > 0 
+    ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
+    : 0;
   
   // 既存の予算項目からカテゴリを取得
   function updateAvailableCategories() {
@@ -2994,8 +3005,15 @@
         <!-- 月別スケジュール選択 -->
         {#if budgetItemForm.grantId}
           {@const formGrant = grants.find(g => g.id === parseInt(budgetItemForm.grantId))}
+          {console.log('🔍 月選択デバッグ:', {
+            grantId: budgetItemForm.grantId,
+            formGrant: formGrant,
+            hasStartDate: formGrant?.startDate,
+            hasEndDate: formGrant?.endDate
+          })}
           {#if formGrant && formGrant.startDate && formGrant.endDate}
             {@const formAvailableMonths = generateMonthsFromGrant(formGrant)}
+            {console.log('📅 生成された月:', formAvailableMonths)}
             {#if formAvailableMonths.length > 0}
               {@const availableMonthKeys = formAvailableMonths.map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
               <SimpleMonthCheckboxes
@@ -3006,6 +3024,19 @@
                   selectedMonths = new Set(e.detail);
                 }}
               />
+              
+              <!-- 月割り予算額の表示 -->
+              {#if selectedMonths.size > 0 && monthlyBudget > 0}
+                <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="font-medium text-blue-900">月額予算:</span>
+                    <span class="font-bold text-blue-900">¥{monthlyBudget.toLocaleString()}</span>
+                  </div>
+                  <div class="text-xs text-blue-700 mt-1">
+                    総額 ¥{budgetItemForm.budgetedAmount?.toLocaleString() || 0} ÷ {selectedMonths.size}ヶ月
+                  </div>
+                </div>
+              {/if}
             {:else}
               <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                 <p class="text-sm text-yellow-800">
