@@ -23,6 +23,12 @@ export default defineConfig(({ command, mode }) => ({
 		__BUILD_COMMAND__: JSON.stringify(command), // 'build' or 'serve'
 		__BUILD_MODE__: JSON.stringify(mode) // 'development' or 'production'
 	},
+	test: {
+		environment: 'jsdom',
+		globals: true,
+		setupFiles: ['./src/test/setup.ts'],
+		include: ['src/**/*.{test,spec}.{js,ts}']
+	},
 	server: {
 		port: 3002,
 		strictPort: true, // ポートが使用中の場合はエラーで停止
@@ -45,6 +51,8 @@ export default defineConfig(({ command, mode }) => ({
 		// チャンクサイズの最適化
 		rollupOptions: {},
 		// チャンクサイズ警告の閾値を上げる
-		chunkSizeWarningLimit: 1000
+		chunkSizeWarningLimit: 5000,
+		// 大きなファイルの処理を改善
+		minify: false
 	}
 }));

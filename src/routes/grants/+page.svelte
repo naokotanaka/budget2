@@ -3,6 +3,12 @@
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { getPeriodColor, getAmountColor } from '$lib/utils/color-rules';
+  import { 
+    parseCSVLine, 
+    parseAmount, 
+    parseDate, 
+    parseStatus 
+  } from '$lib/utils/grants-helpers';
   import { TabulatorFull as Tabulator } from 'tabulator-tables';
   import type { ColumnDefinition } from 'tabulator-tables';
   import 'tabulator-tables/dist/css/tabulator.min.css';
@@ -2150,72 +2156,7 @@
     }
   }
 
-  function parseCSVLine(line: string): string[] {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        // ダブルクォートの処理
-        if (inQuotes && line[i + 1] === '"') {
-          // エスケープされたクォート
-          current += '"';
-          i++; // 次のクォートをスキップ
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    result.push(current.trim());
-    // 引用符で囲まれている場合は引用符を除去
-    return result.map(field => {
-      if (field.startsWith('"') && field.endsWith('"')) {
-        return field.slice(1, -1);
-      }
-      return field;
-    });
-  }
-
-  function parseAmount(value: string): number | null {
-    if (!value?.trim()) return null;
-    const cleaned = value.replace(/[¥,]/g, '');
-    const parsed = parseInt(cleaned);
-    return isNaN(parsed) ? null : parsed;
-  }
-
-  function parseDate(value: string): string | null {
-    if (!value?.trim()) return null;
-    
-    // YYYY/MM/DD または YYYY-MM-DD 形式を ISO 形式に変換
-    const dateStr = value.trim().replace(/\//g, '-');
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-    return null;
-  }
-
-  function parseStatus(value: string): 'active' | 'completed' | 'applied' {
-    const trimmed = value?.trim() || '';
-    switch (trimmed) {
-      case '終了':
-      case 'completed':
-        return 'completed';
-      case '報告済み':
-      case 'applied':
-        return 'applied';
-      default:
-        return 'active';
-    }
-  }
+  // CSV処理関数は grants-helpers.ts に移動済み
 
   async function createFullMonthSchedule(budgetItemId: number, grant: any) {
     try {
