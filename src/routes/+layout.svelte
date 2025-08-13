@@ -35,6 +35,13 @@
             取引一覧
           </a>
           <a 
+            href={createRouteUrl.transactionAllocations()} 
+            class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.TRANSACTION_ALLOCATIONS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
+            data-sveltekit-preload-data="hover"
+          >
+            取引割当一覧
+          </a>
+          <a 
             href={createRouteUrl.budgetItems()} 
             class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.BUDGET_ITEMS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
             data-sveltekit-preload-data="hover"

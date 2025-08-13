@@ -60,27 +60,23 @@ PGPASSWORD=$DB_PASSWORD psql -h localhost -U nagaiku_user -d nagaiku_budget_v2_d
 
 ## 開発ルール
 
-### 事前確認ルール（必須）
-- **ファイル変更前は必ず確認を取る**
-- **推測が必要な場合は質問する**
-- **大きな作業は段階的に進める**
-- **エージェント使用前も確認する**
+### エージェント使用ルール（絶対）
+**コード修正・調査は必ずエージェントを使用する**
 
-#### 確認が必要なタイミング：
-1. ファイルを変更・作成・削除する前
-2. データベースを操作する前  
-3. 複数の解釈ができる指示を受けた時
-4. 「たぶんこうだろう」と推測が必要な時
-5. 大きな作業やエージェント使用を開始する前
+#### 使用するエージェント
+- **画面・UI変更** → frontend-desktop-specialist
+- **DB・SQL** → postgresql-specialist
+- **セキュリティ** → security-audit-specialist
+- **CSV処理** → csv-data-specialist
+- **Webエラー** → web-error-diagnostician
+- **パフォーマンス** → performance-optimizer
+- **freee連携** → freee-api-specialist
+- **テスト作成** → test-automation-expert
+- **リファクタリング** → code-refactor-expert
+- **バグ修正** → bug-hunter-pro
+- **その他・不明** → general-purpose
 
-#### 確認方法の例：
-```
-✅ 良い例：「このエラーの原因は○○だと思います。△△ファイルの□□行を修正しますが、よろしいですか？」
-❌ 悪い例：「エラーを修正します」→ いきなり変更
-
-✅ 良い例：「以下のSQLを実行する予定ですが、内容を確認してください：[SQL表示]」  
-❌ 悪い例：「データベースを更新します」→ いきなり実行
-```
+※直接コード修正は禁止
 
 ### 開発と本番の違い
 

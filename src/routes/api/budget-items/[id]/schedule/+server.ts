@@ -81,7 +81,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
             budgetItemId,
             year: schedule.year,
             month: schedule.month,
-            isActive: schedule.isActive
+            isActive: schedule.isActive,
+            monthlyBudget: schedule.monthlyBudget
           }))
         });
       }

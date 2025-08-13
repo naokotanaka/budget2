@@ -9,6 +9,35 @@ import {
   FREEE_BASE_URL 
 } from '$env/static/private';
 
+// BigIntをJSON形式に変換するヘルパー関数
+function bigIntToString(value: any): any {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  if (Array.isArray(value)) {
+    return value.map(bigIntToString);
+  }
+  if (value !== null && typeof value === 'object') {
+    const result: any = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = bigIntToString(val);
+    }
+    return result;
+  }
+  return value;
+}
+
+// 安全にBigIntに変換するヘルパー関数
+function safeBigInt(value: any): bigint {
+  if (typeof value === 'bigint') {
+    return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return BigInt(value);
+  }
+  throw new Error(`Cannot convert ${typeof value} to BigInt: ${value}`);
+}
+
 // ヘルパー関数：備考とメモタグを分離
 function parseRemarkAndTags(description: string | null, deal: any): { remark: string | null, tags: string | null, detailDescription: string | null } {
   let remark = null;

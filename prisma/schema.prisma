@@ -71,6 +71,7 @@ model BudgetSchedule {
   year         Int
   month        Int
   isActive     Boolean    @default(true)
+  monthlyBudget Int?      // 月割り予算額
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   budgetItem   BudgetItem @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)

@@ -1,32 +1,34 @@
 #!/bin/bash
-# 開発サーバー起動スクリプト
 
-# プロジェクトディレクトリに移動
-cd /home/tanaka/projects/nagaiku-budget-v2
+SESSION="dev"
 
-# 既存のプロセスを停止
-echo "既存のプロセスを停止中..."
-lsof -i :3002 -t | xargs -r kill -15 2>/dev/null
-sleep 2
+# 既存セッション削除
+tmux kill-session -t $SESSION 2>/dev/null
 
-# 強制終了が必要な場合
-lsof -i :3002 -t | xargs -r kill -9 2>/dev/null
+echo "開発環境を起動中..."
+
+# セッション作成
+tmux new-session -d -s $SESSION
+
+# 1. Claude Code（メイン）
+tmux send-keys "claude" Enter
 sleep 1
 
-# 開発サーバーを起動
-echo "開発サーバーを起動中..."
-npm run dev &
-DEV_PID=$!
+# 2. 下に30%の高さで分割
+tmux split-window -v -p 30
 
-# サーバーの起動を待つ
-sleep 5
+# 3. 下部でnpm run dev起動
+tmux send-keys "npm run dev" Enter
+sleep 1
 
-# 状態を確認
-if ps -p $DEV_PID > /dev/null; then
-    echo "✅ 開発サーバーが正常に起動しました (PID: $DEV_PID)"
-    echo "   URL: http://nagaiku.top:3002/budget2"
-    echo "   ローカル: http://localhost:3002/budget2"
-else
-    echo "❌ 開発サーバーの起動に失敗しました"
-    exit 1
-fi
+# 4. 下部を左右に分割（50:50）
+tmux split-window -h
+
+# 5. 右側でtest:watch起動
+tmux send-keys "npm run test:watch" Enter
+
+# Claude Codeに戻る
+tmux select-pane -t 0
+
+# アタッチ
+tmux attach -t $SESSION

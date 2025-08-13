@@ -963,7 +963,7 @@
     }
   }
 
-  // 助成金期間から利用可能な月を生成
+  // 助成金期間から利用可能な月を生成（7日以上の月のみ）
   function generateAvailableMonths(grant: any) {
     if (!grant?.startDate || !grant?.endDate) {
       availableMonths = [];
@@ -980,11 +980,33 @@
     while (current <= end) {
       const year = current.getFullYear();
       const month = current.getMonth() + 1;
-      months.push({
-        year,
-        month,
-        label: `${year.toString().slice(-2)}/${month.toString().padStart(2, '0')}`
-      });
+      
+      // その月に何日間あるか計算
+      let monthStart = new Date(year, month - 1, 1);
+      let monthEnd = new Date(year, month, 0); // 月末日
+      
+      // 開始月の場合、実際の開始日から計算
+      if (year === startDate.getFullYear() && month === startDate.getMonth() + 1) {
+        monthStart = startDate;
+      }
+      
+      // 終了月の場合、実際の終了日まで計算
+      if (year === endDate.getFullYear() && month === endDate.getMonth() + 1) {
+        monthEnd = endDate;
+      }
+      
+      // 日数を計算（両端含む）
+      const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // 7日以上ある月のみ追加
+      if (daysInMonth >= 7) {
+        months.push({
+          year,
+          month,
+          label: `${year.toString().slice(-2)}/${month.toString().padStart(2, '0')}`
+        });
+      }
+      
       current.setMonth(current.getMonth() + 1);
     }
 
@@ -1022,7 +1044,7 @@
   }
 
   // 予算項目の選択月を表示用に取得
-  let budgetItemSchedules = new Map(); // budgetItemId -> schedules
+  let budgetItemSchedules = new Map(); // budgetItemId -> {months: [], scheduleData: Map<monthKey, {monthlyBudget}>}
   let schedulesLoaded = false; // スケジュール読み込み完了フラグ
 
   async function loadBudgetItemSchedules() {
@@ -1042,8 +1064,21 @@
           
           if (data.success && data.schedules.length > 0) {
             const months = data.schedules.map(s => `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`);
-            newSchedules.set(item.id, months);
-            console.log(`📅 項目ID${item.id}のスケジュール設定:`, months);
+            const scheduleData = new Map();
+            
+            // 各月のスケジュールデータをMapに保存
+            data.schedules.forEach(s => {
+              const monthKey = `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`;
+              scheduleData.set(monthKey, {
+                monthlyBudget: s.monthlyBudget || 0
+              });
+            });
+            
+            newSchedules.set(item.id, {
+              months,
+              scheduleData
+            });
+            console.log(`📅 項目ID${item.id}のスケジュール設定:`, months, 'monthlyBudget:', Array.from(scheduleData.entries()));
           } else {
             console.log(`📅 項目ID${item.id}はスケジュールデータなし`);
           }
@@ -1902,11 +1937,33 @@
     while (current <= end) {
       const year = current.getFullYear();
       const month = current.getMonth() + 1;
-      months.push({
-        year,
-        month,
-        label: `${year.toString().slice(-2)}/${month.toString().padStart(2, '0')}`
-      });
+      
+      // その月に何日間あるか計算
+      let monthStart = new Date(year, month - 1, 1);
+      let monthEnd = new Date(year, month, 0); // 月末日
+      
+      // 開始月の場合、実際の開始日から計算
+      if (year === startDate.getFullYear() && month === startDate.getMonth() + 1) {
+        monthStart = startDate;
+      }
+      
+      // 終了月の場合、実際の終了日まで計算  
+      if (year === endDate.getFullYear() && month === endDate.getMonth() + 1) {
+        monthEnd = endDate;
+      }
+      
+      // 日数を計算（両端含む）
+      const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // 7日以上ある月のみ追加
+      if (daysInMonth >= 7) {
+        months.push({
+          year,
+          month,
+          label: `${year.toString().slice(-2)}/${month.toString().padStart(2, '0')}`
+        });
+      }
+      
       current.setMonth(current.getMonth() + 1);
     }
 
@@ -1931,14 +1988,14 @@
     }
     
     // スケジュールデータがある場合は、それに基づいて計算
-    if (schedules && schedules.length > 0) {
-      const hasSchedule = schedules.includes(monthKey);
+    if (schedules && schedules.months && schedules.months.length > 0) {
+      const hasSchedule = schedules.months.includes(monthKey);
       
       console.log(`💰 項目ID${item.id}のスケジュール判定:`, {
         monthKey,
         hasSchedule,
-        schedules,
-        schedulesLength: schedules.length
+        months: schedules.months,
+        schedulesLength: schedules.months.length
       });
       
       if (!hasSchedule) {
@@ -1946,11 +2003,12 @@
         return 0;
       }
       
-      // 設定された月数で予算額を割る
-      const totalMonths = schedules.length;
-      const monthlyAmount = totalMonths > 0 ? Math.round(item.budgetedAmount / totalMonths) : 0;
+      // 保存されたmonthlyBudgetを使用（fallbackとして計算）
+      const scheduleData = schedules.scheduleData?.get(monthKey);
+      const monthlyAmount = scheduleData?.monthlyBudget || 
+        (schedules.months.length > 0 ? Math.round(item.budgetedAmount / schedules.months.length) : 0);
       
-      console.log(`💰 項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (総額: ${item.budgetedAmount}, 対象月数: ${totalMonths})`);
+      console.log(`💰 項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (保存値: ${scheduleData?.monthlyBudget || 'なし'}, 総額: ${item.budgetedAmount}, 対象月数: ${schedules.months.length})`);
       return monthlyAmount;
     }
     

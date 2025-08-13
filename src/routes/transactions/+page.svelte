@@ -314,7 +314,7 @@
   <div class="flex justify-between items-center">
     <div>
       <h2 class="text-2xl font-bold text-gray-900">
-        取引一覧
+        取引割当一覧
       </h2>
       <p class="mt-2 text-sm text-gray-600">
         全ての取引と割当状況を確認できます
@@ -432,7 +432,7 @@
     </div>
   </div>
 
-  <!-- 取引一覧テーブル -->
+  <!-- 取引割当一覧テーブル -->
   <div class="bg-white shadow rounded-lg overflow-hidden">
     <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
       <h3 class="text-lg leading-6 font-medium text-gray-900">

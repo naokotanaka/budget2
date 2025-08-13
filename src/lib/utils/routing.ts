@@ -53,6 +53,7 @@ export function removeBasePath(fullPath: string): string {
 export const ROUTES = {
   DASHBOARD: '/',
   TRANSACTIONS: '/transactions',
+  TRANSACTION_ALLOCATIONS: '/transaction-allocations',
   BUDGET_ITEMS: '/budget-items',
   ALLOCATIONS: '/allocations',
   GRANTS: '/grants',
@@ -74,6 +75,7 @@ export const ROUTES = {
 export const createRouteUrl = {
   dashboard: () => createUrl(ROUTES.DASHBOARD),
   transactions: () => createUrl(ROUTES.TRANSACTIONS),
+  transactionAllocations: () => createUrl(ROUTES.TRANSACTION_ALLOCATIONS),
   budgetItems: () => createUrl(ROUTES.BUDGET_ITEMS),
   allocations: () => createUrl(ROUTES.ALLOCATIONS),
   grants: () => createUrl(ROUTES.GRANTS),
