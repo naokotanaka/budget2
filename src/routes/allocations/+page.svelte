@@ -1,21 +1,48 @@
-<script>
+<script lang="ts">
   // import { Grid } from "wx-svelte-grid";
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import type { Transaction, AllocationSplit, BudgetItem } from '$lib/types/models.js';
+  import type { PageData } from './$types.js';
   
-  export let data;
-  export let form;
+  // TransactionWithAllocations型定義
+  interface TransactionWithAllocations extends Transaction {
+    allocations: (AllocationSplit & {
+      budgetItem: BudgetItem & {
+        grant: { name: string };
+      };
+    })[];
+    account?: string;
+    supplier?: string;
+  }
   
-  $: ({ transactions, budgetItems, allAllocations } = data);
+  interface AllocationSplitForm {
+    id?: string | number;
+    budgetItemId: number | string;
+    amount: number | string;
+    note: string;
+    budgetItemName?: string;
+    isNew?: boolean;
+  }
+  
+  export let data: PageData;
+  export let form: any;
+  
+  // データの型を明示的に定義
+  let transactions: TransactionWithAllocations[] = [];
+  let budgetItems: BudgetItem[] = [];
+  let allAllocations: AllocationSplit[] = [];
+  
+  $: ({ transactions = [], budgetItems = [], allAllocations = [] } = data);
 
   // 分割割当モーダルの状態
   let showAllocationModal = false;
-  let selectedTransaction = null;
-  let allocationSplits = [];
-  let newSplit = { budgetItemId: '', amount: '', note: '' };
+  let selectedTransaction: TransactionWithAllocations | null = null;
+  let allocationSplits: AllocationSplitForm[] = [];
+  let newSplit: AllocationSplitForm = { budgetItemId: '', amount: '', note: '' };
 
   // 取引選択
-  function selectTransactionForAllocation(transaction) {
+  function selectTransactionForAllocation(transaction: TransactionWithAllocations) {
     selectedTransaction = transaction;
     // 既存の割当を読み込み
     allocationSplits = transaction.allocations.map(a => ({
@@ -32,20 +59,22 @@
   function addSplit() {
     if (newSplit.budgetItemId && newSplit.amount) {
       const budgetItem = budgetItems.find(b => b.id === parseInt(newSplit.budgetItemId));
-      allocationSplits = [...allocationSplits, {
-        id: `new-${Date.now()}`,
-        budgetItemId: parseInt(newSplit.budgetItemId),
-        amount: parseInt(newSplit.amount),
-        note: newSplit.note,
-        budgetItemName: `${budgetItem.grant.name} - ${budgetItem.name}`,
-        isNew: true
-      }];
-      newSplit = { budgetItemId: '', amount: '', note: '' };
+      if (budgetItem) {
+        allocationSplits = [...allocationSplits, {
+          id: `new-${Date.now()}`,
+          budgetItemId: parseInt(newSplit.budgetItemId),
+          amount: parseInt(newSplit.amount),
+          note: newSplit.note,
+          budgetItemName: `${budgetItem.grant.name} - ${budgetItem.name}`,
+          isNew: true
+        }];
+        newSplit = { budgetItemId: '', amount: '', note: '' };
+      }
     }
   }
 
   // 分割を削除
-  function removeSplit(index) {
+  function removeSplit(index: number) {
     allocationSplits = allocationSplits.filter((_, i) => i !== index);
   }
 

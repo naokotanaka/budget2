@@ -1,19 +1,44 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { TabulatorFull as Tabulator } from 'tabulator-tables';
   import 'tabulator-tables/dist/css/tabulator.min.css';
   import { base } from '$app/paths';
   import TransactionDetailPanel from '$lib/components/TransactionDetailPanel.svelte';
+  import type { Transaction, AllocationSplit, BudgetItem } from '$lib/types/models.js';
+  import type { PageData } from './$types.js';
 
-  export let data;
+  // TransactionWithAllocationsの型定義
+  interface TransactionWithAllocations extends Transaction {
+    allocations: (AllocationSplit & {
+      budgetItem: BudgetItem & {
+        grant: { name: string };
+      };
+    })[];
+    account?: string;
+    supplier?: string;
+    department?: string;
+    item?: string;
+    remark?: string;
+    detailDescription?: string;
+    tags?: string;
+    managementNumber?: string;
+    freeDealId?: number | null;
+    receiptIds?: string | null;
+  }
+
+  export let data: PageData;
   
-  $: ({ transactions, budgetItems } = data);
+  // データの型を明示的に定義
+  let transactions: TransactionWithAllocations[] = [];
+  let budgetItems: BudgetItem[] = [];
   
-  let tableElement;
-  let table;
-  let selectedTransaction = null;
-  let showDetailPanel = false;
-  let tableBuilt = false;
+  $: ({ transactions = [], budgetItems = [] } = data);
+  
+  let tableElement: HTMLDivElement;
+  let table: Tabulator;
+  let selectedTransaction: TransactionWithAllocations | null = null;
+  let showDetailPanel: boolean = false;
+  let tableBuilt: boolean = false;
 
   // 取引データを表示用にフォーマット
   $: formattedTransactions = transactions.map(tx => ({
@@ -59,7 +84,7 @@
       sorter: "number",
       headerSort: true,
       hozAlign: "right",
-      formatter: (cell) => `¥${cell.getValue().toLocaleString()}`
+      formatter: (cell: any) => `¥${cell.getValue().toLocaleString()}`
     },
     { 
       title: "取引内容", 
@@ -102,7 +127,7 @@
       width: 100,
       sorter: "string",
       headerSort: true,
-      formatter: (cell) => {
+      formatter: (cell: any) => {
         const value = cell.getValue();
         return value ? `<span class="text-blue-600">${value}</span>` : '';
       }
@@ -134,7 +159,7 @@
       width: 80,
       sorter: "string",
       headerSort: true,
-      formatter: (cell) => {
+      formatter: (cell: any) => {
         const value = cell.getValue();
         if (value === '割当済') {
           return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">${value}</span>`;
@@ -149,7 +174,7 @@
       width: 60,
       sorter: false,
       headerSort: false,
-      formatter: (cell) => {
+      formatter: (cell: any) => {
         const rowData = cell.getRow().getData();
         const receiptIds = rowData.receiptIds;
         if (receiptIds) {
@@ -179,7 +204,7 @@
   };
 
   // 取引詳細パネルを開く
-  function openTransactionDetail(transaction) {
+  function openTransactionDetail(transaction: any) {
     // 元の取引データを取得
     const originalTransaction = transactions.find(tx => tx.id === transaction.id);
     if (originalTransaction) {
@@ -195,7 +220,7 @@
   }
 
   // 取引データが更新されたとき
-  function handleTransactionUpdate(event) {
+  function handleTransactionUpdate(event: any) {
     const updatedTransaction = event.detail;
     // データを再取得するか、ローカル更新
     console.log('Transaction updated:', updatedTransaction);
@@ -236,7 +261,7 @@
         },
         locale: "ja-jp",
         // 行クリックイベントを追加
-        rowClick: function(e, row) {
+        rowClick: function(e: any, row: any) {
           const rowData = row.getData();
           openTransactionDetail(rowData);
         }

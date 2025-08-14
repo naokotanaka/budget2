@@ -14,30 +14,15 @@
   import 'tabulator-tables/dist/css/tabulator.min.css';
   import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
   import DeleteConfirmDialog from '$lib/components/DeleteConfirmDialog.svelte';
-
-
-  interface Grant {
-    id: number;
-    name: string;
-    grantCode?: string;
-    totalAmount?: number;
-    startDate?: string;
-    endDate?: string;
-    status: 'active' | 'completed' | 'applied';
-    budgetItemsCount?: number;
-    usedAmount?: number;
-  }
-
-  interface BudgetItem {
-    id: number;
-    name: string;
-    category?: string;
-    budgetedAmount?: number;
-    usedAmount?: number;
-    monthlyUsedAmounts?: { [key: string]: number };
-    note?: string;
-    grantId?: number;
-  }
+  import type { 
+    Grant, 
+    BudgetItem, 
+    BudgetItemSchedule,
+    MonthColumn,
+    GrantForm,
+    BudgetItemForm,
+    ImportPreviewItem
+  } from '$lib/types/models';
 
   let grants: Grant[] = [];
   let selectedGrant: Grant | null = null;
@@ -59,9 +44,9 @@
   let isImporting = false;
 
   // 月データ表示制御
-  let showMonthlyBudget = true;  // 予算額表示
-  let showMonthlyUsed = true;    // 使用額表示
-  let showMonthlyRemaining = true; // 残額表示
+  let showMonthlyBudget: boolean = true;  // 予算額表示
+  let showMonthlyUsed: boolean = true;    // 使用額表示
+  let showMonthlyRemaining: boolean = true; // 残額表示
   
   // 削除機能の変数
   let showDeleteConfirm = false;
@@ -69,10 +54,10 @@
   let deleteLoading = false;
   
   // 月の絞り込み制御（実際のデータに基づいて動的に設定）
-  let monthFilterStartYear = 2025; // 実際のデータ範囲に合わせて調整
-  let monthFilterStartMonth = 1;
-  let monthFilterEndYear = 2025; // 実際のデータがある範囲
-  let monthFilterEndMonth = 12;
+  let monthFilterStartYear: number = 2025; // 実際のデータ範囲に合わせて調整
+  let monthFilterStartMonth: number = 1;
+  let monthFilterEndYear: number = 2025; // 実際のデータがある範囲
+  let monthFilterEndMonth: number = 12;
   
   // 月データ表示制御（既に上で定義済みのため削除）
   
@@ -1220,7 +1205,7 @@
   }
 
   // 予算項目の選択月を表示用に取得
-  let budgetItemSchedules = new Map(); // budgetItemId -> {months: [], scheduleData: Map<monthKey, {monthlyBudget}>}
+  let budgetItemSchedules: Map<number, {months: string[], scheduleData: Map<string, {monthlyBudget: number}>}> = new Map(); // budgetItemId -> {months: [], scheduleData: Map<monthKey, {monthlyBudget}>}
   let schedulesLoaded = false; // スケジュール読み込み完了フラグ
 
   async function loadBudgetItemSchedules() {
