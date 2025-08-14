@@ -48,12 +48,12 @@
 
   $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0 && !isTableUpdating) {
     // console.log('🔄 テーブル要素準備完了、更新開始:', {
-      tableElement: !!tableElement,
-      budgetItems: budgetItems.length,
-      monthColumns: monthColumns.length,
-      tableExists: !!table,
-      isTableUpdating
-    });
+    //   tableElement: !!tableElement,
+    //   budgetItems: budgetItems.length,
+    //   monthColumns: monthColumns.length,
+    //   tableExists: !!table,
+    //   isTableUpdating
+    // });
     handleTableUpdate();
   }
 
@@ -188,13 +188,13 @@
 
   function getFilteredMonthColumns() {
     // console.log('🔍 getFilteredMonthColumns 開始:', {
-      monthColumnsExists: !!monthColumns,
-      monthColumnsLength: monthColumns?.length || 0,
-      monthFilterStartYear,
-      monthFilterStartMonth,
-      monthFilterEndYear,
-      monthFilterEndMonth
-    });
+    // monthColumnsExists: !!monthColumns,
+    // monthColumnsLength: monthColumns?.length || 0,
+    // monthFilterStartYear,
+    // monthFilterStartMonth,
+    // monthFilterEndYear,
+    // monthFilterEndMonth
+    // });
     
     if (!monthColumns || monthColumns.length === 0) {
       // console.log('🔍 月列データがありません');
@@ -216,11 +216,11 @@
     });
     
     // console.log('🔍 フィルタリング結果:', {
-      original: monthColumns.length,
-      filtered: filtered.length,
-      firstFiltered: filtered[0],
-      lastFiltered: filtered[filtered.length - 1]
-    });
+    // original: monthColumns.length,
+    // filtered: filtered.length,
+    // firstFiltered: filtered[0],
+    // lastFiltered: filtered[filtered.length - 1]
+    // });
     
     return filtered;
   }
@@ -230,15 +230,15 @@
     const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
     
     // console.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
-      schedules,
-      budgetedAmount: item.budgetedAmount,
-      schedulesLoaded,
-      budgetItemSchedulesSize: budgetItemSchedules.size,
-      schedulesExists: !!schedules,
-      schedulesMonthsExists: !!schedules?.months,
-      scheduleDataExists: !!schedules?.scheduleData,
-      scheduleDataHasKey: schedules?.scheduleData?.has(monthKey)
-    });
+    // schedules,
+    // budgetedAmount: item.budgetedAmount,
+    // schedulesLoaded,
+    // budgetItemSchedulesSize: budgetItemSchedules.size,
+    // schedulesExists: !!schedules,
+    // schedulesMonthsExists: !!schedules?.months,
+    // scheduleDataExists: !!schedules?.scheduleData,
+    // scheduleDataHasKey: schedules?.scheduleData?.has(monthKey)
+    // });
     
     // スケジュールデータがある場合はそれを優先
     if (schedules && schedules.scheduleData && schedules.scheduleData.has(monthKey)) {
@@ -386,8 +386,8 @@
     // 月列を動的に構築
     const monthColumnDefs = [];
     // console.log('🔧 月列構築開始:', {
-      monthColumnsLength: monthColumns?.length || 0
-    });
+    // monthColumnsLength: monthColumns?.length || 0
+    // });
     
     if (monthColumns && monthColumns.length > 0) {
       // 月フィルタリングを適用
@@ -502,8 +502,8 @@
     // 最終的な列定義を構築
     columns = [...baseColumns, ...monthColumnDefs, actionColumn];
     // console.log('🔧 最終的なcolumns設定完了:', {
-      totalColumnsLength: columns.length
-    });
+    // totalColumnsLength: columns.length
+    // });
   }
 
   function prepareTableData() {
@@ -560,10 +560,10 @@
     try {
       const initColumns = baseColumns.length > 0 ? baseColumns : columns;
       
-      // console.log('🏗️ initializeTable: テーブル作成開始', {
-        columnsLength: initColumns.length,
-        tableDataLength: tableData.length
-      });
+    // console.log('🏗️ initializeTable: テーブル作成開始', {
+    // columnsLength: initColumns.length,
+    // tableDataLength: tableData.length
+    // });
       
       table = new Tabulator(tableElement, {
         data: tableData,
@@ -620,9 +620,9 @@
       try {
         const completeColumns = columns;
         
-        // console.log('🔧 updateTable: 完全な列定義で更新実行', {
-          totalColumns: completeColumns.length
-        });
+    // console.log('🔧 updateTable: 完全な列定義で更新実行', {
+    // totalColumns: completeColumns.length
+    // });
         
         table.setColumns(completeColumns);
         table.setData(tableData);
@@ -639,10 +639,10 @@
 
   function handleTableUpdate() {
     // console.log('🔧 handleTableUpdate 呼び出し:', {
-      tableElement: !!tableElement,
-      budgetItems: budgetItems.length,
-      monthColumns: monthColumns.length
-    });
+    // tableElement: !!tableElement,
+    // budgetItems: budgetItems.length,
+    // monthColumns: monthColumns.length
+    // });
     
     if (!tableElement) {
       // console.log('⚠️ tableElement が見つかりません');
