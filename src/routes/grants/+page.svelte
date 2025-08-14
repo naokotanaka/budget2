@@ -13,6 +13,7 @@
   import type { ColumnDefinition } from 'tabulator-tables';
   import 'tabulator-tables/dist/css/tabulator.min.css';
   import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
+  import DeleteConfirmDialog from '$lib/components/DeleteConfirmDialog.svelte';
 
 
   interface Grant {
@@ -61,6 +62,11 @@
   let showMonthlyBudget = true;  // 予算額表示
   let showMonthlyUsed = true;    // 使用額表示
   let showMonthlyRemaining = true; // 残額表示
+  
+  // 削除機能の変数
+  let showDeleteConfirm = false;
+  let deleteTarget: { type: 'grant' | 'budgetItem', id: number, grantId?: number, name: string } | null = null;
+  let deleteLoading = false;
   
   // 月の絞り込み制御（実際のデータに基づいて動的に設定）
   let monthFilterStartYear = 2025; // 実際のデータ範囲に合わせて調整
@@ -832,6 +838,79 @@
     } catch (err) {
       error = '助成金の保存中にエラーが発生しました';
       console.error('Save grant error:', err);
+    }
+  }
+
+  // 削除関数
+  function openDeleteConfirm(type: 'grant' | 'budgetItem', item: any, grantId?: number) {
+    deleteTarget = {
+      type,
+      id: item.id,
+      grantId,
+      name: item.name
+    };
+    showDeleteConfirm = true;
+  }
+
+  function closeDeleteConfirm() {
+    showDeleteConfirm = false;
+    deleteTarget = null;
+    deleteLoading = false;
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    
+    deleteLoading = true;
+    try {
+      const apiBase = base || '/budget2';
+      let url = '';
+      
+      if (deleteTarget.type === 'grant') {
+        url = `${apiBase}/api/grants/${deleteTarget.id}`;
+      } else {
+        url = `${apiBase}/api/grants/${deleteTarget.grantId}/budget-items/${deleteTarget.id}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // 成功時の処理
+        if (deleteTarget.type === 'grant') {
+          await loadGrants();
+          // 削除した助成金が選択されていた場合は選択を解除
+          if (selectedGrant && selectedGrant.id === deleteTarget.id) {
+            selectedGrant = null;
+            budgetItems = getFilteredBudgetItems(allBudgetItems);
+          }
+        } else {
+          // 予算項目削除の場合
+          await loadAllBudgetItems();
+          if (selectedGrant) {
+            // 選択中の助成金がある場合は再フィルタリング
+            const filtered = allBudgetItems.filter(item => item.grantId === selectedGrant.id);
+            budgetItems = getFilteredBudgetItems(filtered);
+          } else {
+            budgetItems = getFilteredBudgetItems(allBudgetItems);
+          }
+          // テーブルを更新
+          handleTableUpdate();
+        }
+        
+        closeDeleteConfirm();
+        error = ''; // エラーメッセージをクリア
+      } else {
+        error = data.error || '削除に失敗しました';
+        deleteLoading = false;
+      }
+    } catch (err) {
+      error = '削除処理中にエラーが発生しました';
+      console.error('Delete error:', err);
+      deleteLoading = false;
     }
   }
 
@@ -1622,14 +1701,26 @@
     const actionColumn = {
       title: "操作",
       field: "actions",
-      width: 80,
+      width: 120,
       hozAlign: "center",
-      formatter: () => `<button style="color: #2563eb; cursor: pointer;">編集</button>`,
+      formatter: () => `
+        <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+          <button data-action="edit" style="color: #2563eb; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">編集</button>
+          <button data-action="delete" style="color: #dc2626; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">削除</button>
+        </div>
+      `,
       cellClick: (e, cell) => {
+        const target = e.target as HTMLElement;
+        const action = target.getAttribute('data-action');
         const rowData = cell.getRow().getData();
         const item = budgetItems.find(i => i.id === rowData.id);
+        
         if (item) {
-          openBudgetItemForm(item);
+          if (action === 'edit') {
+            openBudgetItemForm(item);
+          } else if (action === 'delete') {
+            openDeleteConfirm('budgetItem', item, item.grantId);
+          }
         }
       }
     };
@@ -2617,6 +2708,15 @@
                         >
                           編集
                         </button>
+                        <button 
+                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
+                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
+                          title="削除"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 
@@ -2697,6 +2797,15 @@
                           class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
                         >
                           編集
+                        </button>
+                        <button 
+                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
+                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
+                          title="削除"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -2779,6 +2888,15 @@
                           class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
                         >
                           編集
+                        </button>
+                        <button 
+                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
+                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
+                          title="削除"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -3432,6 +3550,20 @@
 
 <!-- デバッグ情報コンポーネント -->
 
+<!-- 削除確認ダイアログ -->
+<DeleteConfirmDialog 
+  open={showDeleteConfirm}
+  title="削除確認"
+  itemName={deleteTarget?.name || ''}
+  itemType={deleteTarget?.type === 'grant' ? '助成金' : '予算項目'}
+  relatedDataWarning={deleteTarget?.type === 'grant' 
+    ? '関連する予算項目、割当データ、月割りスケジュールもすべて削除されます。'
+    : '関連する割当データ、月割りスケジュールもすべて削除されます。'
+  }
+  loading={deleteLoading}
+  on:cancel={closeDeleteConfirm}
+  on:confirm={handleDeleteConfirm}
+/>
 
 <style>
   .budget-table-container {

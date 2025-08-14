@@ -156,27 +156,55 @@ export const DELETE: RequestHandler = async ({ params }) => {
       }, { status: 400 });
     }
     
-    // 予算項目がある場合は削除を拒否
-    const budgetItemsCount = await prisma.budgetItem.count({
-      where: { grantId }
+    // 助成金が存在するかチェック
+    const existingGrant = await prisma.grant.findUnique({
+      where: { id: grantId },
+      include: {
+        budgetItems: {
+          include: {
+            allocations: true,
+            schedules: true
+          }
+        }
+      }
     });
     
-    if (budgetItemsCount > 0) {
+    if (!existingGrant) {
       return json({
         success: false,
-        error: '予算項目が存在するため削除できません。先に予算項目を削除してください。'
-      }, { status: 400 });
+        error: '助成金が見つかりません'
+      }, { status: 404 });
     }
     
+    // 削除前の統計情報を取得（ログ用）
+    const budgetItemsCount = existingGrant.budgetItems.length;
+    const allocationsCount = existingGrant.budgetItems.reduce((count, item) => 
+      count + item.allocations.length, 0);
+    const schedulesCount = existingGrant.budgetItems.reduce((count, item) => 
+      count + item.schedules.length, 0);
+    
+    // トランザクションで助成金とすべての関連データを削除
+    // onDelete: Cascade により、budgetItems, allocations, schedules は自動削除される
     await prisma.grant.delete({
       where: { id: grantId }
     });
     
-    console.log('助成金削除完了:', grantId);
+    console.log('助成金削除完了:', {
+      grantId,
+      grantName: existingGrant.name,
+      deletedBudgetItems: budgetItemsCount,
+      deletedAllocations: allocationsCount,
+      deletedSchedules: schedulesCount
+    });
     
     return json({
       success: true,
-      message: '助成金を削除しました'
+      message: '助成金と関連するデータをすべて削除しました',
+      deletedData: {
+        budgetItems: budgetItemsCount,
+        allocations: allocationsCount,
+        schedules: schedulesCount
+      }
     });
     
   } catch (error) {
@@ -188,4 +216,4 @@ export const DELETE: RequestHandler = async ({ params }) => {
       detail: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
   }
-};
+};;

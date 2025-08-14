@@ -162,18 +162,31 @@ export const DELETE: RequestHandler = async ({ params }) => {
       }, { status: 400 });
     }
     
-    // 割当がある場合は削除を拒否
-    const allocationsCount = await prisma.allocationSplit.count({
-      where: { budgetItemId }
+    // 予算項目が存在するかチェック
+    const existingBudgetItem = await prisma.budgetItem.findFirst({
+      where: { 
+        id: budgetItemId,
+        grantId // 安全性のため助成金IDも確認
+      },
+      include: {
+        allocations: true,
+        schedules: true
+      }
     });
     
-    if (allocationsCount > 0) {
+    if (!existingBudgetItem) {
       return json({
         success: false,
-        error: '予算割当が存在するため削除できません。先に割当を削除してください。'
-      }, { status: 400 });
+        error: '予算項目が見つかりません'
+      }, { status: 404 });
     }
     
+    // 削除前の統計情報を取得（ログ用）
+    const allocationsCount = existingBudgetItem.allocations.length;
+    const schedulesCount = existingBudgetItem.schedules.length;
+    
+    // トランザクションで予算項目とすべての関連データを削除
+    // onDelete: Cascade により、allocations, schedules は自動削除される
     await prisma.budgetItem.delete({
       where: { 
         id: budgetItemId,
@@ -181,11 +194,21 @@ export const DELETE: RequestHandler = async ({ params }) => {
       }
     });
     
-    console.log('予算項目削除完了:', budgetItemId);
+    console.log('予算項目削除完了:', {
+      budgetItemId,
+      budgetItemName: existingBudgetItem.name,
+      grantId,
+      deletedAllocations: allocationsCount,
+      deletedSchedules: schedulesCount
+    });
     
     return json({
       success: true,
-      message: '予算項目を削除しました'
+      message: '予算項目と関連するデータをすべて削除しました',
+      deletedData: {
+        allocations: allocationsCount,
+        schedules: schedulesCount
+      }
     });
     
   } catch (error) {
@@ -197,4 +220,4 @@ export const DELETE: RequestHandler = async ({ params }) => {
       detail: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
   }
-};
+};;
