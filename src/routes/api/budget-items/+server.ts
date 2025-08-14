@@ -7,7 +7,15 @@ export const GET: RequestHandler = async () => {
   try {
     const budgetItems = await prisma.budgetItem.findMany({
       include: {
-        allocations: true,
+        allocations: {
+          include: {
+            transaction: {
+              select: {
+                date: true
+              }
+            }
+          }
+        },
         grant: {
           select: { 
             id: true,
@@ -29,6 +37,19 @@ export const GET: RequestHandler = async () => {
     const budgetItemsWithStats = budgetItems.map(item => {
       const usedAmount = item.allocations.reduce((sum, alloc) => sum + alloc.amount, 0);
       
+      // 月別使用額を計算
+      const monthlyUsedAmounts: { [key: string]: number } = {};
+      item.allocations.forEach(alloc => {
+        if (alloc.transaction && alloc.transaction.date) {
+          const date = new Date(alloc.transaction.date);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+          
+          monthlyUsedAmounts[monthKey] = (monthlyUsedAmounts[monthKey] || 0) + alloc.amount;
+        }
+      });
+      
       return {
         id: item.id,
         name: item.name,
@@ -37,6 +58,7 @@ export const GET: RequestHandler = async () => {
         note: item.note,
         grantId: item.grantId,
         usedAmount,
+        monthlyUsedAmounts,
         allocationsCount: item.allocations.length,
         grantName: item.grant.name,
         grantStatus: item.grant.status,
