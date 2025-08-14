@@ -47,7 +47,7 @@
   }
 
   $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0 && !isTableUpdating) {
-    console.log('🔄 テーブル要素準備完了、更新開始:', {
+    // console.log('🔄 テーブル要素準備完了、更新開始:', {
       tableElement: !!tableElement,
       budgetItems: budgetItems.length,
       monthColumns: monthColumns.length,
@@ -113,7 +113,7 @@
   }
 
   function generateMonthColumns(grantsData: Grant[], selectedGrantData: Grant | null, currentBudgetItems: any[]): Array<{year: number, month: number, label: string}> {
-    console.log('generateMonthColumns called, grants.length:', grantsData?.length, 'budgetItems.length:', currentBudgetItems?.length);
+    // console.log('generateMonthColumns called, grants.length:', grantsData?.length, 'budgetItems.length:', currentBudgetItems?.length);
     
     if (selectedGrantData) {
       // 選択された助成金の期間から生成
@@ -132,10 +132,10 @@
           current.setMonth(current.getMonth() + 1);
         }
         
-        console.log('Selected grant months:', months);
+        // console.log('Selected grant months:', months);
         return months;
       }
-      console.log('Selected grant has no date range');
+      // console.log('Selected grant has no date range');
       return [];
     }
     
@@ -147,7 +147,7 @@
       }
     });
     
-    console.log('Relevant grant IDs:', Array.from(relevantGrants));
+    // console.log('Relevant grant IDs:', Array.from(relevantGrants));
     
     const months: Array<{year: number, month: number, label: string}> = [];
     const uniqueMonths = new Set<string>();
@@ -182,12 +182,12 @@
       return a.month - b.month;
     });
     
-    console.log('Generated month columns:', months.length);
+    // console.log('Generated month columns:', months.length);
     return months;
   }
 
   function getFilteredMonthColumns() {
-    console.log('🔍 getFilteredMonthColumns 開始:', {
+    // console.log('🔍 getFilteredMonthColumns 開始:', {
       monthColumnsExists: !!monthColumns,
       monthColumnsLength: monthColumns?.length || 0,
       monthFilterStartYear,
@@ -197,7 +197,7 @@
     });
     
     if (!monthColumns || monthColumns.length === 0) {
-      console.log('🔍 月列データがありません');
+      // console.log('🔍 月列データがありません');
       return [];
     }
     
@@ -209,13 +209,13 @@
       const isInRange = colDate >= startDate && colDate <= endDate;
       
       if (!isInRange) {
-        console.log(`🔍 除外: ${col.year}/${col.month} (${colDate} < ${startDate} || ${colDate} > ${endDate})`);
+        // console.log(`🔍 除外: ${col.year}/${col.month} (${colDate} < ${startDate} || ${colDate} > ${endDate})`);
       }
       
       return isInRange;
     });
     
-    console.log('🔍 フィルタリング結果:', {
+    // console.log('🔍 フィルタリング結果:', {
       original: monthColumns.length,
       filtered: filtered.length,
       firstFiltered: filtered[0],
@@ -229,7 +229,7 @@
     const schedules = budgetItemSchedules.get(item.id);
     const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
     
-    console.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
+    // console.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
       schedules,
       budgetedAmount: item.budgetedAmount,
       schedulesLoaded,
@@ -243,7 +243,7 @@
     // スケジュールデータがある場合はそれを優先
     if (schedules && schedules.scheduleData && schedules.scheduleData.has(monthKey)) {
       const monthData = schedules.scheduleData.get(monthKey);
-      console.log(`✅ スケジュールデータ使用: ${monthData?.monthlyBudget || 0}`);
+      // console.log(`✅ スケジュールデータ使用: ${monthData?.monthlyBudget || 0}`);
       return monthData?.monthlyBudget || 0;
     }
     
@@ -252,10 +252,10 @@
       const isSelectedMonth = schedules.months.includes(monthKey);
       if (isSelectedMonth) {
         const monthlyAmount = Math.floor((item.budgetedAmount || 0) / schedules.months.length);
-        console.log(`📊 選択月に均等配分: ${monthlyAmount} (${item.budgetedAmount} / ${schedules.months.length})`);
+        // console.log(`📊 選択月に均等配分: ${monthlyAmount} (${item.budgetedAmount} / ${schedules.months.length})`);
         return monthlyAmount;
       } else {
-        console.log(`⏭️ 選択されていない月: 0`);
+        // console.log(`⏭️ 選択されていない月: 0`);
         return 0;
       }
     }
@@ -272,18 +272,18 @@
           const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
                            (end.getMonth() - start.getMonth()) + 1;
           const monthlyAmount = Math.floor((item.budgetedAmount || 0) / monthsDiff);
-          console.log(`📈 助成金期間で均等配分: ${monthlyAmount}`);
+          // console.log(`📈 助成金期間で均等配分: ${monthlyAmount}`);
           return monthlyAmount;
         }
       }
     }
     
-    console.log(`❌ 月別金額なし: 0`);
+    // console.log(`❌ 月別金額なし: 0`);
     return 0;
   }
 
   function initializeTableColumns() {
-    console.log('🔧 initializeTableColumns 呼び出し開始!');
+    // console.log('🔧 initializeTableColumns 呼び出し開始!');
     
     // 基本列を固定で定義
     const fixedBaseColumns = [
@@ -385,7 +385,7 @@
     
     // 月列を動的に構築
     const monthColumnDefs = [];
-    console.log('🔧 月列構築開始:', {
+    // console.log('🔧 月列構築開始:', {
       monthColumnsLength: monthColumns?.length || 0
     });
     
@@ -468,7 +468,7 @@
         };
         monthColumnDefs.push(columnDef);
       });
-      console.log('🔧 月列構築完了:', monthColumnDefs.length, '個');
+      // console.log('🔧 月列構築完了:', monthColumnDefs.length, '個');
     }
     
     // 操作列を追加
@@ -501,7 +501,7 @@
 
     // 最終的な列定義を構築
     columns = [...baseColumns, ...monthColumnDefs, actionColumn];
-    console.log('🔧 最終的なcolumns設定完了:', {
+    // console.log('🔧 最終的なcolumns設定完了:', {
       totalColumnsLength: columns.length
     });
   }
@@ -534,7 +534,7 @@
 
   function initializeTable() {
     if (isTableInitializing) {
-      console.log('Table initialization already in progress, skipping');
+      // console.log('Table initialization already in progress, skipping');
       return;
     }
 
@@ -560,7 +560,7 @@
     try {
       const initColumns = baseColumns.length > 0 ? baseColumns : columns;
       
-      console.log('🏗️ initializeTable: テーブル作成開始', {
+      // console.log('🏗️ initializeTable: テーブル作成開始', {
         columnsLength: initColumns.length,
         tableDataLength: tableData.length
       });
@@ -585,7 +585,7 @@
       });
 
       table.on("tableBuilt", function() {
-        console.log("📊 Tabulator table built successfully");
+        // console.log("📊 Tabulator table built successfully");
         isTableInitializing = false;
         isTableUpdating = false;
       });
@@ -611,7 +611,7 @@
     }
 
     if (isTableInitializing) {
-      console.log('Table is initializing, deferring update');
+      // console.log('Table is initializing, deferring update');
       setTimeout(() => updateTable(), 200);
       return;
     }
@@ -620,7 +620,7 @@
       try {
         const completeColumns = columns;
         
-        console.log('🔧 updateTable: 完全な列定義で更新実行', {
+        // console.log('🔧 updateTable: 完全な列定義で更新実行', {
           totalColumns: completeColumns.length
         });
         
@@ -638,19 +638,19 @@
   }
 
   function handleTableUpdate() {
-    console.log('🔧 handleTableUpdate 呼び出し:', {
+    // console.log('🔧 handleTableUpdate 呼び出し:', {
       tableElement: !!tableElement,
       budgetItems: budgetItems.length,
       monthColumns: monthColumns.length
     });
     
     if (!tableElement) {
-      console.log('⚠️ tableElement が見つかりません');
+      // console.log('⚠️ tableElement が見つかりません');
       return;
     }
     
     if (budgetItems.length === 0) {
-      console.log('⚠️ 予算項目が0件のためスキップ');
+      // console.log('⚠️ 予算項目が0件のためスキップ');
       return;
     }
     
@@ -660,7 +660,7 @@
       initializeTableColumns();
       prepareTableData();
       updateTable();
-      console.log('🔄 テーブル更新完了');
+      // console.log('🔄 テーブル更新完了');
     } catch (error) {
       console.error('テーブル更新エラー:', error);
     } finally {
@@ -669,7 +669,7 @@
   }
 
   function handleDisplaySettingsChange(currentSettings: any) {
-    console.log('📊 表示設定変更検出:', currentSettings);
+    // console.log('📊 表示設定変更検出:', currentSettings);
     
     const isFilterChange = 
       currentSettings.monthFilterStartYear !== lastDisplaySettings.monthFilterStartYear ||
@@ -680,18 +680,18 @@
     lastDisplaySettings = { ...currentSettings };
     
     if (isFilterChange) {
-      console.log('🔧 月絞り込み変更のためテーブル再構築');
+      // console.log('🔧 月絞り込み変更のためテーブル再構築');
       if (table) {
         table.destroy();
         table = null;
       }
       isTableUpdating = false;
       setTimeout(() => {
-        console.log('🔧 絞り込み変更による再構築開始');
+        // console.log('🔧 絞り込み変更による再構築開始');
         handleTableUpdate();
       }, 200);
     } else {
-      console.log('🔧 表示項目変更のため再描画');
+      // console.log('🔧 表示項目変更のため再描画');
       if (table) {
         table.redraw(true);
       }
@@ -700,7 +700,7 @@
 
   // Lifecycle
   onMount(() => {
-    console.log('BudgetItemTable mounted');
+    // console.log('BudgetItemTable mounted');
   });
 
   onDestroy(() => {

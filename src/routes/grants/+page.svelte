@@ -22,6 +22,7 @@
     MonthColumn,
     ImportPreviewItem
   } from '$lib/types/models';
+  import { debug } from '$lib/utils/debug';
 
   let grants: Grant[] = [];
   let selectedGrant: Grant | null = null;
@@ -66,7 +67,7 @@
     const inProgressGrants = grants.filter(grant => grant.status === 'active');
     
     if (inProgressGrants.length === 0) {
-      console.log('📅 進行中の助成金がないため、デフォルト範囲を維持');
+      debug.log('📅 進行中の助成金がないため、デフォルト範囲を維持');
       return;
     }
     
@@ -89,7 +90,7 @@
       }
     });
     
-    console.log('📅 進行中助成金の期間調査:', {
+    debug.log('📅 進行中助成金の期間調査:', {
       inProgressGrantsCount: inProgressGrants.length,
       earliestStart: earliestStart?.toISOString(),
       latestEnd: latestEnd?.toISOString()
@@ -110,7 +111,7 @@
         monthFilterEndMonth = latestEnd.getMonth() + 1;
       }
       
-      console.log('📅 進行中助成金の期間に基づいてフィルター範囲を設定:', {
+      debug.log('📅 進行中助成金の期間に基づいてフィルター範囲を設定:', {
         startYear: monthFilterStartYear,
         startMonth: monthFilterStartMonth,
         endYear: monthFilterEndYear,
@@ -126,7 +127,7 @@
       const minYear = Math.min(...years);
       const maxYear = Math.max(...years);
       
-      console.log('📅 データに基づくフィルター範囲調整:', {
+      debug.log('📅 データに基づくフィルター範囲調整:', {
         currentStartYear: monthFilterStartYear,
         currentEndYear: monthFilterEndYear,
         dataMinYear: minYear,
@@ -137,7 +138,7 @@
       if (monthFilterStartYear === 2025 && monthFilterEndYear === 2025) {
         monthFilterStartYear = minYear;
         monthFilterEndYear = maxYear;
-        console.log('📅 フィルター範囲をフォールバック調整:', {
+        debug.log('📅 フィルター範囲をフォールバック調整:', {
           newStartYear: monthFilterStartYear,
           newEndYear: monthFilterEndYear
         });
@@ -145,14 +146,14 @@
     }
   }
   
-  console.log('🔧 初期月絞り込み設定:', {
+  debug.log('🔧 初期月絞り込み設定:', {
     monthFilterStartYear,
     monthFilterStartMonth,
     monthFilterEndYear,
     monthFilterEndMonth
   });
   
-  console.log('🔧 月フィルタリング修正版 - 2024-2026年範囲で設定:', {
+  debug.log('🔧 月フィルタリング修正版 - 2024-2026年範囲で設定:', {
     monthFilterStartYear,
     monthFilterStartMonth,
     monthFilterEndYear,
@@ -282,11 +283,11 @@
   };
 
   onMount(async () => {
-    console.log('🚀 onMount開始');
+    debug.log('🚀 onMount開始');
     await loadGrants();
-    console.log('🚀 loadGrants完了');
+    debug.log('🚀 loadGrants完了');
     await loadAllBudgetItems();
-    console.log('🚀 loadAllBudgetItems完了');
+    debug.log('🚀 loadAllBudgetItems完了');
     
     // 複数回にわたって初期化を確実に実行
     const initializeComplete = () => {
@@ -309,7 +310,7 @@
           
           // 追加: さらに後でも再実行（確実に実行するため）
           setTimeout(() => {
-            console.log('🔄 追加テーブル更新実行');
+            debug.log('🔄 追加テーブル更新実行');
             if (monthColumns.length > 0) {
               // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
             }
@@ -318,8 +319,8 @@
           // 最終テスト - 手動実行用のwindow関数を追加
           setTimeout(() => {
             (window as any).testMonthColumns = () => {
-              console.log('🧪 手動月列テスト開始');
-              console.log('🧪 現在の状態:', {
+              debug.log('🧪 手動月列テスト開始');
+              debug.log('🧪 現在の状態:', {
                 grants: grants.length,
                 budgetItems: budgetItems.length,
                 monthColumns: monthColumns.length,
@@ -327,27 +328,27 @@
               });
               
               if (monthColumns.length === 0) {
-                console.log('🧪 月列を強制生成');
+                debug.log('🧪 月列を強制生成');
                 monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-                console.log('🧪 月列生成完了:', monthColumns.length);
+                debug.log('🧪 月列生成完了:', monthColumns.length);
               }
               
-              console.log('🧪 テーブル更新実行');
+              debug.log('🧪 テーブル更新実行');
               // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
             };
-            console.log('🧪 手動テスト関数を準備しました。ブラウザのコンソールで testMonthColumns() を実行してください');
+            debug.log('🧪 手動テスト関数を準備しました。ブラウザのコンソールで testMonthColumns() を実行してください');
           }, 3000);
         }
         
         // スケジュール取得強制実行
         if (budgetItems.length > 0) {
-          console.log('🔄 初期スケジュール取得開始');
+          debug.log('🔄 初期スケジュール取得開始');
           handleScheduleLoad();
         }
         
         // テーブル初期化
         if (monthColumns.length > 0) {
-          console.log('🔄 初期テーブル初期化開始');
+          debug.log('🔄 初期テーブル初期化開始');
           // テーブル初期化はBudgetItemTableコンポーネント内で自動実行
         }
       }
@@ -363,23 +364,23 @@
     
     // 手動テスト用の関数をwindowに追加（確実に実行）
     (window as any).testMonthColumns = () => {
-      console.log('🧪 手動月列テスト開始');
-      console.log('🧪 現在の状態:', {
+      debug.log('🧪 手動月列テスト開始');
+      debug.log('🧪 現在の状態:', {
         grants: grants.length,
         budgetItems: budgetItems.length,  
         monthColumns: monthColumns.length
       });
       
       if (monthColumns.length === 0) {
-        console.log('🧪 月列を強制生成');
+        debug.log('🧪 月列を強制生成');
         monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-        console.log('🧪 月列生成完了:', monthColumns.length);
+        debug.log('🧪 月列生成完了:', monthColumns.length);
       }
       
-      console.log('🧪 テーブル更新実行');
+      debug.log('🧪 テーブル更新実行');
       // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     };
-    console.log('🧪 手動テスト関数準備完了 - ブラウザで testMonthColumns() を実行してください');
+    debug.log('🧪 手動テスト関数準備完了 - ブラウザで testMonthColumns() を実行してください');
 
     return () => {
       document.removeEventListener('click', handleClickOutside);
@@ -389,7 +390,7 @@
 
   // 月列とbudgetItemsのリアクティブ更新（無限ループ防止付き） - 無効化
   // $: if (grants.length > 0 && budgetItems.length > 0) {
-  //   console.log('🔄 月列・テーブル更新条件チェック:', {
+  //   debug.log('🔄 月列・テーブル更新条件チェック:', {
   //     grants: grants.length,
   //     budgetItems: budgetItems.length,
   //     monthColumns: monthColumns.length
@@ -397,9 +398,9 @@
     
     // monthColumnsが0の場合のみ自動生成 - 無効化
     // if (monthColumns.length === 0) {
-    //   console.log('🔄 月列が未生成、自動生成開始');
+    //   debug.log('🔄 月列が未生成、自動生成開始');
     //   monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-    //   console.log('🔄 月列生成完了:', monthColumns.length, '件');
+    //   debug.log('🔄 月列生成完了:', monthColumns.length, '件');
     // }
   // }
   
@@ -427,7 +428,7 @@
     const changed = JSON.stringify(currentSettings) !== JSON.stringify(lastDisplaySettings);
     
     if (changed) {
-      console.log('🔄 月データ表示設定・絞り込み変更:', currentSettings);
+      debug.log('🔄 月データ表示設定・絞り込み変更:', currentSettings);
       
       // 月絞り込みが変更された場合は列構造を更新
       const isFilterChange = 
@@ -440,16 +441,16 @@
       
       if (isFilterChange) {
         // 絞り込み変更時はテーブル再構築
-        console.log('🔧 月絞り込み変更のためテーブル再構築');
+        debug.log('🔧 月絞り込み変更のためテーブル再構築');
         // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
         isTableUpdating = false; // 再構築前にフラグリセット
         setTimeout(() => {
-          console.log('🔧 絞り込み変更による再構築開始');
+          debug.log('🔧 絞り込み変更による再構築開始');
           // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
         }, 200);
       } else {
         // 表示項目変更時は再描画のみ
-        console.log('🔧 表示項目変更のため再描画');
+        debug.log('🔧 表示項目変更のため再描画');
         // 再描画はBudgetItemTableコンポーネント内で自動実行
       }
     }
@@ -465,7 +466,7 @@
   
   // 月絞り込み適用関数
   function getFilteredMonthColumns() {
-    console.log('🔍 getFilteredMonthColumns 開始:', {
+    debug.log('🔍 getFilteredMonthColumns 開始:', {
       monthColumnsExists: !!monthColumns,
       monthColumnsLength: monthColumns?.length || 0,
       monthFilterStartYear,
@@ -475,14 +476,14 @@
     });
     
     if (!monthColumns || monthColumns.length === 0) {
-      console.log('🔍 monthColumns が空のため絞り込み不可');
+      debug.log('🔍 monthColumns が空のため絞り込み不可');
       return [];
     }
     
     const startDate = monthFilterStartYear * 100 + monthFilterStartMonth;
     const endDate = monthFilterEndYear * 100 + monthFilterEndMonth;
     
-    console.log('🔍 月絞り込み適用:', {
+    debug.log('🔍 月絞り込み適用:', {
       startDate,
       endDate,
       totalMonthColumns: monthColumns.length,
@@ -496,15 +497,15 @@
     const filtered = monthColumns.filter(monthCol => {
       const targetDate = monthCol.year * 100 + monthCol.month;
       const inRange = targetDate >= startDate && targetDate <= endDate;
-      console.log(`月列${monthCol.label}: targetDate=${targetDate}, inRange=${inRange}`);
+      debug.log(`月列${monthCol.label}: targetDate=${targetDate}, inRange=${inRange}`);
       return inRange;
     });
     
-    console.log('🔍 絞り込み結果:', filtered.length, '列');
+    debug.log('🔍 絞り込み結果:', filtered.length, '列');
     
     // 絞り込み結果が0件の場合は、全ての月列を返す（安全な処理）
     if (filtered.length === 0) {
-      console.log('⚠️ 絞り込み結果が0件のため、全ての月列を表示');
+      debug.log('⚠️ 絞り込み結果が0件のため、全ての月列を表示');
       return monthColumns;
     }
     
@@ -517,22 +518,22 @@
       // baseが空の場合は/budget2を使用
       const apiBase = base || '/budget2';
       const url = `${apiBase}/api/grants`;
-      console.log('🔍 Fetching grants from URL:', url);
-      console.log('🔍 base path:', base, '→ apiBase:', apiBase);
+      debug.log('🔍 Fetching grants from URL:', url);
+      debug.log('🔍 base path:', base, '→ apiBase:', apiBase);
       const response = await fetch(url);
-      console.log('🔍 Response status:', response.status);
-      console.log('🔍 Response OK:', response.ok);
+      debug.log('🔍 Response status:', response.status);
+      debug.log('🔍 Response OK:', response.ok);
       const data = await response.json();
-      console.log('🔍 Response data:', data);
+      debug.log('🔍 Response data:', data);
       
       if (data.success) {
         grants = data.grants || [];
-        console.log('助成金取得完了:', grants.length, '件');
+        debug.log('助成金取得完了:', grants.length, '件');
         
         // 月列を生成（ただし予算項目が既にロード済みの場合のみ）
         if (budgetItems.length > 0) {
           monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-          console.log('助成金ロード後のmonthColumns:', monthColumns.length, '件');
+          debug.log('助成金ロード後のmonthColumns:', monthColumns.length, '件');
         }
       } else {
         error = data.error || '助成金データの取得に失敗しました';
@@ -546,42 +547,42 @@
   }
 
   function selectGrant(grant: Grant) {
-    console.log('🔍 selectGrant called:', grant.name, grant.id);
-    console.log('🔍 現在のselectedGrant:', selectedGrant);
-    console.log('🔍 allBudgetItems数:', allBudgetItems.length);
+    debug.log('🔍 selectGrant called:', grant.name, grant.id);
+    debug.log('🔍 現在のselectedGrant:', selectedGrant);
+    debug.log('🔍 allBudgetItems数:', allBudgetItems.length);
     
     if (selectedGrant?.id === grant.id) {
       // 同じ助成金をクリックした場合は絞り込みを解除
-      console.log('🔍 絞り込み解除');
+      debug.log('🔍 絞り込み解除');
       selectedGrant = null;
       budgetItems = getFilteredBudgetItems(allBudgetItems);
     } else {
       // 助成金で絞り込み
-      console.log('🔍 絞り込み実行: grantId =', grant.id);
+      debug.log('🔍 絞り込み実行: grantId =', grant.id);
       selectedGrant = grant;
       const filtered = allBudgetItems.filter(item => item.grantId === grant.id);
-      console.log('🔍 絞り込み結果:', filtered.length, '件');
+      debug.log('🔍 絞り込み結果:', filtered.length, '件');
       budgetItems = getFilteredBudgetItems(filtered);
     }
     
-    console.log('🔍 最終budgetItems数:', budgetItems.length);
+    debug.log('🔍 最終budgetItems数:', budgetItems.length);
     
     // テーブルを再描画・更新
     if (budgetItems.length > 0) {
-      console.log('🔍 助成金絞り込み後のテーブル更新実行');
+      debug.log('🔍 助成金絞り込み後のテーブル更新実行');
       // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     } else {
       // budgetItemsが空の場合もテーブルをクリア
-      console.log('🔍 テーブルクリア実行');
+      debug.log('🔍 テーブルクリア実行');
       // テーブルクリア処理はBudgetItemTableコンポーネント内で自動実行
     }
   }
 
   // 終了・報告ステータスを除外するフィルター関数
   function getFilteredBudgetItems(items: any[]) {
-    console.log('getFilteredBudgetItems - 入力:', items.length, '件');
-    console.log('最初の3件のデータ:', items.slice(0, 3));
-    console.log('🔍 使用額チェック:', items.map(item => ({
+    debug.log('getFilteredBudgetItems - 入力:', items.length, '件');
+    debug.log('最初の3件のデータ:', items.slice(0, 3));
+    debug.log('🔍 使用額チェック:', items.map(item => ({
       name: item.name,
       budgetedAmount: item.budgetedAmount,
       usedAmount: item.usedAmount,
@@ -605,21 +606,21 @@
       
       // 終了済み表示がONの場合、終了ステータスも表示
       if (showCompletedGrants && status === 'completed') {
-        console.log(`項目${item.id}(${item.name}) - 終了済み表示ON、表示`);
+        debug.log(`項目${item.id}(${item.name}) - 終了済み表示ON、表示`);
         return true;
       }
       
       // 報告済み表示がONの場合、報告済みステータスも表示
       if (showReportedGrants && status === 'applied') {
-        console.log(`項目${item.id}(${item.name}) - 報告済み表示ON、表示`);
+        debug.log(`項目${item.id}(${item.name}) - 報告済み表示ON、表示`);
         return true;
       }
       
-      console.log(`項目${item.id}(${item.name}) - 条件に合致せず、非表示`);
+      debug.log(`項目${item.id}(${item.name}) - 条件に合致せず、非表示`);
       return false;
     });
     
-    console.log('getFilteredBudgetItems - 出力:', filtered.length, '件');
+    debug.log('getFilteredBudgetItems - 出力:', filtered.length, '件');
     return filtered;
   }
 
@@ -640,38 +641,38 @@
   }
 
   async function loadAllBudgetItems() {
-    console.log('📍 loadAllBudgetItems開始');
+    debug.log('📍 loadAllBudgetItems開始');
     try {
       // baseが空の場合は/budget2を使用
       const apiBase = base || '/budget2';
       const response = await fetch(`${apiBase}/api/budget-items`);
       const data = await response.json();
       
-      console.log('📍 APIレスポンス:', data.success, 'items:', data.budgetItems?.length);
+      debug.log('📍 APIレスポンス:', data.success, 'items:', data.budgetItems?.length);
       
       if (data.success) {
         allBudgetItems = data.budgetItems || [];
         // 使用額の確認（重要）
-        console.log('【使用額確認】予算項目の使用額:', allBudgetItems.filter(item => item.usedAmount > 0).map(item => ({
+        debug.log('【使用額確認】予算項目の使用額:', allBudgetItems.filter(item => item.usedAmount > 0).map(item => ({
           name: item.name,
           usedAmount: item.usedAmount
         })));
         
-        console.log('📍 selectedGrant状態:', selectedGrant);
+        debug.log('📍 selectedGrant状態:', selectedGrant);
         
         // フィルター処理（selectedGrantの有無に関わらず実行）
-        console.log('📍 selectedGrant状態:', selectedGrant);
+        debug.log('📍 selectedGrant状態:', selectedGrant);
         try {
           if (!selectedGrant) {
-            console.log('📍 selectedGrantがnullなので、全項目をフィルター');
+            debug.log('📍 selectedGrantがnullなので、全項目をフィルター');
             budgetItems = getFilteredBudgetItems(allBudgetItems);
           } else {
-            console.log('📍 selectedGrantあり、選択された助成金でフィルター');
+            debug.log('📍 selectedGrantあり、選択された助成金でフィルター');
             // selectedGrantがある場合も同じフィルター処理を適用
             budgetItems = getFilteredBudgetItems(allBudgetItems);
           }
-          console.log('🔍 フィルター後のbudgetItems:', budgetItems.length, '件');
-          console.log('🔍 フィルター後の使用額情報:', budgetItems.map(item => ({
+          debug.log('🔍 フィルター後のbudgetItems:', budgetItems.length, '件');
+          debug.log('🔍 フィルター後の使用額情報:', budgetItems.map(item => ({
             name: item.name,
             usedAmount: item.usedAmount
           })));
@@ -688,11 +689,11 @@
         // 月列を生成（ただし既にデータがロード済みの場合のみ）
         if (grants && grants.length > 0) {
           monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-          console.log('予算項目ロード後のmonthColumns:', monthColumns.length, '件');
+          debug.log('予算項目ロード後のmonthColumns:', monthColumns.length, '件');
         }
         
         // テーブルデータを更新（重要：この処理が抜けていた）
-        console.log('🔍 テーブル更新前チェック:', {
+        debug.log('🔍 テーブル更新前チェック:', {
           budgetItemsLength: budgetItems.length,
           allBudgetItemsLength: allBudgetItems.length,
           selectedGrant: !!selectedGrant
@@ -753,7 +754,7 @@
         selectedMonths = new Set(data.schedules.map((s: any) => getMonthKey(s.year, s.month)));
       }
     } catch (err) {
-      console.log('スケジュールデータなし:', err);
+      debug.log('スケジュールデータなし:', err);
       selectedMonths.clear();
     }
   }
@@ -874,7 +875,7 @@
     const lengthChanged = budgetItems.length !== lastBudgetItemsLength;
     const idsChanged = currentIds !== lastBudgetItemsIds;
     
-    console.log('📊 handleBudgetItemsUpdate:', {
+    debug.log('📊 handleBudgetItemsUpdate:', {
       budgetItemsLength: budgetItems.length,
       lengthChanged,
       idsChanged,
@@ -890,16 +891,16 @@
       budgetItemsUpdateTimeout = setTimeout(() => {
         // カテゴリ更新
         if (lengthChanged) {
-          console.log('📊 カテゴリ更新実行 (lengthChanged)');
+          debug.log('📊 カテゴリ更新実行 (lengthChanged)');
           updateAvailableCategories();
         }
         // IDが変更された場合はスケジュール取得
         if (idsChanged) {
-          console.log('📊 スケジュール取得実行 (idsChanged)');
+          debug.log('📊 スケジュール取得実行 (idsChanged)');
           handleScheduleLoad();
         }
         // テーブル更新処理は別の関数で実行
-        console.log('📊 テーブル更新実行');
+        debug.log('📊 テーブル更新実行');
         // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
       }, 200);
     }
@@ -911,24 +912,24 @@
   // リアクティブステートメント無効化 - 無限ループ防止
   // 終了済みフィルター変更時の処理
   // $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
-  //   console.log('終了済みフィルター変更:', showCompletedGrants);
+  //   debug.log('終了済みフィルター変更:', showCompletedGrants);
   //   refreshBudgetItems().catch(console.error);
   // }
 
   // 報告済みフィルター変更時の処理  
   // $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
-  //   console.log('報告済みフィルター変更:', showReportedGrants);
+  //   debug.log('報告済みフィルター変更:', showReportedGrants);
   //   refreshBudgetItems().catch(console.error);
   // }
 
   // 選択助成金変更時の処理
   // $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
-  //   console.log('選択助成金変更:', selectedGrant?.name);
+  //   debug.log('選択助成金変更:', selectedGrant?.name);
   //   refreshBudgetItems().catch(console.error);
   // }
 
   async function refreshBudgetItems() {
-    console.log('🔄 refreshBudgetItems実行:', {
+    debug.log('🔄 refreshBudgetItems実行:', {
       selectedGrant: selectedGrant?.name,
       allBudgetItemsLength: allBudgetItems.length
     });
@@ -943,11 +944,11 @@
     if (budgetItems.length > 0) {
       await handleScheduleLoad();
     }
-    console.log('🔄 フィルター後予算項目数:', budgetItems.length);
+    debug.log('🔄 フィルター後予算項目数:', budgetItems.length);
     
     // フィルター後のテーブル更新
     if (budgetItems.length > 0) {
-      console.log('🔄 フィルター後のテーブル更新実行');
+      debug.log('🔄 フィルター後のテーブル更新実行');
       // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     }
   }
@@ -1047,19 +1048,19 @@
   let schedulesLoaded = false; // スケジュール読み込み完了フラグ
 
   async function loadBudgetItemSchedules() {
-    console.log('📅 スケジュール取得開始:', budgetItems.length, '件');
+    debug.log('📅 スケジュール取得開始:', budgetItems.length, '件');
     schedulesLoaded = false;
     const newSchedules = new Map();
     
     for (const item of budgetItems) {
       try {
-        console.log(`📅 項目ID${item.id}のスケジュール取得中...`);
+        debug.log(`📅 項目ID${item.id}のスケジュール取得中...`);
         const response = await fetch(`${base}/api/budget-items/${item.id}/schedule`);
-        console.log(`📅 項目ID${item.id}のレスポンス:`, response.status, response.statusText);
+        debug.log(`📅 項目ID${item.id}のレスポンス:`, response.status, response.statusText);
         
         if (response.ok) {
           const data = await response.json();
-          console.log(`📅 項目ID${item.id}のデータ:`, data);
+          debug.log(`📅 項目ID${item.id}のデータ:`, data);
           
           if (data.success && data.schedules.length > 0) {
             const months = data.schedules.map(s => `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`);
@@ -1068,7 +1069,7 @@
             // 各月のスケジュールデータをMapに保存
             data.schedules.forEach(s => {
               const monthKey = `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`;
-              console.log(`🗓️ 項目ID${item.id}のスケジュールデータ保存:`, {
+              debug.log(`🗓️ 項目ID${item.id}のスケジュールデータ保存:`, {
                 originalYear: s.year,
                 originalMonth: s.month,
                 monthKey,
@@ -1083,9 +1084,9 @@
               months,
               scheduleData
             });
-            console.log(`📅 項目ID${item.id}のスケジュール設定:`, months, 'monthlyBudget:', Array.from(scheduleData.entries()));
+            debug.log(`📅 項目ID${item.id}のスケジュール設定:`, months, 'monthlyBudget:', Array.from(scheduleData.entries()));
           } else {
-            console.log(`📅 項目ID${item.id}はスケジュールデータなし`);
+            debug.log(`📅 項目ID${item.id}はスケジュールデータなし`);
           }
         } else {
           console.warn(`📅 項目ID${item.id}のスケジュール取得失敗:`, response.status);
@@ -1098,16 +1099,16 @@
     // 一度だけMapを更新（リアクティブ更新を最小化）
     budgetItemSchedules = new Map(newSchedules);
     schedulesLoaded = true; // 読み込み完了をマーク
-    console.log('📅 スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件');
-    console.log('📅 budgetItemSchedulesの内容:', Array.from(budgetItemSchedules.entries()));
-    console.log('📅 newSchedulesの内容:', Array.from(newSchedules.entries()));
-    console.log('📅 schedulesLoadedフラグ:', schedulesLoaded);
+    debug.log('📅 スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件');
+    debug.log('📅 budgetItemSchedulesの内容:', Array.from(budgetItemSchedules.entries()));
+    debug.log('📅 newSchedulesの内容:', Array.from(newSchedules.entries()));
+    debug.log('📅 schedulesLoadedフラグ:', schedulesLoaded);
     
     // スケジュール取得完了後に月列生成とテーブル更新を実行
     setTimeout(() => {
-      console.log('📅 スケジュール取得後の月列とテーブル更新実行');
+      debug.log('📅 スケジュール取得後の月列とテーブル更新実行');
       // 月列を再生成（スケジュールデータに基づいて）
-      console.log('📅 月列生成前の状態:', {
+      debug.log('📅 月列生成前の状態:', {
         monthColumnsLength: monthColumns.length,
         schedulesLoaded,
         grantsLength: grants.length,
@@ -1115,8 +1116,8 @@
       });
       
       monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-      console.log('📅 スケジュール取得後の月列生成完了:', monthColumns.length, '件');
-      console.log('📅 生成された月列:', monthColumns);
+      debug.log('📅 スケジュール取得後の月列生成完了:', monthColumns.length, '件');
+      debug.log('📅 生成された月列:', monthColumns);
       
       // フィルター範囲を自動調整
       adjustFilterRangeToData();
@@ -1128,9 +1129,9 @@
   let scheduleLoadTimeout: ReturnType<typeof setTimeout> | null = null;
   
   async function handleScheduleLoad() {
-    console.log('📅 handleScheduleLoad実行 - スケジュール取得開始');
+    debug.log('📅 handleScheduleLoad実行 - スケジュール取得開始');
     await loadBudgetItemSchedules();
-    console.log('📅 handleScheduleLoad完了 - スケジュール取得完了');
+    debug.log('📅 handleScheduleLoad完了 - スケジュール取得完了');
   }
   
   function toggleSort(field: string) {
@@ -1311,50 +1312,50 @@
 
   // 表示用の月列を生成（表示中の予算項目に関連する助成金のみから生成）
   function generateMonthColumns(grantsData: Grant[], selectedGrantData: Grant | null, currentBudgetItems: any[]): Array<{year: number, month: number, label: string}> {
-    console.log('generateMonthColumns called, grants.length:', grantsData?.length, 'budgetItems.length:', currentBudgetItems?.length);
-    console.log('grantsData:', grantsData);
-    console.log('currentBudgetItems:', currentBudgetItems);
+    debug.log('generateMonthColumns called, grants.length:', grantsData?.length, 'budgetItems.length:', currentBudgetItems?.length);
+    debug.log('grantsData:', grantsData);
+    debug.log('currentBudgetItems:', currentBudgetItems);
     
     if (selectedGrantData) {
       // 選択された助成金の期間から生成
-      console.log('Using selectedGrant:', selectedGrantData.name);
+      debug.log('Using selectedGrant:', selectedGrantData.name);
       return generateMonthsFromGrant(selectedGrantData);
     }
     
     // データがまだロードされていない場合は空の配列を返す
     if (!grantsData || grantsData.length === 0) {
-      console.log('No grants data, returning empty months');
+      debug.log('No grants data, returning empty months');
       return [];
     }
     
     if (!currentBudgetItems) {
-      console.log('No budget items data, returning empty months');
+      debug.log('No budget items data, returning empty months');
       return [];
     }
     
     // 暫定：全ての進行中の助成金から月列を生成
     const displayedGrantIds = new Set(grantsData.filter(g => g.status === 'active').map(g => g.id));
-    console.log('Using all active grants for month generation:', Array.from(displayedGrantIds));
+    debug.log('Using all active grants for month generation:', Array.from(displayedGrantIds));
     
     if (displayedGrantIds.size === 0) {
-      console.log('No displayed grant IDs, returning empty months');
+      debug.log('No displayed grant IDs, returning empty months');
       return [];
     }
     
     // 関連する助成金の期間のみを統合
     const allMonths = new Set<string>();
     grantsData.forEach(grant => {
-      console.log('Checking grant:', grant.id, grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate, 'inDisplayed:', displayedGrantIds.has(grant.id));
+      debug.log('Checking grant:', grant.id, grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate, 'inDisplayed:', displayedGrantIds.has(grant.id));
       if (displayedGrantIds.has(grant.id) && grant.startDate && grant.endDate) {
-        console.log('Processing grant for months:', grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate);
+        debug.log('Processing grant for months:', grant.name, 'startDate:', grant.startDate, 'endDate:', grant.endDate);
         const months = generateMonthsFromGrant(grant);
-        console.log('Generated months for grant:', months);
+        debug.log('Generated months for grant:', months);
         months.forEach(m => allMonths.add(`${m.year}-${m.month}`));
       }
     });
     
-    console.log('Generated months count:', allMonths.size);
-    console.log('All months:', Array.from(allMonths));
+    debug.log('Generated months count:', allMonths.size);
+    debug.log('All months:', Array.from(allMonths));
     
     return Array.from(allMonths)
       .sort((a, b) => {
@@ -1425,7 +1426,7 @@
     const schedules = budgetItemSchedules.get(item.id);
     const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
     
-    console.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
+    debug.log(`💰 getMonthlyAmount呼び出し: 項目ID${item.id} ${monthKey}月`, {
       schedules,
       budgetedAmount: item.budgetedAmount,
       schedulesLoaded,
@@ -1438,7 +1439,7 @@
     });
     
     if (!item.budgetedAmount) {
-      console.log(`💰 項目ID${item.id}は予算額が0のため金額0`);
+      debug.log(`💰 項目ID${item.id}は予算額が0のため金額0`);
       return 0;
     }
     
@@ -1446,7 +1447,7 @@
     if (schedules && schedules.months && schedules.months.length > 0) {
       const hasSchedule = schedules.months.includes(monthKey);
       
-      console.log(`💰 項目ID${item.id}のスケジュール判定:`, {
+      debug.log(`💰 項目ID${item.id}のスケジュール判定:`, {
         monthKey,
         hasSchedule,
         months: schedules.months,
@@ -1454,13 +1455,13 @@
       });
       
       if (!hasSchedule) {
-        console.log(`💰 項目ID${item.id} ${monthKey}月はスケジュール対象外のため金額0`);
+        debug.log(`💰 項目ID${item.id} ${monthKey}月はスケジュール対象外のため金額0`);
         return 0;
       }
       
       // 保存されたmonthlyBudgetを使用（fallbackとして計算）
       const scheduleData = schedules.scheduleData?.get(monthKey);
-      console.log(`🔍 項目ID${item.id} ${monthKey}月のscheduleData確認:`, {
+      debug.log(`🔍 項目ID${item.id} ${monthKey}月のscheduleData確認:`, {
         scheduleData,
         monthlyBudget: scheduleData?.monthlyBudget,
         schedulesHasScheduleData: !!schedules.scheduleData,
@@ -1471,7 +1472,7 @@
       const monthlyAmount = scheduleData?.monthlyBudget || 
         (schedules.months.length > 0 ? Math.round(item.budgetedAmount / schedules.months.length) : 0);
       
-      console.log(`💰 項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (保存値: ${scheduleData?.monthlyBudget || 'なし'}, 総額: ${item.budgetedAmount}, 対象月数: ${schedules.months.length})`);
+      debug.log(`💰 項目ID${item.id} ${monthKey}月の金額: ${monthlyAmount} (保存値: ${scheduleData?.monthlyBudget || 'なし'}, 総額: ${item.budgetedAmount}, 対象月数: ${schedules.months.length})`);
       return monthlyAmount;
     }
     
@@ -1488,14 +1489,14 @@
         
         if (isInGrantPeriod && grantMonths.length > 0) {
           const monthlyAmount = Math.round(item.budgetedAmount / grantMonths.length);
-          console.log(`項目ID${item.id} ${targetMonthKey}月の金額(均等配分): ${monthlyAmount}`);
+          debug.log(`項目ID${item.id} ${targetMonthKey}月の金額(均等配分): ${monthlyAmount}`);
           return monthlyAmount;
         }
       }
     }
     
     // デフォルトは0
-    console.log(`項目ID${item.id}のスケジュールデータなし、金額表示なし`);
+    debug.log(`項目ID${item.id}のスケジュールデータなし、金額表示なし`);
     return 0;
   }
 
@@ -1530,7 +1531,7 @@
     }
     
     monthColumnsTimeout = setTimeout(() => {
-      console.log('📅 月列更新:', {
+      debug.log('📅 月列更新:', {
         grants: grants?.length,
         selectedGrant: selectedGrant?.name,
         budgetItems: budgetItems.length
@@ -1539,7 +1540,7 @@
       const newMonthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
       if (JSON.stringify(monthColumns) !== JSON.stringify(newMonthColumns)) {
         monthColumns = newMonthColumns;
-        console.log('月列が変更されました:', monthColumns.length, '個の月');
+        debug.log('月列が変更されました:', monthColumns.length, '個の月');
         // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
       }
       
@@ -1548,7 +1549,7 @@
   }
   
   $: updateMonthColumns();
-  $: console.log('selectedGrant:', selectedGrant);
+  $: debug.log('selectedGrant:', selectedGrant);
 
   // monthColumnsとスケジュール更新は統合された関数で処理
 
@@ -1620,16 +1621,16 @@
   async function parseCSVFile(file: File) {
     try {
       const text = await file.text();
-      console.log('ファイル内容:', text);
+      debug.log('ファイル内容:', text);
       const lines = text.split('\n').filter(line => line.trim());
-      console.log('行数:', lines.length);
+      debug.log('行数:', lines.length);
       
       if (lines.length < 2) {
         importError = 'CSVファイルにデータが含まれていません';
         return;
       }
 
-      console.log('ヘッダー行:', lines[0]);
+      debug.log('ヘッダー行:', lines[0]);
 
       // ヘッダー行をスキップして解析
       const dataLines = lines.slice(1);
@@ -1639,8 +1640,8 @@
         // 助成金CSVの解析
         for (const line of dataLines) {
           const columns = parseCSVLine(line);
-          console.log('CSV行:', line);
-          console.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
+          debug.log('CSV行:', line);
+          debug.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
           
           if (columns.length >= 6) {
             const grant = {
@@ -1660,8 +1661,8 @@
         // 予算項目CSVの解析
         for (const line of dataLines) {
           const columns = parseCSVLine(line);
-          console.log('CSV行:', line);
-          console.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
+          debug.log('CSV行:', line);
+          debug.log('解析されたカラム数:', columns.length, 'カラム内容:', columns);
           
           if (columns.length >= 3) {
             const budgetItem = {
@@ -1679,7 +1680,7 @@
       }
 
       importPreview = preview;
-      console.log('Import preview:', importPreview);
+      debug.log('Import preview:', importPreview);
       
     } catch (err) {
       importError = 'CSVファイルの解析に失敗しました: ' + (err instanceof Error ? err.message : String(err));
@@ -1713,7 +1714,7 @@
       if (!response.ok) {
         console.warn(`予算項目ID${budgetItemId}の月別スケジュール作成に失敗`);
       } else {
-        console.log(`予算項目ID${budgetItemId}に${schedules.length}ヶ月のスケジュールを作成しました`);
+        debug.log(`予算項目ID${budgetItemId}に${schedules.length}ヶ月のスケジュールを作成しました`);
       }
     } catch (err) {
       console.error('月別スケジュール作成エラー:', err);
@@ -2218,7 +2219,7 @@
     }
     // 予算項目更新後のテーブル更新
     if (budgetItems.length > 0) {
-      console.log('🔄 予算項目保存後のテーブル更新実行');
+      debug.log('🔄 予算項目保存後のテーブル更新実行');
     }
   }}
   on:close={() => showBudgetItemForm = false}
