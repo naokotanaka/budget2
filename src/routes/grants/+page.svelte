@@ -1084,6 +1084,12 @@
             // 各月のスケジュールデータをMapに保存
             data.schedules.forEach(s => {
               const monthKey = `${s.year.toString().slice(-2)}/${s.month.toString().padStart(2, '0')}`;
+              console.log(`🗓️ 項目ID${item.id}のスケジュールデータ保存:`, {
+                originalYear: s.year,
+                originalMonth: s.month,
+                monthKey,
+                monthlyBudget: s.monthlyBudget
+              });
               scheduleData.set(monthKey, {
                 monthlyBudget: s.monthlyBudget || 0
               });
@@ -1106,9 +1112,12 @@
     }
     
     // 一度だけMapを更新（リアクティブ更新を最小化）
-    budgetItemSchedules = newSchedules;
+    budgetItemSchedules = new Map(newSchedules);
     schedulesLoaded = true; // 読み込み完了をマーク
-    console.log('📅 スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件', Array.from(budgetItemSchedules.entries()));
+    console.log('📅 スケジュールデータ読み込み完了:', budgetItemSchedules.size, '件');
+    console.log('📅 budgetItemSchedulesの内容:', Array.from(budgetItemSchedules.entries()));
+    console.log('📅 newSchedulesの内容:', Array.from(newSchedules.entries()));
+    console.log('📅 schedulesLoadedフラグ:', schedulesLoaded);
     
     // スケジュール取得完了後に月列生成とテーブル更新を実行
     setTimeout(() => {
@@ -1135,9 +1144,9 @@
   let scheduleLoadTimeout: ReturnType<typeof setTimeout> | null = null;
   
   async function handleScheduleLoad() {
-    console.log('📅 handleScheduleLoad無効化 - 無限ループ防止');
-    // 一時的に無効化
-    return;
+    console.log('📅 handleScheduleLoad実行 - スケジュール取得開始');
+    await loadBudgetItemSchedules();
+    console.log('📅 handleScheduleLoad完了 - スケジュール取得完了');
   }
   
   function toggleSort(field: string) {
@@ -1429,6 +1438,34 @@
             const rowData = cell.getRow().getData();
             const fieldName = cell.getField();
             
+            // 詳細なデバッグログ
+            const schedules = budgetItemSchedules.get(rowData.id);
+            console.log(`📅 月別フォーマッター詳細:`, {
+              fieldName,
+              rowDataId: rowData?.id,
+              hasSchedules: !!schedules,
+              schedulesMonths: schedules?.months,
+              schedulesData: schedules?.scheduleData ? Array.from(schedules.scheduleData.entries()) : null,
+              budgetItemSchedulesSize: budgetItemSchedules.size,
+              allScheduleKeys: Array.from(budgetItemSchedules.keys())
+            });
+            
+            // budgetItemSchedulesの確認
+            const itemSchedules = budgetItemSchedules.get(rowData?.id);
+            console.log(`🔍 項目ID${rowData?.id}のスケジュール詳細:`, {
+              schedulesExists: !!itemSchedules,
+              schedulesMonths: itemSchedules?.months,
+              scheduleDataExists: !!itemSchedules?.scheduleData,
+              scheduleDataSize: itemSchedules?.scheduleData?.size,
+              scheduleDataKeys: itemSchedules?.scheduleData ? Array.from(itemSchedules.scheduleData.keys()) : 'N/A',
+              budgetItemSchedulesSize: budgetItemSchedules.size,
+              schedulesLoaded: schedulesLoaded
+            });
+            
+            // getMonthlyAmountの戻り値確認
+            const calculatedAmount = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
+            console.log(`💰 getMonthlyAmount戻り値: 項目ID${rowData?.id} ${monthCol.year}年${monthCol.month}月 = ${calculatedAmount}`);
+            
             // 現在の年月を取得
             const now = new Date();
             const currentYear = now.getFullYear();
@@ -1546,7 +1583,9 @@
       if (monthColumns && monthColumns.length > 0) {
         const monthlyData = monthColumns.reduce((acc, monthCol) => {
           const monthAmount = getMonthlyAmount(item, monthCol.year, monthCol.month);
-          acc[`month_${monthCol.year}_${monthCol.month}`] = monthAmount;
+          const fieldKey = `month_${monthCol.year}_${monthCol.month}`;
+          acc[fieldKey] = monthAmount;
+          console.log(`📋 月別データ設定: 項目${item.name} ${monthCol.year}/${monthCol.month} = ${monthAmount} (field: ${fieldKey})`);
           return acc;
         }, {});
         Object.assign(baseData, monthlyData);
@@ -1994,7 +2033,12 @@
       schedules,
       budgetedAmount: item.budgetedAmount,
       schedulesLoaded,
-      budgetItemSchedulesSize: budgetItemSchedules.size
+      budgetItemSchedulesSize: budgetItemSchedules.size,
+      schedulesExists: !!schedules,
+      schedulesMonthsExists: !!schedules?.months,
+      scheduleDataExists: !!schedules?.scheduleData,
+      schedulesMonths: schedules?.months,
+      scheduleDataKeys: schedules?.scheduleData ? Array.from(schedules.scheduleData.keys()) : 'N/A'
     });
     
     if (!item.budgetedAmount) {
@@ -2020,6 +2064,14 @@
       
       // 保存されたmonthlyBudgetを使用（fallbackとして計算）
       const scheduleData = schedules.scheduleData?.get(monthKey);
+      console.log(`🔍 項目ID${item.id} ${monthKey}月のscheduleData確認:`, {
+        scheduleData,
+        monthlyBudget: scheduleData?.monthlyBudget,
+        schedulesHasScheduleData: !!schedules.scheduleData,
+        scheduleDataType: typeof schedules.scheduleData,
+        scheduleDataSize: schedules.scheduleData?.size
+      });
+      
       const monthlyAmount = scheduleData?.monthlyBudget || 
         (schedules.months.length > 0 ? Math.round(item.budgetedAmount / schedules.months.length) : 0);
       
