@@ -9,18 +9,17 @@
     parseDate, 
     parseStatus 
   } from '$lib/utils/grants-helpers';
-  import { TabulatorFull as Tabulator } from 'tabulator-tables';
-  import type { ColumnDefinition } from 'tabulator-tables';
-  import 'tabulator-tables/dist/css/tabulator.min.css';
   import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
   import DeleteConfirmDialog from '$lib/components/DeleteConfirmDialog.svelte';
+  import BudgetItemTable from './components/BudgetItemTable.svelte';
+  import GrantCard from './components/GrantCard.svelte';
+  import GrantFormComponent from './components/GrantForm.svelte';
+  import BudgetItemFormComponent from './components/BudgetItemForm.svelte';
   import type { 
     Grant, 
     BudgetItem, 
     BudgetItemSchedule,
     MonthColumn,
-    GrantForm,
-    BudgetItemForm,
     ImportPreviewItem
   } from '$lib/types/models';
 
@@ -259,7 +258,15 @@
   }
 
   // 新規・編集用フォームデータ
-  let grantForm: Partial<Grant> = {};
+  let grantForm: {
+    id?: number;
+    name?: string;
+    grantCode?: string;
+    totalAmount?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    status?: string;
+  } = {};
   let budgetItemForm: Partial<BudgetItem> = {};
 
   const statusLabels = {
@@ -297,14 +304,14 @@
           
           // 月列生成後にテーブル再構築
           setTimeout(() => {
-            handleTableUpdate();
+            // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
           }, 500);
           
           // 追加: さらに後でも再実行（確実に実行するため）
           setTimeout(() => {
             console.log('🔄 追加テーブル更新実行');
             if (monthColumns.length > 0) {
-              handleTableUpdate();
+              // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
             }
           }, 2000);
           
@@ -326,7 +333,7 @@
               }
               
               console.log('🧪 テーブル更新実行');
-              handleTableUpdate();
+              // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
             };
             console.log('🧪 手動テスト関数を準備しました。ブラウザのコンソールで testMonthColumns() を実行してください');
           }, 3000);
@@ -341,7 +348,7 @@
         // テーブル初期化
         if (tableElement && monthColumns.length > 0) {
           console.log('🔄 初期テーブル初期化開始');
-          handleTableUpdate();
+          // テーブル初期化はBudgetItemTableコンポーネント内で自動実行
         } else if (!tableElement) {
           console.log('⚠️ tableElement が見つかりません、再試行します');
           // DOM要素がまだ準備できていない場合、少し待ってから再試行
@@ -375,17 +382,13 @@
       }
       
       console.log('🧪 テーブル更新実行');
-      handleTableUpdate();
+      // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     };
     console.log('🧪 手動テスト関数準備完了 - ブラウザで testMonthColumns() を実行してください');
 
     return () => {
       document.removeEventListener('click', handleClickOutside);
-      // テーブルのクリーンアップ
-      if (table) {
-        table.destroy();
-        table = null;
-      }
+      // テーブルのクリーンアップはBudgetItemTableコンポーネント内で実行
     };
   });
 
@@ -428,7 +431,7 @@
     };
     const changed = JSON.stringify(currentSettings) !== JSON.stringify(lastDisplaySettings);
     
-    if (changed && table && tableElement) {
+    if (changed) {
       console.log('🔄 月データ表示設定・絞り込み変更:', currentSettings);
       
       // 月絞り込みが変更された場合は列構造を更新
@@ -443,17 +446,16 @@
       if (isFilterChange) {
         // 絞り込み変更時はテーブル再構築
         console.log('🔧 月絞り込み変更のためテーブル再構築');
-        table.destroy();
-        table = null;
+        // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
         isTableUpdating = false; // 再構築前にフラグリセット
         setTimeout(() => {
           console.log('🔧 絞り込み変更による再構築開始');
-          handleTableUpdate();
+          // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
         }, 200);
       } else {
         // 表示項目変更時は再描画のみ
         console.log('🔧 表示項目変更のため再描画');
-        table.redraw(true);
+        // 再描画はBudgetItemTableコンポーネント内で自動実行
       }
     }
   }
@@ -461,10 +463,9 @@
   // 表示設定の変更を監視
   $: {
     showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining, monthFilterStartYear, monthFilterStartMonth, monthFilterEndYear, monthFilterEndMonth;
-    if (table) {
-      // 少し遅延させて処理
-      setTimeout(handleDisplaySettingsChange, 10);
-    }
+    // 表示設定の変更はBudgetItemTableコンポーネント内で自動処理
+    // 少し遅延させて処理
+    setTimeout(handleDisplaySettingsChange, 10);
   }
   
   // 月絞り込み適用関数
@@ -513,22 +514,6 @@
     }
     
     return filtered;
-  }
-  
-  // テーブル要素が準備できたらテーブル初期化を実行  
-  $: if (tableElement && budgetItems.length > 0 && monthColumns.length > 0 && !isTableUpdating) {
-    console.log('🔄 テーブル要素準備完了、初期化開始:', {
-      tableElement: !!tableElement,
-      budgetItems: budgetItems.length,
-      monthColumns: monthColumns.length,
-      tableExists: !!table,
-      tableInitialized: table?.initialized
-    });
-    
-    // テーブルがまだ初期化されていない場合のみ
-    if (!table || !table.initialized) {
-      handleTableUpdate();
-    }
   }
 
   async function loadGrants() {
@@ -589,13 +574,11 @@
     // テーブルを再描画・更新
     if (budgetItems.length > 0) {
       console.log('🔍 助成金絞り込み後のテーブル更新実行');
-      handleTableUpdate();
+      // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     } else {
       // budgetItemsが空の場合もテーブルをクリア
-      if (table) {
-        console.log('🔍 テーブルクリア実行');
-        handleTableUpdate();
-      }
+      console.log('🔍 テーブルクリア実行');
+      // テーブルクリア処理はBudgetItemTableコンポーネント内で自動実行
     }
   }
 
@@ -719,20 +702,6 @@
           allBudgetItemsLength: allBudgetItems.length,
           selectedGrant: !!selectedGrant
         });
-        
-        if (budgetItems.length > 0) {
-          console.log('🔄 予算項目ロード後のテーブル更新実行');
-          // テーブル要素がまだ存在しない可能性があるため、少し遅延させる
-          setTimeout(() => {
-            console.log('🔄 遅延後のテーブル更新実行', {
-              tableElement: !!tableElement,
-              budgetItems: budgetItems.length
-            });
-            handleTableUpdate();
-          }, 100);
-        } else {
-          console.log('⚠️ budgetItemsが空のためテーブル更新スキップ');
-        }
       } else {
         error = data.error || '予算項目の取得に失敗しました';
       }
@@ -794,37 +763,7 @@
     }
   }
 
-  async function saveGrant() {
-    try {
-      const url = grantForm.id ? `${base}/api/grants/${grantForm.id}` : `${base}/api/grants`;
-      const method = grantForm.id ? 'PUT' : 'POST';
-      
-      // 日付フィールドを適切な形式に変換してから送信
-      const formData = {
-        ...grantForm,
-        startDate: formatDateForAPI(grantForm.startDate),
-        endDate: formatDateForAPI(grantForm.endDate)
-      };
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        showGrantForm = false;
-        await loadGrants();
-      } else {
-        error = data.error || '助成金の保存に失敗しました';
-      }
-    } catch (err) {
-      error = '助成金の保存中にエラーが発生しました';
-      console.error('Save grant error:', err);
-    }
-  }
+  // saveGrant関数はGrantFormコンポーネントに移動
 
   // 削除関数
   function openDeleteConfirm(type: 'grant' | 'budgetItem', item: any, grantId?: number) {
@@ -882,8 +821,7 @@
           } else {
             budgetItems = getFilteredBudgetItems(allBudgetItems);
           }
-          // テーブルを更新
-          handleTableUpdate();
+          // テーブル更新はBudgetItemTableコンポーネント内で自動実行
         }
         
         closeDeleteConfirm();
@@ -899,102 +837,17 @@
     }
   }
 
-  async function saveBudgetItem() {
-    if (!budgetItemForm.grantId) {
-      error = '助成金を選択してください';
-      return;
-    }
-    
-    try {
-      const url = budgetItemForm.id ? 
-        `${base}/api/grants/${budgetItemForm.grantId}/budget-items/${budgetItemForm.id}` : 
-        `${base}/api/grants/${budgetItemForm.grantId}/budget-items`;
-      const method = budgetItemForm.id ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(budgetItemForm)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // スケジュールデータも保存
-        if (data.budgetItem?.id) {
-          await saveBudgetItemSchedule(data.budgetItem.id);
-        }
-        
-        showBudgetItemForm = false;
-        await loadAllBudgetItems();
-        // 絞り込み状態を維持
-        if (selectedGrant) {
-          budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
-        } else {
-          budgetItems = getFilteredBudgetItems(allBudgetItems);
-        }
-        
-        // 予算項目更新後のテーブル更新
-        if (budgetItems.length > 0) {
-          console.log('🔄 予算項目保存後のテーブル更新実行');
-          handleTableUpdate();
-        }
-      } else {
-        error = data.error || '予算項目の保存に失敗しました';
-      }
-    } catch (err) {
-      error = '予算項目の保存中にエラーが発生しました';
-      console.error('Save budget item error:', err);
-    }
-  }
-
-  async function saveBudgetItemSchedule(budgetItemId: number) {
-    try {
-      // 月割り予算額を計算
-      const calculatedMonthlyBudget = budgetItemForm.budgetedAmount && selectedMonths.size > 0 
-        ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
-        : 0;
-
-      const schedules = Array.from(selectedMonths).map(monthKey => {
-        const [year, month] = monthKey.split('-');
-        return {
-          year: parseInt(year),
-          month: parseInt(month),
-          isActive: true,
-          monthlyBudget: calculatedMonthlyBudget // 月割り予算額を追加
-        };
-      });
-
-      const response = await fetch(`${base}/api/budget-items/${budgetItemId}/schedule`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedules })
-      });
-
-      if (!response.ok) {
-        console.error('スケジュール保存失敗');
-      }
-    } catch (err) {
-      console.error('スケジュール保存エラー:', err);
-    }
-  }
+  // saveBudgetItemとsaveBudgetItemSchedule関数はBudgetItemFormコンポーネントに移動
 
   // 複数条件ソート機能
   let sortCriteria: Array<{field: string, direction: 'asc' | 'desc', priority: number}> = [];
 
-  // wx-svelte-grid関連
-  // Tabulator用の変数
-  let tableElement: HTMLDivElement;
-  let table: Tabulator | null = null;
-  let columns: ColumnDefinition[] = [];
-  let baseColumns: ColumnDefinition[] = [];
-  let tableData: any[] = [];
+  // Tabulator関連の変数（BudgetItemTableコンポーネントに移動）
   let monthColumns: Array<{year: number, month: number, label: string}> = [];
-  let isTableInitializing = false;
 
   // カテゴリ管理
   let availableCategories: string[] = [];
-  let showCategoryDropdown = false;
+  // showCategoryDropdownはBudgetItemFormコンポーネントに移動
 
   // 月別スケジュール管理
   let availableMonths: Array<{year: number, month: number, label: string}> = [];
@@ -1052,7 +905,7 @@
         }
         // テーブル更新処理は別の関数で実行
         console.log('📊 テーブル更新実行');
-        handleTableUpdate();
+        // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
       }, 200);
     }
   }
@@ -1100,21 +953,11 @@
     // フィルター後のテーブル更新
     if (budgetItems.length > 0) {
       console.log('🔄 フィルター後のテーブル更新実行');
-      handleTableUpdate();
+      // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     }
   }
   
-  function selectCategory(category: string) {
-    budgetItemForm.category = category;
-    showCategoryDropdown = false;
-  }
-  
-  function filterCategories(input: string) {
-    if (!input) return availableCategories;
-    return availableCategories.filter(cat => 
-      cat.toLowerCase().includes(input.toLowerCase())
-    );
-  }
+  // selectCategoryとfilterCategories関数はBudgetItemFormコンポーネントに移動
   
   // ドロップダウン外クリックで閉じる
   function handleClickOutside(event: MouseEvent) {
@@ -1282,7 +1125,7 @@
       
       // フィルター範囲を自動調整
       adjustFilterRangeToData();
-      handleTableUpdate();
+      // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
     }, 100);
   }
 
@@ -1372,52 +1215,7 @@
     budgetItems = [...budgetItems]; // リアクティブ更新
   }
 
-  // 統合されたテーブル更新処理
-  let tableUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
-  let lastTableState = {
-    budgetItemsIds: '',
-    monthColumnsLength: 0,
-    schedulesLoaded: false
-  };
-  
-  let isTableUpdating = false;
-  
-  function handleTableUpdate() {
-    console.log('🔧 handleTableUpdate 呼び出し (simplified):', {
-      tableElement: !!tableElement,
-      loading: loading,
-      budgetItems: budgetItems.length,
-      monthColumns: monthColumns.length
-    });
-    
-    if (!tableElement) {
-      console.log('⚠️ tableElement が見つかりません');
-      return;
-    }
-    
-    if (loading) {
-      console.log('⚠️ ローディング中のためスキップ');
-      return;
-    }
-    
-    if (budgetItems.length === 0) {
-      console.log('⚠️ 予算項目が0件のためスキップ');
-      return;
-    }
-    
-    console.log('🔄 簡素化テーブル更新実行');
-    try {
-      console.log('🔄 1. initializeTableColumns 呼び出し前');
-      initializeTableColumns();
-      console.log('🔄 2. prepareTableData 呼び出し前');
-      prepareTableData();
-      console.log('🔄 3. updateTable 呼び出し前');
-      updateTable();
-      console.log('🔄 4. 全処理完了');
-    } catch (error) {
-      console.error('テーブル更新エラー:', error);
-    }
-  }
+  // テーブル更新（BudgetItemTableコンポーネントで処理）
   
   // リアクティブな関数として定義
   $: getSortIcon = (field: string) => {
@@ -1450,560 +1248,10 @@
     return includeYen ? `¥${formatted}` : formatted;
   }
 
-  // Tabulatorの列定義を初期化
-  function initializeTableColumns() {
-    console.log('🔧 initializeTableColumns 呼び出し開始!');
-    // 基本列を固定で定義（毎回同じ内容）
-    const fixedBaseColumns = [
-      {
-        title: "助成金",
-        field: "grantName",
-        frozen: true,
-        minWidth: 120,
-        width: 180,
-        widthGrow: 1,
-        sorter: "string"
-      },
-      {
-        title: "項目名", 
-        field: "name",
-        frozen: true,
-        width: 220,
-        minWidth: 150,
-        widthGrow: 2,
-        sorter: "string"
-      },
-      {
-        title: "カテゴリ",
-        field: "category",
-        width: 120,
-        minWidth: 100,
-        widthGrow: 0.5,
-        sorter: "string"
-      },
-      {
-        title: "予算額",
-        field: "budgetedAmount",
-        width: 130,
-        minWidth: 110,
-        widthGrow: 0.8,
-        sorter: "number",
-        hozAlign: "right",
-        formatter: (cell) => {
-          const budgetedAmount = cell.getValue();
-          const rowData = cell.getRow().getData();
-          const monthlyTotals = calculateMonthlyTotals(rowData);
-          
-          return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="margin-bottom: 2px;">${formatAmount(budgetedAmount)}</div>
-              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalBudget, false)}</div>
-            </div>
-          `;
-        }
-      },
-      {
-        title: "使用額",
-        field: "usedAmount",
-        width: 130,
-        minWidth: 110,
-        widthGrow: 0.8,
-        sorter: "number",
-        hozAlign: "right",
-        formatter: (cell) => {
-          const usedAmount = cell.getValue();
-          const rowData = cell.getRow().getData();
-          const monthlyTotals = calculateMonthlyTotals(rowData);
-          
-          return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="margin-bottom: 2px;">${formatAmount(usedAmount)}</div>
-              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalUsed, false)}</div>
-            </div>
-          `;
-        }
-      },
-      {
-        title: "残額",
-        field: "remainingAmount",
-        width: 130,
-        minWidth: 110,
-        widthGrow: 0.8,
-        sorter: "number",
-        hozAlign: "right",
-        formatter: (cell) => {
-          const value = cell.getValue();
-          const color = value < 0 ? 'red' : 'green';
-          const rowData = cell.getRow().getData();
-          const monthlyTotals = calculateMonthlyTotals(rowData);
-          const monthColor = monthlyTotals.totalRemaining < 0 ? 'red' : '#6b7280';
-          
-          return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="color: ${color}; font-weight: 600; margin-bottom: 2px;">${formatAmount(value)}</div>
-              <div style="color: ${monthColor}; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalRemaining, false)}</div>
-            </div>
-          `;
-        }
-      }
-    ];
-    
-    // 基本列を設定（固定）
-    baseColumns = [...fixedBaseColumns];
-    
-    // 月列を動的に構築
-    const monthColumnDefs = [];
-    console.log('🔧 initializeTableColumns - 月列追加処理:', {
-      monthColumnsLength: monthColumns?.length || 0,
-      monthColumns: monthColumns, // 全ての月列を表示
-      monthColumnsFirst3: monthColumns?.slice(0, 3)
-    });
-    
-    console.log('🔧 月列構築開始 - 詳細デバッグ:', {
-      monthColumnsExists: !!monthColumns,
-      monthColumnsLength: monthColumns?.length || 0,
-      monthColumnsFirst3: monthColumns?.slice(0, 3),
-      monthColumnDefsLength: monthColumnDefs.length
-    });
-    
-    if (monthColumns && monthColumns.length > 0) {
-      // 月フィルタリングを適用
-      const filteredMonthColumns = getFilteredMonthColumns();
-  
-      
-      // フィルタリングされた月列のみを追加
-      filteredMonthColumns.forEach((monthCol, index) => {
-        const columnDef = {
-          title: monthCol.label,
-          field: `month_${monthCol.year}_${monthCol.month}`,
-          width: 90,
-          minWidth: 80,
-          maxWidth: 110,
-          hozAlign: "right",
-          formatter: (cell) => {
-            const monthlyBudget = cell.getValue(); // 月別予算額
-            const rowData = cell.getRow().getData();
-            const fieldName = cell.getField();
-            
-            // 詳細なデバッグログ
-            const schedules = budgetItemSchedules.get(rowData.id);
-            console.log(`📅 月別フォーマッター詳細:`, {
-              fieldName,
-              rowDataId: rowData?.id,
-              hasSchedules: !!schedules,
-              schedulesMonths: schedules?.months,
-              schedulesData: schedules?.scheduleData ? Array.from(schedules.scheduleData.entries()) : null,
-              budgetItemSchedulesSize: budgetItemSchedules.size,
-              allScheduleKeys: Array.from(budgetItemSchedules.keys())
-            });
-            
-            // budgetItemSchedulesの確認
-            const itemSchedules = budgetItemSchedules.get(rowData?.id);
-            console.log(`🔍 項目ID${rowData?.id}のスケジュール詳細:`, {
-              schedulesExists: !!itemSchedules,
-              schedulesMonths: itemSchedules?.months,
-              scheduleDataExists: !!itemSchedules?.scheduleData,
-              scheduleDataSize: itemSchedules?.scheduleData?.size,
-              scheduleDataKeys: itemSchedules?.scheduleData ? Array.from(itemSchedules.scheduleData.keys()) : 'N/A',
-              budgetItemSchedulesSize: budgetItemSchedules.size,
-              schedulesLoaded: schedulesLoaded
-            });
-            
-            // getMonthlyAmountの戻り値確認
-            const calculatedAmount = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
-            console.log(`💰 getMonthlyAmount戻り値: 項目ID${rowData?.id} ${monthCol.year}年${monthCol.month}月 = ${calculatedAmount}`);
-            
-            // 現在の年月を取得
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth() + 1;
-            
-            // 対象月が過去・現在・未来かを判定
-            const isCurrentOrPast = 
-              monthCol.year < currentYear || 
-              (monthCol.year === currentYear && monthCol.month <= currentMonth);
-            
-            // チェックボックス設定に基づく表示制御
-            const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
-            
-            // 使用額：rowDataのmonthlyUsedAmountsから実際の月別使用額を取得
-            let usedDisplay = '-';
-            if (isCurrentOrPast) {
-              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-              const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-              usedDisplay = monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0';
-            }
-            
-            // 残額：予算額から使用額を引いた値（予算がない月でも使用額があればマイナス残額を計算）
-            let remainingDisplay = '-';
-            if (isCurrentOrPast) {
-              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-              const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-              const monthlyRemaining = monthlyBudget - monthlyUsed;
-              
-              // 予算がなくても使用額があるか、予算がある場合は残額を表示
-              if (monthlyBudget > 0 || monthlyUsed > 0) {
-                const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-                remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
-              } else {
-                remainingDisplay = '0';
-              }
-            } else {
-              remainingDisplay = '-'; // 未来月
-            }
-            
-            const items = [];
-            if (showMonthlyBudget) {
-              items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${budgetDisplay}</div>`);
-            }
-            if (showMonthlyUsed) {
-              items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
-            }
-            if (showMonthlyRemaining) {
-              items.push(`<div style="background-color: #f0fdf4; padding: 1px 3px; border-radius: 2px;">${remainingDisplay}</div>`);
-            }
-            
-            if (items.length === 0) {
-              return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
-            }
-            
-            return `
-              <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
-                ${items.join('')}
-              </div>
-            `;
-          }
-        };
-        monthColumnDefs.push(columnDef);
-        console.log(`🔧 月列${index + 1}追加:`, columnDef.title);
-      });
-      console.log('🔧 月列構築完了:', monthColumnDefs.length, '個');
-    } else {
-      console.log('🔧 monthColumnsが空のため、月列なし');
-    }
-    
-    // 操作列を追加
-    const actionColumn = {
-      title: "操作",
-      field: "actions",
-      width: 120,
-      hozAlign: "center",
-      formatter: () => `
-        <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-          <button data-action="edit" style="color: #2563eb; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">編集</button>
-          <button data-action="delete" style="color: #dc2626; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">削除</button>
-        </div>
-      `,
-      cellClick: (e, cell) => {
-        const target = e.target as HTMLElement;
-        const action = target.getAttribute('data-action');
-        const rowData = cell.getRow().getData();
-        const item = budgetItems.find(i => i.id === rowData.id);
-        
-        if (item) {
-          if (action === 'edit') {
-            openBudgetItemForm(item);
-          } else if (action === 'delete') {
-            openDeleteConfirm('budgetItem', item, item.grantId);
-          }
-        }
-      }
-    };
 
-    // 最終的な列定義を構築：基本列 + 月列 + 操作列
-    columns = [...baseColumns, ...monthColumnDefs, actionColumn];
-    console.log('🔧 最終的なcolumns設定完了:', {
-      baseColumnsLength: baseColumns.length,
-      monthColumnDefsLength: monthColumnDefs.length,
-      totalColumnsLength: columns.length,
-      baseColumnTitles: baseColumns.map(c => c.title),
-      monthColumnTitles: monthColumnDefs.map(c => c.title),
-      allColumnTitles: columns.map(c => c.title)
-    });
-  }
 
-  // Tabulatorテーブルデータの準備
-  function prepareTableData() {
-    
-    tableData = budgetItems.map(item => {
-      const remaining = (item.budgetedAmount || 0) - (item.usedAmount || 0);
-      const baseData = {
-        ...item,
-        usedAmount: item.usedAmount || 0, // 明示的に設定
-        budgetedAmount: item.budgetedAmount || 0,
-        remainingAmount: remaining,
-        actions: '' // Tabulatorのformatterで処理
-      };
-      
-      // 月別データを追加
-      if (monthColumns && monthColumns.length > 0) {
-        const monthlyData = monthColumns.reduce((acc, monthCol) => {
-          const monthAmount = getMonthlyAmount(item, monthCol.year, monthCol.month);
-          const fieldKey = `month_${monthCol.year}_${monthCol.month}`;
-          acc[fieldKey] = monthAmount;
-          console.log(`📋 月別データ設定: 項目${item.name} ${monthCol.year}/${monthCol.month} = ${monthAmount} (field: ${fieldKey})`);
-          return acc;
-        }, {});
-        Object.assign(baseData, monthlyData);
-        
-        console.log(`項目${item.name}の月別データ:`, monthlyData);
-        console.log(`🎯 最終データ構造 - 項目${item.name}:`, {
-          keys: Object.keys(Object.assign(baseData, monthlyData)),
-          baseFields: ['id', 'name', 'grantName', 'category', 'budgetedAmount', 'usedAmount', 'remainingAmount'].filter(key => key in Object.assign(baseData, monthlyData)),
-          monthFields: Object.keys(monthlyData),
-          actualValues: {
-            id: Object.assign(baseData, monthlyData).id,
-            name: Object.assign(baseData, monthlyData).name,
-            grantName: Object.assign(baseData, monthlyData).grantName,
-            category: Object.assign(baseData, monthlyData).category,
-            budgetedAmount: Object.assign(baseData, monthlyData).budgetedAmount
-          }
-        });
-      }
-      
-      return baseData;
-    });
-    
-  }
 
-  // Tabulatorテーブルの初期化と更新
-  function initializeTable() {
-    if (isTableInitializing) {
-      console.log('Table initialization already in progress, skipping');
-      return;
-    }
 
-    isTableInitializing = true;
-    
-    if (table) {
-      table.destroy();
-      table = null;
-    }
-    
-    if (!tableElement) {
-      console.warn('Table element not found');
-      isTableInitializing = false;
-      return;
-    }
-
-    if (columns.length === 0) {
-      console.warn('No columns defined for table');
-      isTableInitializing = false;
-      return;
-    }
-    
-    try {
-      // 基本列を確実に保持した列定義を使用
-      const initColumns = baseColumns.length > 0 ? baseColumns : columns;
-      
-      console.log('🏗️ initializeTable: テーブル作成開始', {
-        baseColumnsLength: baseColumns.length,
-        columnsLength: initColumns.length,
-        columnTitles: initColumns.map(c => c.title),
-        tableDataLength: tableData.length,
-        baseColumns: initColumns.filter(c => !c.title.includes('/')).length,
-        monthColumns: initColumns.filter(c => c.title.includes('/')).length
-      });
-      
-      console.log('📊 テーブル作成直前 - データ確認:', {
-        tableDataCount: tableData.length,
-        firstRowData: tableData[0],
-        columnsCount: initColumns.length,
-        baseColumnsCount: initColumns.filter(c => !c.title.includes('/')).length
-      });
-      
-      table = new Tabulator(tableElement, {
-        data: tableData,
-        columns: initColumns,
-        layout: "fitDataFill",
-        responsiveLayout: false,
-        height: "calc(100vh - 200px)",
-        pagination: "local",
-        paginationSize: window.innerHeight > 900 ? 150 : 100,
-        paginationSizeSelector: [50, 100, 150, 200],
-        movableColumns: true,
-        resizableRows: false,
-        resizableColumns: true,
-        selectable: 1,
-        scrollToColumnPosition: "left",
-        scrollToColumnVisibility: "visible",
-        reactiveData: true,
-        virtualDomVert: true
-      });
-
-      // テーブル初期化完了を待つ
-      table.on("tableBuilt", function() {
-        console.log("📊 Tabulator table built successfully");
-        isTableInitializing = false;
-        isTableUpdating = false; // テーブル更新完了フラグリセット
-      });
-
-      table.on("tableBuiltFailed", function(error) {
-        console.error("Tabulator table build failed:", error);
-        isTableInitializing = false;
-        isTableUpdating = false; // エラー時もフラグリセット
-      });
-
-    } catch (error) {
-      console.error('Error initializing Tabulator table:', error);
-      isTableInitializing = false;
-      isTableUpdating = false; // エラー時もフラグリセット
-      table = null;
-    }
-  }
-
-  function updateTable() {
-    if (!tableElement) {
-      console.warn('Table element not available for update');
-      return;
-    }
-
-    if (isTableInitializing) {
-      console.log('Table is initializing, deferring update');
-      setTimeout(() => updateTable(), 200);
-      return;
-    }
-    
-
-    if (table && table.initialized) {
-      try {
-        // 月列が不足している場合は強制的に追加
-        const currentMonthCols = columns.filter(col => col.title && col.title.includes('/'));
-        console.log('🔧 updateTable: 月列チェック', {
-          currentMonthColumns: currentMonthCols.length,
-          monthColumnsAvailable: monthColumns.length,
-          needsMonthColumnUpdate: currentMonthCols.length === 0 && monthColumns.length > 0
-        });
-        
-        // 月列が不足している場合は追加構築
-        if (currentMonthCols.length === 0 && monthColumns.length > 0) {
-          console.log('🔧 updateTable: 月列を緊急追加中...');
-          
-          // 基本列を保持
-          const baseColsOnly = columns.filter(col => !col.title || !col.title.includes('/'));
-          const actionCol = baseColsOnly.find(col => col.field === 'actions');
-          const otherCols = baseColsOnly.filter(col => col.field !== 'actions');
-          
-          // 月列を動的構築（フィルタリング適用）
-          const filteredEmergencyMonths = getFilteredMonthColumns();
-          const emergencyMonthCols = filteredEmergencyMonths.map((monthCol) => ({
-            title: monthCol.label,
-            field: `month_${monthCol.year}_${monthCol.month}`,
-            width: 90,
-            minWidth: 80,
-            maxWidth: 110,
-            hozAlign: "right",
-            formatter: (cell) => {
-              const monthlyBudget = cell.getValue(); // 月別予算額
-              const rowData = cell.getRow().getData();
-              const fieldName = cell.getField();
-              
-              // 現在の年月を取得
-              const now = new Date();
-              const currentYear = now.getFullYear();
-              const currentMonth = now.getMonth() + 1;
-              
-              // 対象月が過去・現在・未来かを判定
-              const isCurrentOrPast = 
-                monthCol.year < currentYear || 
-                (monthCol.year === currentYear && monthCol.month <= currentMonth);
-              
-              // チェックボックス設定に基づく表示制御  
-              const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
-              
-              // 使用額：現在月まで0、未来月は'-'
-              const usedDisplay = isCurrentOrPast ? '0' : '-';
-              
-              // 残額：現在月までは予算額、未来月は'-'
-              let remainingDisplay = '-';
-              if (isCurrentOrPast && monthlyBudget > 0) {
-                remainingDisplay = monthlyBudget.toLocaleString(); // 使用額0なので予算額がそのまま残額
-              } else if (!isCurrentOrPast) {
-                remainingDisplay = '-'; // 未来月
-              }
-              
-              const items = [];
-              if (showMonthlyBudget) {
-                items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${budgetDisplay}</div>`);
-              }
-              if (showMonthlyUsed) {
-                items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
-              }
-              if (showMonthlyRemaining) {
-                items.push(`<div style="background-color: #f0fdf4; padding: 1px 3px; border-radius: 2px;">${remainingDisplay}</div>`);
-              }
-              
-              if (items.length === 0) {
-                return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
-              }
-              
-              return `
-                <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
-                  ${items.join('')}
-                </div>
-              `;
-            }
-          }));
-          
-          // 新しい列定義: 基本列 + 月列 + 操作列
-          columns = [...otherCols, ...emergencyMonthCols, ...(actionCol ? [actionCol] : [])];
-          console.log('🔧 updateTable: 月列緊急追加完了', {
-            totalColumns: columns.length,
-            monthColumnsAdded: emergencyMonthCols.length
-          });
-        }
-        
-        // 現在のcolumnsをそのまま使用
-        const completeColumns = columns;
-        
-        console.log('🔧 updateTable: 完全な列定義で更新実行', {
-          baseColumnsCount: baseColumns.length,
-          monthColumnsCount: completeColumns.filter(col => col.title.includes('/')).length,
-          totalColumns: completeColumns.length,
-          columnsBreakdown: {
-            baseColumns: baseColumns.map(c => c.title),
-            allColumns: completeColumns.map(c => c.title),
-            monthColumns: completeColumns.filter(col => col.title.includes('/')).map(c => c.title)
-          }
-        });
-        
-        // Tabulatorテーブルの現在の列を確認
-        console.log('📊 現在のテーブル列状態:', {
-          currentColumns: table.getColumns().map(col => col.getDefinition().title),
-          setColumnsTarget: completeColumns.map(c => c.title)
-        });
-        
-        // 列定義を確実に更新してからデータを更新
-        table.setColumns(completeColumns);
-        
-        
-        // 強制的にテーブルを再描画
-        table.setData(tableData);
-        table.redraw(true);
-        
-        // データ更新後の列状態を確認
-        setTimeout(() => {
-          console.log('📊 データ更新後のテーブル列状態:', {
-            finalColumns: table.getColumns().map(col => col.getDefinition().title),
-            visibleColumns: table.getColumns().filter(col => col.isVisible()).map(col => col.getDefinition().title)
-          });
-        }, 100);
-      } catch (error) {
-        console.error('Error updating table:', error);
-        // エラーが発生した場合は再初期化
-        initializeTable();
-      }
-    } else {
-      initializeTable();
-    }
-  }
-
-  // onMountでテーブル要素の準備
-  onMount(() => {
-    // 初期化はbudgetItemsが読み込まれた後に実行
-  });
-
-  // テーブル更新は統合されたhandleTableUpdate関数で処理
 
   // ISO文字列をYYYY-MM-DD形式に変換（HTML input[type="date"]用）
   function formatDateForInput(dateString?: string): string {
@@ -2297,8 +1545,7 @@
       if (JSON.stringify(monthColumns) !== JSON.stringify(newMonthColumns)) {
         monthColumns = newMonthColumns;
         console.log('月列が変更されました:', monthColumns.length, '個の月');
-        // テーブル更新を実行
-        handleTableUpdate();
+        // テーブル更新処理はBudgetItemTableコンポーネント内で自動実行
       }
       
       monthColumnsTimeout = null;
@@ -2308,7 +1555,7 @@
   $: updateMonthColumns();
   $: console.log('selectedGrant:', selectedGrant);
 
-  // monthColumnsとスケジュール更新は統合されたhandleTableUpdate関数で処理
+  // monthColumnsとスケジュール更新は統合された関数で処理
 
   // インポート機能
   function openImportModal() {
@@ -2668,77 +1915,15 @@
           <div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {#each grants.filter(g => g.status === 'active') as grant}
-                <div 
-                  class="border rounded-lg px-3 py-3 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} relative group"
-                >
-                  <div 
-                    class="cursor-pointer"
-                    on:click={() => selectGrant(grant)}
-                    role="button"
-                    tabindex="0"
-                    on:keydown={(e) => e.key === 'Enter' && selectGrant(grant)}
-                  >
-                    <!-- 1行目: 助成金名 + ステータス（右上）+ 編集ボタン（右） -->
-                    <div class="flex justify-between items-start mb-2">
-                      <div class="flex items-start gap-2 flex-1 min-w-0">
-                        <h3 class="font-semibold text-sm truncate">{grant.name}</h3>
-                      </div>
-                      <div class="flex items-center gap-1 flex-shrink-0">
-                        <span class="px-1.5 py-0.5 rounded text-xs font-medium {statusColors[grant.status]}">
-                          {statusLabels[grant.status]}
-                        </span>
-                        <button 
-                          on:click|stopPropagation={() => openGrantForm(grant)}
-                          class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
-                        >
-                          編集
-                        </button>
-                        <button 
-                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
-                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
-                          title="削除"
-                        >
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- 2行目: 助成金コード + ID -->
-                    <div class="mb-2 flex items-center gap-2">
-                      {#if grant.grantCode}
-                        <span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                          {grant.grantCode}
-                        </span>
-                      {/if}
-                      <span class="text-xs text-gray-500">
-                        ID: {grant.id}
-                      </span>
-                    </div>
-                    <!-- 3行目: 期間 + 予算額 -->
-                    <div class="flex justify-between items-center mb-2 text-xs">
-                      <div class="{getPeriodColor(grant.endDate)}">
-                        {#if grant.startDate && grant.endDate}
-                          {new Date(grant.startDate).toLocaleDateString()} 〜 {new Date(grant.endDate).toLocaleDateString()}
-                        {:else}
-                          期間未設定
-                        {/if}
-                      </div>
-                      <div class="font-medium text-gray-900">{formatAmount(grant.totalAmount)}</div>
-                    </div>
-
-                    <!-- 4行目: 使用額 + 残額 -->
-                    <div class="flex justify-between items-center text-xs">
-                      <div class="text-gray-600">
-                        使用済: {formatAmount(grant.usedAmount || 0)}
-                      </div>
-                      <div class="font-medium {getAmountColor((grant.totalAmount || 0) - (grant.usedAmount || 0), null, grant.endDate)}">
-                        残額: {formatAmount((grant.totalAmount || 0) - (grant.usedAmount || 0))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <GrantCard
+                  {grant}
+                  isSelected={selectedGrant?.id === grant.id}
+                  {statusLabels}
+                  {statusColors}
+                  on:select={() => selectGrant(grant)}
+                  on:edit={() => openGrantForm(grant)}
+                  on:delete={() => openDeleteConfirm('grant', grant)}
+                />
               {/each}
             </div>
           </div>
@@ -2758,77 +1943,16 @@
               </h3>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {#each filteredCompletedGrants as grant}
-                <div 
-                  class="border rounded-lg px-3 py-3 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} opacity-75 relative group"
-                >
-                  <div 
-                    class="cursor-pointer"
-                    on:click={() => selectGrant(grant)}
-                    role="button"
-                    tabindex="0"
-                    on:keydown={(e) => e.key === 'Enter' && selectGrant(grant)}
-                  >
-                    <!-- 1行目: 助成金名 + ステータス（右上）+ 編集ボタン（右） -->
-                    <div class="flex justify-between items-start mb-2">
-                      <div class="flex items-start gap-2 flex-1 min-w-0">
-                        <h3 class="font-semibold text-sm truncate">{grant.name}</h3>
-                      </div>
-                      <div class="flex items-center gap-1 flex-shrink-0">
-                        <span class="px-1.5 py-0.5 rounded text-xs font-medium {statusColors[grant.status]}">
-                          {statusLabels[grant.status]}
-                        </span>
-                        <button 
-                          on:click|stopPropagation={() => openGrantForm(grant)}
-                          class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
-                        >
-                          編集
-                        </button>
-                        <button 
-                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
-                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
-                          title="削除"
-                        >
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- 2行目: 助成金コード + ID -->
-                    <div class="mb-2 flex items-center gap-2">
-                      {#if grant.grantCode}
-                        <span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                          {grant.grantCode}
-                        </span>
-                      {/if}
-                      <span class="text-xs text-gray-500">
-                        ID: {grant.id}
-                      </span>
-                    </div>
-                    <!-- 3行目: 期間 + 予算額 -->
-                    <div class="flex justify-between items-center mb-2 text-xs">
-                      <div class="{getPeriodColor(grant.endDate)}">
-                        {#if grant.startDate && grant.endDate}
-                          {new Date(grant.startDate).toLocaleDateString()} 〜 {new Date(grant.endDate).toLocaleDateString()}
-                        {:else}
-                          期間未設定
-                        {/if}
-                      </div>
-                      <div class="font-medium text-gray-900">{formatAmount(grant.totalAmount)}</div>
-                    </div>
-
-                    <!-- 4行目: 使用額 + 残額 -->
-                    <div class="flex justify-between items-center text-xs">
-                      <div class="text-gray-600">
-                        使用済: {formatAmount(grant.usedAmount || 0)}
-                      </div>
-                      <div class="font-medium {getAmountColor((grant.totalAmount || 0) - (grant.usedAmount || 0), null, grant.endDate)}">
-                        残額: {formatAmount((grant.totalAmount || 0) - (grant.usedAmount || 0))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  <GrantCard
+                    {grant}
+                    isSelected={selectedGrant?.id === grant.id}
+                    {statusLabels}
+                    {statusColors}
+                    opacity="opacity-75"
+                    on:select={() => selectGrant(grant)}
+                    on:edit={() => openGrantForm(grant)}
+                    on:delete={() => openDeleteConfirm('grant', grant)}
+                  />
                 {/each}
               </div>
             </div>
@@ -2849,77 +1973,16 @@
               </h3>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {#each filteredReportedGrants as grant}
-                <div 
-                  class="border rounded-lg px-3 py-3 hover:shadow-md transition-shadow {selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} opacity-60 relative group"
-                >
-                  <div 
-                    class="cursor-pointer"
-                    on:click={() => selectGrant(grant)}
-                    role="button"
-                    tabindex="0"
-                    on:keydown={(e) => e.key === 'Enter' && selectGrant(grant)}
-                  >
-                    <!-- 1行目: 助成金名 + ステータス（右上）+ 編集ボタン（右） -->
-                    <div class="flex justify-between items-start mb-2">
-                      <div class="flex items-start gap-2 flex-1 min-w-0">
-                        <h3 class="font-semibold text-sm truncate">{grant.name}</h3>
-                      </div>
-                      <div class="flex items-center gap-1 flex-shrink-0">
-                        <span class="px-1.5 py-0.5 rounded text-xs font-medium {statusColors[grant.status]}">
-                          {statusLabels[grant.status]}
-                        </span>
-                        <button 
-                          on:click|stopPropagation={() => openGrantForm(grant)}
-                          class="px-2 py-1 hover:bg-gray-200 rounded text-xs text-gray-500 hover:text-gray-700"
-                        >
-                          編集
-                        </button>
-                        <button 
-                          on:click|stopPropagation={() => openDeleteConfirm('grant', grant)}
-                          class="px-2 py-1 hover:bg-red-100 rounded text-xs text-gray-500 hover:text-red-700"
-                          title="削除"
-                        >
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- 2行目: 助成金コード + ID -->
-                    <div class="mb-2 flex items-center gap-2">
-                      {#if grant.grantCode}
-                        <span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                          {grant.grantCode}
-                        </span>
-                      {/if}
-                      <span class="text-xs text-gray-500">
-                        ID: {grant.id}
-                      </span>
-                    </div>
-                    <!-- 3行目: 期間 + 予算額 -->
-                    <div class="flex justify-between items-center mb-2 text-xs">
-                      <div class="{getPeriodColor(grant.endDate)}">
-                        {#if grant.startDate && grant.endDate}
-                          {new Date(grant.startDate).toLocaleDateString()} 〜 {new Date(grant.endDate).toLocaleDateString()}
-                        {:else}
-                          期間未設定
-                        {/if}
-                      </div>
-                      <div class="font-medium text-gray-900">{formatAmount(grant.totalAmount)}</div>
-                    </div>
-
-                    <!-- 4行目: 使用額 + 残額 -->
-                    <div class="flex justify-between items-center text-xs">
-                      <div class="text-gray-600">
-                        使用済: {formatAmount(grant.usedAmount || 0)}
-                      </div>
-                      <div class="font-medium {getAmountColor((grant.totalAmount || 0) - (grant.usedAmount || 0), null, grant.endDate)}">
-                        残額: {formatAmount((grant.totalAmount || 0) - (grant.usedAmount || 0))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  <GrantCard
+                    {grant}
+                    isSelected={selectedGrant?.id === grant.id}
+                    {statusLabels}
+                    {statusColors}
+                    opacity="opacity-60"
+                    on:select={() => selectGrant(grant)}
+                    on:edit={() => openGrantForm(grant)}
+                    on:delete={() => openDeleteConfirm('grant', grant)}
+                  />
                 {/each}
               </div>
             </div>
@@ -3044,13 +2107,13 @@
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">開始</label>
                     <div class="flex gap-1">
-                      <select bind:value={monthFilterStartYear} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-16">
+                      <select bind:value={monthFilterStartYear} class="text-xs border rounded px-2 py-1 w-16">
                         <option value={2023}>2023</option>
                         <option value={2024}>2024</option>
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
                       </select>
-                      <select bind:value={monthFilterStartMonth} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-12">
+                      <select bind:value={monthFilterStartMonth} class="text-xs border rounded px-2 py-1 w-12">
                         {#each Array.from({length: 12}, (_, i) => i + 1) as month}
                           <option value={month}>{month}</option>
                         {/each}
@@ -3060,13 +2123,13 @@
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">終了</label>
                     <div class="flex gap-1">
-                      <select bind:value={monthFilterEndYear} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-16">
+                      <select bind:value={monthFilterEndYear} class="text-xs border rounded px-2 py-1 w-16">
                         <option value={2023}>2023</option>
                         <option value={2024}>2024</option>
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
                       </select>
-                      <select bind:value={monthFilterEndMonth} on:change={handleTableUpdate} class="text-xs border rounded px-2 py-1 w-12">
+                      <select bind:value={monthFilterEndMonth} class="text-xs border rounded px-2 py-1 w-12">
                         {#each Array.from({length: 12}, (_, i) => i + 1) as month}
                           <option value={month}>{month}</option>
                         {/each}
@@ -3083,8 +2146,7 @@
                   <label class="flex items-center">
                     <input 
                       type="checkbox" 
-                      bind:checked={showMonthlyBudget} 
-                      on:change={handleTableUpdate}
+                      bind:checked={showMonthlyBudget}
                       class="mr-1 w-3 h-3"
                     />
                     <span class="text-xs">予算</span>
@@ -3092,8 +2154,7 @@
                   <label class="flex items-center">
                     <input 
                       type="checkbox" 
-                      bind:checked={showMonthlyUsed} 
-                      on:change={handleTableUpdate}
+                      bind:checked={showMonthlyUsed}
                       class="mr-1 w-3 h-3"
                     />
                     <span class="text-xs">使用額</span>
@@ -3101,8 +2162,7 @@
                   <label class="flex items-center">
                     <input 
                       type="checkbox" 
-                      bind:checked={showMonthlyRemaining} 
-                      on:change={handleTableUpdate}
+                      bind:checked={showMonthlyRemaining}
                       class="mr-1 w-3 h-3"
                     />
                     <span class="text-xs">残額</span>
@@ -3112,7 +2172,22 @@
             </div>
             
             <div class="budget-table-container overflow-x-auto">
-              <div bind:this={tableElement} class="tabulator-table min-w-full"></div>
+              <BudgetItemTable
+                {budgetItems}
+                {grants}
+                {selectedGrant}
+                {showMonthlyBudget}
+                {showMonthlyUsed}
+                {showMonthlyRemaining}
+                {monthFilterStartYear}
+                {monthFilterStartMonth}
+                {monthFilterEndYear}
+                {monthFilterEndMonth}
+                {budgetItemSchedules}
+                {schedulesLoaded}
+                on:edit={(e) => openBudgetItemForm(e.detail.item)}
+                on:delete={(e) => openDeleteConfirm('budgetItem', e.detail.item, e.detail.item.grantId)}
+              />
             </div>
           {/if}
         </div>
@@ -3120,264 +2195,39 @@
   </div>
 
 <!-- 助成金作成・編集モーダル -->
-{#if showGrantForm}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">
-        {grantForm.id ? '助成金編集' : '新規助成金作成'}
-      </h3>
-      
-      <form on:submit|preventDefault={saveGrant}>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">助成金名 *</label>
-          <input 
-            type="text" 
-            bind:value={grantForm.name}
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="例: WAM補助金"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">助成金コード</label>
-          <input 
-            type="text" 
-            bind:value={grantForm.grantCode}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="例: WAM2025"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">総額（円）</label>
-          <input 
-            type="number" 
-            bind:value={grantForm.totalAmount}
-            min="0"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="7000000"
-          />
-        </div>
-        
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">開始日</label>
-            <input 
-              type="date" 
-              bind:value={grantForm.startDate}
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">終了日</label>
-            <input 
-              type="date" 
-              bind:value={grantForm.endDate}
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-        
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">ステータス</label>
-          <select 
-            bind:value={grantForm.status}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="active">進行中</option>
-            <option value="completed">終了</option>
-            <option value="applied">報告済み</option>
-          </select>
-        </div>
-        
-        <div class="flex justify-end space-x-3">
-          <button 
-            type="button"
-            on:click={() => showGrantForm = false}
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-          >
-            キャンセル
-          </button>
-          <button 
-            type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-          >
-            保存
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<GrantFormComponent
+  show={showGrantForm}
+  bind:grantForm
+  on:save={async () => {
+    showGrantForm = false;
+    await loadGrants();
+  }}
+  on:close={() => showGrantForm = false}
+/>
 
 <!-- 予算項目作成・編集モーダル -->
-{#if showBudgetItemForm}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">
-        {budgetItemForm.id ? '予算項目編集' : '新規予算項目作成'}
-      </h3>
-      
-      <form on:submit|preventDefault={saveBudgetItem}>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
-          <select 
-            bind:value={budgetItemForm.grantId}
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">助成金を選択してください</option>
-            {#each grants as grant}
-              <option value={grant.id}>
-                {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name} ({statusLabels[grant.status]})
-              </option>
-            {/each}
-          </select>
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
-          <input 
-            type="text" 
-            bind:value={budgetItemForm.name}
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="例: 消耗品費"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
-          <div class="relative category-dropdown">
-            <input 
-              type="text" 
-              bind:value={budgetItemForm.category}
-              on:focus={() => showCategoryDropdown = true}
-              on:input={() => showCategoryDropdown = true}
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例: 消耗品（入力またはドロップダウンから選択）"
-            />
-            
-            {#if showCategoryDropdown && availableCategories.length > 0}
-              <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                {#each filterCategories(budgetItemForm.category || '') as category}
-                  <button
-                    type="button"
-                    class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    on:click={() => selectCategory(category)}
-                  >
-                    {category}
-                  </button>
-                {/each}
-                
-                {#if filterCategories(budgetItemForm.category || '').length === 0 && budgetItemForm.category}
-                  <div class="px-3 py-2 text-gray-500 text-sm">
-                    「{budgetItemForm.category}」で新規作成
-                  </div>
-                {/if}
-              </div>
-            {/if}
-            
-            {#if availableCategories.length === 0}
-              <div class="mt-1 text-xs text-gray-500">
-                新しいカテゴリを入力してください
-              </div>
-            {/if}
-          </div>
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
-          <input 
-            type="number" 
-            bind:value={budgetItemForm.budgetedAmount}
-            min="0"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="498000"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
-          <textarea 
-            bind:value={budgetItemForm.note}
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="備考や説明を入力"
-          ></textarea>
-        </div>
-
-        <!-- 月別スケジュール選択 -->
-        {#if budgetItemForm.grantId}
-          {@const formGrant = grants.find(g => g.id === parseInt(budgetItemForm.grantId))}
-          {console.log('🔍 月選択デバッグ:', {
-            grantId: budgetItemForm.grantId,
-            formGrant: formGrant,
-            hasStartDate: formGrant?.startDate,
-            hasEndDate: formGrant?.endDate
-          })}
-          {#if formGrant && formGrant.startDate && formGrant.endDate}
-            {@const formAvailableMonths = generateMonthsFromGrant(formGrant)}
-            {console.log('📅 生成された月:', formAvailableMonths)}
-            {#if formAvailableMonths.length > 0}
-              {@const availableMonthKeys = formAvailableMonths.map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
-              <SimpleMonthCheckboxes
-                availableMonths={availableMonthKeys}
-                selectedMonths={Array.from(selectedMonths)}
-                title="利用予定月"
-                on:change={(e) => {
-                  selectedMonths = new Set(e.detail);
-                }}
-              />
-              
-              <!-- 月割り予算額の表示 -->
-              {#if selectedMonths.size > 0 && monthlyBudget > 0}
-                <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <div class="flex justify-between items-center text-sm">
-                    <span class="font-medium text-blue-900">月額予算:</span>
-                    <span class="font-bold text-blue-900">¥{monthlyBudget.toLocaleString()}</span>
-                  </div>
-                  <div class="text-xs text-blue-700 mt-1">
-                    総額 ¥{budgetItemForm.budgetedAmount?.toLocaleString() || 0} ÷ {selectedMonths.size}ヶ月
-                  </div>
-                </div>
-              {/if}
-            {:else}
-              <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p class="text-sm text-yellow-800">
-                  選択された助成金の期間が設定されていないため、月別スケジュールを選択できません。
-                </p>
-              </div>
-            {/if}
-          {:else}
-            <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p class="text-sm text-yellow-800">
-                選択された助成金の期間が設定されていないため、月別スケジュールを選択できません。
-              </p>
-            </div>
-          {/if}
-        {/if}
-        
-        <div class="flex justify-end space-x-3">
-          <button 
-            type="button"
-            on:click={() => showBudgetItemForm = false}
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-          >
-            キャンセル
-          </button>
-          <button 
-            type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md"
-          >
-            保存
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<BudgetItemFormComponent
+  show={showBudgetItemForm}
+  bind:budgetItemForm
+  {grants}
+  {budgetItems}
+  bind:selectedMonths
+  on:save={async () => {
+    showBudgetItemForm = false;
+    await loadAllBudgetItems();
+    // 絞り込み状態を維持
+    if (selectedGrant) {
+      budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
+    } else {
+      budgetItems = getFilteredBudgetItems(allBudgetItems);
+    }
+    // 予算項目更新後のテーブル更新
+    if (budgetItems.length > 0) {
+      console.log('🔄 予算項目保存後のテーブル更新実行');
+    }
+  }}
+  on:close={() => showBudgetItemForm = false}
+/>
 
 <!-- インポートモーダル -->
 {#if showImportModal}

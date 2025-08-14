@@ -1,0 +1,360 @@
+<script lang="ts">
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { base } from '$app/paths';
+  import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
+  import type { Grant, BudgetItem } from '$lib/types/models';
+
+  export let show: boolean = false;
+  export let budgetItemForm: Partial<BudgetItem> = {};
+  export let grants: Grant[] = [];
+  export let budgetItems: BudgetItem[] = [];
+  export let selectedMonths: Set<string> = new Set();
+
+  const dispatch = createEventDispatcher();
+  let error = '';
+  let availableCategories: string[] = [];
+  let showCategoryDropdown = false;
+  let availableMonths: Array<{year: number, month: number, label: string}> = [];
+
+  const statusLabels = {
+    active: '進行中',
+    completed: '終了',
+    applied: '報告済み'
+  };
+
+  // 月割り予算額の計算（リアクティブ）
+  $: monthlyBudget = budgetItemForm && budgetItemForm.budgetedAmount && selectedMonths.size > 0 
+    ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
+    : 0;
+
+  // フォームで選択された助成金
+  $: formGrant = grants.find(g => g.id === parseInt(String(budgetItemForm.grantId || '0')));
+
+  onMount(() => {
+    updateAvailableCategories();
+    if (budgetItemForm.grantId) {
+      updateAvailableMonths();
+    }
+  });
+
+  // 既存の予算項目からカテゴリを取得
+  function updateAvailableCategories() {
+    const categories = new Set<string>();
+    budgetItems.forEach(item => {
+      if (item.category && item.category.trim()) {
+        categories.add(item.category.trim());
+      }
+    });
+    availableCategories = Array.from(categories).sort();
+  }
+
+  function selectCategory(category: string) {
+    budgetItemForm.category = category;
+    showCategoryDropdown = false;
+  }
+  
+  function filterCategories(input: string) {
+    if (!input) return availableCategories;
+    return availableCategories.filter(cat => 
+      cat.toLowerCase().includes(input.toLowerCase())
+    );
+  }
+
+  function updateAvailableMonths() {
+    if (!budgetItemForm.grantId) {
+      availableMonths = [];
+      return;
+    }
+
+    const grant = grants.find(g => g.id === parseInt(String(budgetItemForm.grantId)));
+    if (!grant) {
+      availableMonths = [];
+      return;
+    }
+
+    availableMonths = generateMonthsFromGrant(grant);
+  }
+
+  function generateMonthsFromGrant(grant: Grant): Array<{year: number, month: number, label: string}> {
+    if (!grant.startDate || !grant.endDate) return [];
+    
+    const startDate = new Date(grant.startDate);
+    const endDate = new Date(grant.endDate);
+    const months = [];
+    let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    
+    while (current <= end) {
+      const year = current.getFullYear();
+      const month = current.getMonth() + 1;
+      
+      // その月に何日間あるか計算
+      let monthStart = new Date(year, month - 1, 1);
+      let monthEnd = new Date(year, month, 0); // 月末日
+      
+      // 開始月の場合、実際の開始日から計算
+      if (year === startDate.getFullYear() && month === startDate.getMonth() + 1) {
+        monthStart = startDate;
+      }
+      
+      // 終了月の場合、実際の終了日まで計算  
+      if (year === endDate.getFullYear() && month === endDate.getMonth() + 1) {
+        monthEnd = endDate;
+      }
+      
+      months.push({
+        year,
+        month,
+        label: `${year}年${month}月`
+      });
+      
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    return months;
+  }
+
+  async function saveBudgetItem() {
+    if (!budgetItemForm.grantId) {
+      error = '助成金を選択してください';
+      return;
+    }
+    
+    try {
+      const url = budgetItemForm.id ? 
+        `${base}/api/grants/${budgetItemForm.grantId}/budget-items/${budgetItemForm.id}` : 
+        `${base}/api/grants/${budgetItemForm.grantId}/budget-items`;
+      const method = budgetItemForm.id ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(budgetItemForm)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // スケジュールデータも保存
+        if (data.budgetItem?.id) {
+          await saveBudgetItemSchedule(data.budgetItem.id);
+        }
+        
+        dispatch('save', data);
+        closeModal();
+      } else {
+        error = data.error || '予算項目の保存に失敗しました';
+      }
+    } catch (err) {
+      error = '予算項目の保存中にエラーが発生しました';
+      console.error('Save budget item error:', err);
+    }
+  }
+
+  async function saveBudgetItemSchedule(budgetItemId: number) {
+    try {
+      // 月割り予算額を計算
+      const calculatedMonthlyBudget = budgetItemForm.budgetedAmount && selectedMonths.size > 0 
+        ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
+        : 0;
+      
+      const schedules = Array.from(selectedMonths).map(monthKey => {
+        const [year, month] = monthKey.split('-');
+        return {
+          year: parseInt(year),
+          month: parseInt(month),
+          isActive: true,
+          monthlyBudget: calculatedMonthlyBudget // 月割り予算額を追加
+        };
+      });
+      
+      const response = await fetch(`${base}/api/budget-items/${budgetItemId}/schedule`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedules })
+      });
+      
+      if (!response.ok) {
+        console.error('スケジュール保存失敗');
+      }
+    } catch (err) {
+      console.error('スケジュール保存エラー:', err);
+    }
+  }
+
+  function closeModal() {
+    error = '';
+    showCategoryDropdown = false;
+    dispatch('close');
+  }
+
+  function handleSubmit(event: Event) {
+    event.preventDefault();
+    saveBudgetItem();
+  }
+
+  function handleGrantChange() {
+    updateAvailableMonths();
+    // 助成金変更時は選択済み月をクリア（新規作成時のみ）
+    if (!budgetItemForm.id) {
+      selectedMonths.clear();
+    }
+  }
+
+  // 外側をクリックしたときにドロップダウンを閉じる
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.category-dropdown')) {
+      showCategoryDropdown = false;
+    }
+  }
+</script>
+
+<svelte:window on:click={handleClickOutside} />
+
+{#if show}
+  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">
+        {budgetItemForm.id ? '予算項目編集' : '新規予算項目作成'}
+      </h3>
+      
+      {#if error}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4 text-sm">
+          {error}
+        </div>
+      {/if}
+      
+      <form on:submit={handleSubmit}>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
+          <select 
+            bind:value={budgetItemForm.grantId}
+            on:change={handleGrantChange}
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">助成金を選択してください</option>
+            {#each grants as grant}
+              <option value={grant.id}>
+                {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name} ({statusLabels[grant.status]})
+              </option>
+            {/each}
+          </select>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
+          <input 
+            type="text" 
+            bind:value={budgetItemForm.name}
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="例: 消耗品費"
+          />
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
+          <div class="relative category-dropdown">
+            <input 
+              type="text" 
+              bind:value={budgetItemForm.category}
+              on:focus={() => showCategoryDropdown = true}
+              on:input={() => showCategoryDropdown = true}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例: 消耗品（入力またはドロップダウンから選択）"
+            />
+            
+            {#if showCategoryDropdown && availableCategories.length > 0}
+              <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                {#each filterCategories(budgetItemForm.category || '') as category}
+                  <button
+                    type="button"
+                    class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                    on:click={() => selectCategory(category)}
+                  >
+                    {category}
+                  </button>
+                {/each}
+                
+                {#if filterCategories(budgetItemForm.category || '').length === 0 && budgetItemForm.category}
+                  <div class="px-3 py-2 text-gray-500 text-sm">
+                    「{budgetItemForm.category}」で新規作成
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            
+            {#if availableCategories.length === 0}
+              <div class="mt-1 text-xs text-gray-500">
+                新しいカテゴリを入力してください
+              </div>
+            {/if}
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
+          <input 
+            type="number" 
+            bind:value={budgetItemForm.budgetedAmount}
+            min="0"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="498000"
+          />
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
+          <textarea 
+            bind:value={budgetItemForm.note}
+            rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="備考や説明を入力"
+          ></textarea>
+        </div>
+
+        <!-- 月別スケジュール選択 -->
+        {#if budgetItemForm.grantId && formGrant}
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              月別予算配分
+              {#if selectedMonths.size > 0 && budgetItemForm.budgetedAmount}
+                <span class="ml-2 text-xs text-gray-500">
+                  ({selectedMonths.size}ヶ月選択中 → 月額¥{monthlyBudget.toLocaleString()})
+                </span>
+              {/if}
+            </label>
+            
+            {@const availableMonthKeys = generateMonthsFromGrant(formGrant).map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
+            <SimpleMonthCheckboxes
+              availableMonths={availableMonthKeys}
+              selectedMonths={Array.from(selectedMonths)}
+              title="利用予定月"
+              on:change={(e) => {
+                selectedMonths = new Set(e.detail);
+              }}
+            />
+          </div>
+        {/if}
+        
+        <div class="flex justify-end space-x-3">
+          <button 
+            type="button"
+            on:click={closeModal}
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+          >
+            キャンセル
+          </button>
+          <button 
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+          >
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
