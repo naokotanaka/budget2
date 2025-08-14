@@ -346,13 +346,9 @@
         }
         
         // テーブル初期化
-        if (tableElement && monthColumns.length > 0) {
+        if (monthColumns.length > 0) {
           console.log('🔄 初期テーブル初期化開始');
           // テーブル初期化はBudgetItemTableコンポーネント内で自動実行
-        } else if (!tableElement) {
-          console.log('⚠️ tableElement が見つかりません、再試行します');
-          // DOM要素がまだ準備できていない場合、少し待ってから再試行
-          setTimeout(initializeComplete, 100);
         }
       }
     };
@@ -371,8 +367,7 @@
       console.log('🧪 現在の状態:', {
         grants: grants.length,
         budgetItems: budgetItems.length,  
-        monthColumns: monthColumns.length,
-        tableElement: !!tableElement
+        monthColumns: monthColumns.length
       });
       
       if (monthColumns.length === 0) {

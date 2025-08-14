@@ -249,7 +249,7 @@
 
       <!-- ビューモード切り替え -->
       <div class="view-mode-selector" role="tablist">
-        {#each ['grid', 'grouped', 'compact'] as mode}
+        {#each (['grid', 'grouped', 'compact'] as const) as mode}
           <button
             role="tab"
             aria-selected={viewMode === mode}

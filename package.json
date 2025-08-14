@@ -32,6 +32,7 @@
     "@testing-library/svelte": "^5.0.0",
     "@types/node": "^24.1.0",
     "@types/pg": "^8.11.10",
+    "@types/tabulator-tables": "^6.2.10",
     "@vitest/ui": "^2.1.8",
     "autoprefixer": "^10.4.0",
     "jsdom": "^25.0.0",

@@ -75,13 +75,14 @@ export const GET: RequestHandler = async () => {
       count: budgetItemsWithStats.length
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('全予算項目一覧取得エラー:', error);
     
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return json({
       success: false,
       error: '予算項目データの取得に失敗しました',
-      detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+      detail: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     }, { status: 500 });
   }
 };

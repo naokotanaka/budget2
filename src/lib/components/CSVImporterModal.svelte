@@ -168,7 +168,7 @@
 
 {#if isOpen}
   <!-- モーダルオーバーレイ -->
-  <div class="modal-overlay" on:click={closeModal}>
+  <div class="modal-overlay" on:click={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="button" tabindex="0" aria-label="モーダルを閉じる">
     <div class="modal-container" on:click|stopPropagation>
       <!-- ヘッダー -->
       <div class="modal-header">
@@ -213,6 +213,10 @@
               on:drop={handleDrop}
               on:dragover={handleDragOver}
               on:dragleave={handleDragLeave}
+              on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && document.getElementById('file-upload')?.click()}
+              role="button"
+              tabindex="0"
+              aria-label="CSVファイルをドラッグ&ドロップまたはクリックして選択"
             >
               <div class="upload-icon">
                 <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

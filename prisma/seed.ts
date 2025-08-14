@@ -213,40 +213,43 @@ async function main() {
     prisma.transaction.create({
       data: {
         id: 'tx_001',
-        journalNumber: 1,
+        journalNumber: 1n,
         journalLineNumber: 1,
         date: new Date('2024-08-01'),
         description: '事務用品購入',
         amount: 15000,
         account: '事業費',
         supplier: 'オフィス用品店',
-        department: '管理部門'
+        department: '管理部門',
+        detailId: 1001n
       }
     }),
     prisma.transaction.create({
       data: {
         id: 'tx_002',
-        journalNumber: 2,
+        journalNumber: 2n,
         journalLineNumber: 1,
         date: new Date('2024-08-01'),
         description: '家賃',
         amount: 120000,
         account: '管理費',
         supplier: '不動産会社',
-        department: '管理部門'
+        department: '管理部門',
+        detailId: 1002n
       }
     }),
     prisma.transaction.create({
       data: {
         id: 'tx_003',
-        journalNumber: 3,
+        journalNumber: 3n,
         journalLineNumber: 1,
         date: new Date('2024-08-02'),
         description: '水道光熱費',
         amount: 45000,
         account: '管理費',
         supplier: '電力会社',
-        department: '管理部門'
+        department: '管理部門',
+        detailId: 1003n
       }
     })
   ])
@@ -260,7 +263,7 @@ async function main() {
   const allocations = await Promise.all([
     prisma.allocationSplit.create({
       data: {
-        transactionId: 'tx_002',
+        detailId: 1002n,
         budgetItemId: budgetItems[0].id, // 助成金A 管理費
         amount: 72000,
         note: '家賃按分（60%）'
@@ -268,7 +271,7 @@ async function main() {
     }),
     prisma.allocationSplit.create({
       data: {
-        transactionId: 'tx_002',
+        detailId: 1002n,
         budgetItemId: budgetItems[3].id, // 助成金B 管理費
         amount: 48000,
         note: '家賃按分（40%）'
@@ -278,7 +281,7 @@ async function main() {
     // 事務用品（単一割当）
     prisma.allocationSplit.create({
       data: {
-        transactionId: 'tx_001',
+        detailId: 1001n,
         budgetItemId: budgetItems[1].id, // 助成金A 事業費
         amount: 15000,
         note: '事務用品（全額）'

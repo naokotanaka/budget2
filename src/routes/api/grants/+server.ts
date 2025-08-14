@@ -75,7 +75,7 @@ export const GET: RequestHandler = async () => {
       count: sortedGrants.length
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('助成金一覧取得エラー:', error);
     
     return json({
@@ -130,7 +130,7 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('助成金作成エラー:', error);
     
     return json({

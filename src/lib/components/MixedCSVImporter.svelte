@@ -270,7 +270,7 @@
         </div>
 
         <!-- Preview Tables -->
-        {#if validationResult.data?.grants.length > 0}
+        {#if validationResult.data?.grants && validationResult.data.grants.length > 0}
           <div class="preview-table-section">
             <h5 class="table-title">助成金データプレビュー ({validationResult.data.grants.length}件)</h5>
             <div class="preview-table-container">
@@ -305,7 +305,7 @@
           </div>
         {/if}
 
-        {#if validationResult.data?.budgetItems.length > 0}
+        {#if validationResult.data?.budgetItems && validationResult.data.budgetItems.length > 0}
           <div class="preview-table-section">
             <h5 class="table-title">予算項目データプレビュー ({validationResult.data.budgetItems.length}件)</h5>
             <div class="preview-table-container">

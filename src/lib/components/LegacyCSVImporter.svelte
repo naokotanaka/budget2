@@ -32,7 +32,7 @@
   // インポート設定
   let config: ConversionConfig = {
     skipInvalidDates: true,
-    defaultGrantStatus: 'in_progress',
+    defaultGrantStatus: 'active' as const,
     preserveLegacyIds: true,
     validateRelationships: true,
     encoding: 'utf-8'

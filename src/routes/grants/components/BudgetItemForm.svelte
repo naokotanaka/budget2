@@ -327,15 +327,26 @@
               {/if}
             </label>
             
-            {@const availableMonthKeys = generateMonthsFromGrant(formGrant).map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
-            <SimpleMonthCheckboxes
-              availableMonths={availableMonthKeys}
-              selectedMonths={Array.from(selectedMonths)}
-              title="利用予定月"
-              on:change={(e) => {
-                selectedMonths = new Set(e.detail);
-              }}
-            />
+            {#if formGrant}
+              {@const availableMonthKeys = generateMonthsFromGrant(formGrant).map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
+              <SimpleMonthCheckboxes
+                availableMonths={availableMonthKeys}
+                selectedMonths={Array.from(selectedMonths)}
+                title="利用予定月"
+                on:change={(e) => {
+                  selectedMonths = new Set(e.detail);
+                }}
+              />
+            {:else}
+              <SimpleMonthCheckboxes
+                availableMonths={[]}
+                selectedMonths={Array.from(selectedMonths)}
+                title="利用予定月"
+                on:change={(e) => {
+                  selectedMonths = new Set(e.detail);
+                }}
+              />
+            {/if}
           </div>
         {/if}
         

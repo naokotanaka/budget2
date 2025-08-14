@@ -166,7 +166,7 @@
         <div class="cell header-cell amount-cell">予算額</div>
       </div>
       {#each budgetRows as row}
-        <div class="data-row" on:click={() => selectRow(row.id)}>
+        <div class="data-row" on:click={() => selectRow(row.id)} on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectRow(row.id)} role="button" tabindex="0" aria-label="{row.name}の詳細を表示">
           <div class="cell name-cell">
             <span class="item-name">{row.name}</span>
           </div>
@@ -209,9 +209,13 @@
               class:has-value={amount && amount > 0}
               class:current-month={month.isCurrentMonth}
               on:click={() => editCell(row.id, month.yearMonth)}
+              on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && editCell(row.id, month.yearMonth)}
               on:mouseenter={() => hoveredCell = `${row.id}-${month.yearMonth}`}
               on:mouseleave={() => hoveredCell = null}
               class:hovered={hoveredCell === `${row.id}-${month.yearMonth}`}
+              role="button"
+              tabindex="0"
+              aria-label="{row.name} {month.monthName}の予算を編集"
             >
               {#if amount && amount > 0}
                 <span class="month-amount">{formatAmount(amount)}</span>

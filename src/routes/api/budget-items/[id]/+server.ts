@@ -56,13 +56,13 @@ export const GET: RequestHandler = async ({ params }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('予算項目詳細取得エラー:', error);
     
     return json({
       success: false,
       error: '予算項目詳細の取得に失敗しました',
-      detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+      detail: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
     }, { status: 500 });
   }
 };
@@ -151,10 +151,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('予算項目部分更新エラー:', error);
     
-    if (error.code === 'P2025') {
+    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') {
       return json({
         success: false,
         error: '予算項目が見つかりません'
@@ -164,7 +164,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     return json({
       success: false,
       error: '予算項目の更新に失敗しました',
-      detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+      detail: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
     }, { status: 500 });
   }
 };
@@ -218,10 +218,10 @@ export const DELETE: RequestHandler = async ({ params }) => {
       message: `予算項目「${existingItem.name}」を削除しました`
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('予算項目削除エラー:', error);
     
-    if (error.code === 'P2025') {
+    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') {
       return json({
         success: false,
         error: '予算項目が見つかりません'
@@ -231,7 +231,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     return json({
       success: false,
       error: '予算項目の削除に失敗しました',
-      detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+      detail: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
     }, { status: 500 });
   }
 };

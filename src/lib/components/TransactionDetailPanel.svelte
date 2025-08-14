@@ -495,6 +495,9 @@
                         alt="{receipt.receipt_metadatum?.partner_name || 'Receipt'} - {receipt.receipt_metadatum?.issue_date || ''}"
                         class="max-w-full h-auto max-h-96 rounded border shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                         on:click={() => openReceiptImage(receipt.file_src)}
+                        on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && openReceiptImage(receipt.file_src)}
+                        role="button"
+                        tabindex="0"
                         on:error={(e) => {
                           console.error('Image failed to load:', receipt.file_src);
                           e.target.style.display = 'none';
