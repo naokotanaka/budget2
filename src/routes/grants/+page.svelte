@@ -443,11 +443,6 @@
         // 絞り込み変更時はテーブル再構築
         debug.log('🔧 月絞り込み変更のためテーブル再構築');
         // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
-        isTableUpdating = false; // 再構築前にフラグリセット
-        setTimeout(() => {
-          debug.log('🔧 絞り込み変更による再構築開始');
-          // テーブル再構築はBudgetItemTableコンポーネント内で自動実行
-        }, 200);
       } else {
         // 表示項目変更時は再描画のみ
         debug.log('🔧 表示項目変更のため再描画');
