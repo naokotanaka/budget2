@@ -192,6 +192,12 @@
       showMonthlyRemaining: true
     };
     
+    // すべての合計額（フィルタリング前）
+    let totalAllBudget = 0;
+    let totalAllUsed = 0;
+    let totalAllRemaining = 0;
+    
+    // 表示月の合計額（フィルタリング後）
     let totalBudget = 0;
     let totalUsed = 0;
     let totalRemaining = 0;
@@ -208,10 +214,7 @@
       const filterStartDate = settings.monthFilterStartYear * 100 + settings.monthFilterStartMonth;
       const filterEndDate = settings.monthFilterEndYear * 100 + settings.monthFilterEndMonth;
       
-      // 絞り込み範囲外の月はスキップ
-      if (targetDate < filterStartDate || targetDate > filterEndDate) {
-        return;
-      }
+      const isWithinFilterRange = targetDate >= filterStartDate && targetDate <= filterEndDate;
       
       // 現在の年月を取得
       const now = new Date();
@@ -223,30 +226,45 @@
         targetYear < currentYear || 
         (targetYear === currentYear && targetMonth <= currentMonth);
       
-      // 予算額：実際に数値が表示される場合のみ合計
+      // 月別使用額を取得
+      const monthKey = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
+      const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
+      
+      // すべての合計額（フィルタリング前）
       if (monthlyBudget > 0) {
-        totalBudget += monthlyBudget;
+        totalAllBudget += monthlyBudget;
       }
-      
-      // 使用額：rowDataのmonthlyUsedAmountsから実際の月別使用額を取得
       if (isCurrentOrPast) {
-        const monthKey = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
-        const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-        totalUsed += monthlyUsed;
+        totalAllUsed += monthlyUsed;
       }
-      // 未来の月は "-" 表示なので合計に含めない
+      // 残額計算（予算がない月でも使用額があればマイナス残額を計算）
+      if (isCurrentOrPast) {
+        totalAllRemaining += monthlyBudget - monthlyUsed;
+      }
       
-      // 残額：予算額から使用額を引いた値
-      if (isCurrentOrPast && monthlyBudget > 0) {
-        const monthKey = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
-        const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-        const monthlyRemaining = monthlyBudget - monthlyUsed;
-        totalRemaining += monthlyRemaining;
+      // 表示月の合計額（フィルタリング後）
+      if (isWithinFilterRange) {
+        if (monthlyBudget > 0) {
+          totalBudget += monthlyBudget;
+        }
+        if (isCurrentOrPast) {
+          totalUsed += monthlyUsed;
+        }
+        // 残額計算（予算がない月でも使用額があればマイナス残額を計算）
+        if (isCurrentOrPast) {
+          totalRemaining += monthlyBudget - monthlyUsed;
+        }
       }
-      // 未来の月や予算が0の月は "-" 表示なので合計に含めない
     });
     
-    return { totalBudget, totalUsed, totalRemaining };
+    return { 
+      totalBudget, 
+      totalUsed, 
+      totalRemaining,
+      totalAllBudget,
+      totalAllUsed,
+      totalAllRemaining
+    };
   }
 
   // 新規・編集用フォームデータ
@@ -1421,7 +1439,7 @@
         }
       },
       {
-        title: "使用額", 
+        title: "使用額",
         field: "usedAmount",
         width: 130,
         minWidth: 110,
@@ -1429,10 +1447,16 @@
         sorter: "number",
         hozAlign: "right",
         formatter: (cell) => {
-          const value = cell.getValue();
-          // シンプルに値を表示
-          const amount = value || 0;
-          return formatAmount(amount);
+          const usedAmount = cell.getValue();
+          const rowData = cell.getRow().getData();
+          const monthlyTotals = calculateMonthlyTotals(rowData);
+          
+          return `
+            <div style="font-size: 11px; line-height: 1.3;">
+              <div style="margin-bottom: 2px;">${formatAmount(usedAmount)}</div>
+              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalUsed, false)}</div>
+            </div>
+          `;
         }
       },
       {
@@ -1448,11 +1472,12 @@
           const color = value < 0 ? 'red' : 'green';
           const rowData = cell.getRow().getData();
           const monthlyTotals = calculateMonthlyTotals(rowData);
+          const monthColor = monthlyTotals.totalRemaining < 0 ? 'red' : '#6b7280';
           
           return `
             <div style="font-size: 11px; line-height: 1.3;">
               <div style="color: ${color}; font-weight: 600; margin-bottom: 2px;">${formatAmount(value)}</div>
-              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalRemaining, false)}</div>
+              <div style="color: ${monthColor}; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalRemaining, false)}</div>
             </div>
           `;
         }
@@ -1545,14 +1570,21 @@
               usedDisplay = monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0';
             }
             
-            // 残額：予算額から使用額を引いた値
+            // 残額：予算額から使用額を引いた値（予算がない月でも使用額があればマイナス残額を計算）
             let remainingDisplay = '-';
-            if (isCurrentOrPast && monthlyBudget > 0) {
+            if (isCurrentOrPast) {
               const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
               const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
               const monthlyRemaining = monthlyBudget - monthlyUsed;
-              remainingDisplay = monthlyRemaining.toLocaleString();
-            } else if (!isCurrentOrPast) {
+              
+              // 予算がなくても使用額があるか、予算がある場合は残額を表示
+              if (monthlyBudget > 0 || monthlyUsed > 0) {
+                const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+                remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
+              } else {
+                remainingDisplay = '0';
+              }
+            } else {
               remainingDisplay = '-'; // 未来月
             }
             
