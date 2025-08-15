@@ -381,17 +381,10 @@
 
   // 月列とbudgetItemsのリアクティブ更新（無限ループ防止付き） - 無効化
   // $: if (grants.length > 0 && budgetItems.length > 0) {
-  //   console.log('🔄 月列・テーブル更新条件チェック:', {
-  //     grants: grants.length,
-  //     budgetItems: budgetItems.length,
-  //     monthColumns: monthColumns.length
-  //   });
     
     // monthColumnsが0の場合のみ自動生成 - 無効化
     // if (monthColumns.length === 0) {
-    //   console.log('🔄 月列が未生成、自動生成開始');
     //   monthColumns = generateMonthColumns(grants, selectedGrant, budgetItems);
-    //   console.log('🔄 月列生成完了:', monthColumns.length, '件');
     // }
   // }
   
@@ -891,19 +884,16 @@
   // リアクティブステートメント無効化 - 無限ループ防止
   // 終了済みフィルター変更時の処理
   // $: if (showCompletedGrants !== undefined && allBudgetItems.length > 0) {
-  //   console.log('終了済みフィルター変更:', showCompletedGrants);
   //   refreshBudgetItems().catch(console.error);
   // }
 
   // 報告済みフィルター変更時の処理  
   // $: if (showReportedGrants !== undefined && allBudgetItems.length > 0) {
-  //   console.log('報告済みフィルター変更:', showReportedGrants);
   //   refreshBudgetItems().catch(console.error);
   // }
 
   // 選択助成金変更時の処理
   // $: if (selectedGrant !== undefined && allBudgetItems.length > 0) {
-  //   console.log('選択助成金変更:', selectedGrant?.name);
   //   refreshBudgetItems().catch(console.error);
   // }
 

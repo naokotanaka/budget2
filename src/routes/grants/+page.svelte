@@ -359,8 +359,7 @@
     setTimeout(initializeComplete, 200);
     setTimeout(initializeComplete, 500);
     
-    // 外クリックでドロップダウンを閉じる
-    document.addEventListener('click', handleClickOutside);
+    // 外クリックでドロップダウンを閉じる処理はBudgetItemFormコンポーネント内で実行
     
     // 手動テスト用の関数をwindowに追加（確実に実行）
     (window as any).testMonthColumns = () => {
@@ -383,7 +382,7 @@
     debug.log('🧪 手動テスト関数準備完了 - ブラウザで testMonthColumns() を実行してください');
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      // イベントリスナーのクリーンアップはBudgetItemFormコンポーネント内で実行
       // テーブルのクリーンアップはBudgetItemTableコンポーネント内で実行
     };
   });
@@ -949,14 +948,7 @@
   }
   
   // selectCategoryとfilterCategories関数はBudgetItemFormコンポーネントに移動
-  
-  // ドロップダウン外クリックで閉じる
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as Element;
-    if (!target.closest('.category-dropdown')) {
-      showCategoryDropdown = false;
-    }
-  }
+  // handleClickOutside関数もBudgetItemFormコンポーネントに移動済み
 
   // 助成金期間から利用可能な月を生成（7日以上の月のみ）
   function generateAvailableMonths(grant: any) {
@@ -2162,7 +2154,7 @@
               </div>
             </div>
             
-            <div class="budget-table-container overflow-x-auto">
+            <div class="budget-table-container">
               <BudgetItemTable
                 {budgetItems}
                 {grants}
@@ -2392,10 +2384,16 @@
 />
 
 <style>
+  /* ページ全体のスクロール設定 */
+  :global(html, body) {
+    overflow-y: auto !important;
+    height: 100%;
+  }
+
   .budget-table-container {
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
-    overflow: hidden;
+    overflow: visible;
     width: 100%;
     max-width: none;
     min-height: 400px;

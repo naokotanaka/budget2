@@ -1,3 +1,34 @@
+// Import proper type definitions
+import type {
+  FreeeCompany as FreeeCompanyType,
+  FreeeDeal,
+  FreeeAccountItem,
+  FreeePartner,
+  FreeeSection,
+  FreeeItem,
+  FreeeTag,
+  FreeeWalletTxn,
+  FreeeJournal,
+  FreeeCompaniesResponse,
+  FreeeDealsResponse,
+  FreeeDealResponse,
+  FreeeAccountItemsResponse,
+  FreeePartnersResponse,
+  FreeeSectionsResponse,
+  FreeeItemsResponse,
+  FreeeTagsResponse,
+  FreeeWalletTxnsResponse,
+  FreeeJournalsResponse,
+  FreeeDate,
+  FreeeDealStatus,
+  FreeeDealType,
+  FreeeListDealsParams,
+  FreeeAPIError as FreeeAPIErrorType
+} from '$lib/types/freee-api';
+
+import type { APIError, createAPIError } from '$lib/types/error-handling';
+
+// Keep backwards compatibility with existing interfaces
 export interface FreeeConfig {
   clientId: string;
   clientSecret: string;
@@ -13,18 +44,10 @@ export interface FreeeToken {
   scope?: string;
 }
 
-export interface FreeeTransaction {
-  id: number;
-  company_id: number;
-  issue_date: string;
-  due_date: string | null;
-  amount: number;
-  due_amount: number;
-  type: 'income' | 'expense';
+// Extend FreeeDeal for backward compatibility
+export interface FreeeTransaction extends Omit<FreeeDeal, 'details'> {
   partner_name: string | null;
   details: FreeeTransactionDetail[];
-  ref_number: string | null;
-  description: string | null;
   memo: string | null;
   receipt_ids: number[];
   receipts?: FreeeReceipt[];
@@ -57,13 +80,8 @@ export interface FreeeTransactionDetail {
   description: string | null;
 }
 
-export interface FreeeCompany {
-  id: number;
-  name: string;
-  name_kana: string;
-  display_name: string;
-  role: string;
-}
+// Re-export the imported type with backward compatible name
+export type FreeeCompany = FreeeCompanyType;
 
 export class FreeeAPIClient {
   private config: FreeeConfig;
@@ -176,7 +194,7 @@ export class FreeeAPIClient {
   }
 
   // 会社情報を取得
-  async getCompanies(accessToken: string): Promise<FreeeCompany[]> {
+  async getCompanies(accessToken: string): Promise<FreeeCompanyType[]> {
     const response = await fetch(`${this.config.baseUrl}/api/1/companies`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -188,7 +206,7 @@ export class FreeeAPIClient {
       throw new Error(`Get companies failed: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data: FreeeCompaniesResponse = await response.json();
     return data.companies;
   }
 
@@ -287,7 +305,7 @@ export class FreeeAPIClient {
   }
 
   // 勘定科目名を取得
-  async getAccountItems(accessToken: string, companyId: number): Promise<any[]> {
+  async getAccountItems(accessToken: string, companyId: number): Promise<FreeeAccountItem[]> {
     const url = `${this.config.baseUrl}/api/1/account_items?company_id=${companyId}`;
     const response = await fetch(url, {
       headers: {
@@ -300,12 +318,12 @@ export class FreeeAPIClient {
       throw new Error(`Get account items failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: FreeeAccountItemsResponse = await response.json();
     return data.account_items;
   }
 
   // 取引先情報を取得
-  async getPartners(accessToken: string, companyId: number): Promise<any[]> {
+  async getPartners(accessToken: string, companyId: number): Promise<FreeePartner[]> {
     const url = `${this.config.baseUrl}/api/1/partners?company_id=${companyId}&limit=3000`;
     const response = await fetch(url, {
       headers: {
@@ -318,12 +336,12 @@ export class FreeeAPIClient {
       throw new Error(`Get partners failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: FreeePartnersResponse = await response.json();
     return data.partners;
   }
 
   // 部門情報を取得
-  async getSections(accessToken: string, companyId: number): Promise<any[]> {
+  async getSections(accessToken: string, companyId: number): Promise<FreeeSection[]> {
     const url = `${this.config.baseUrl}/api/1/sections?company_id=${companyId}`;
     const response = await fetch(url, {
       headers: {
@@ -336,12 +354,12 @@ export class FreeeAPIClient {
       throw new Error(`Get sections failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: FreeeSectionsResponse = await response.json();
     return data.sections;
   }
 
   // 品目情報を取得
-  async getItems(accessToken: string, companyId: number): Promise<any[]> {
+  async getItems(accessToken: string, companyId: number): Promise<FreeeItem[]> {
     const url = `${this.config.baseUrl}/api/1/items?company_id=${companyId}`;
     const response = await fetch(url, {
       headers: {
@@ -354,7 +372,7 @@ export class FreeeAPIClient {
       throw new Error(`Get items failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: FreeeItemsResponse = await response.json();
     return data.items;
   }
 
@@ -366,7 +384,7 @@ export class FreeeAPIClient {
     endDate?: string,
     limit: number = 100,
     offset: number = 0
-  ): Promise<any[]> {
+  ): Promise<FreeeJournal[]> {
     const params = new URLSearchParams({
       company_id: companyId.toString(),
       limit: limit.toString(),
@@ -402,7 +420,7 @@ export class FreeeAPIClient {
       throw new Error(`Get journals failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data: FreeeJournalsResponse = await response.json();
     console.log('=== Journals API Response Structure ===');
     console.log('Response keys:', Object.keys(data));
     console.log('Journals count:', Array.isArray(data.journals) ? data.journals.length : 'Not array');
@@ -422,7 +440,7 @@ export class FreeeAPIClient {
     companyId: number,
     startDate?: string,
     endDate?: string
-  ): Promise<{ id: number; status: string }> {
+  ): Promise<{ id: string; status: string }> {
     const params = new URLSearchParams({
       company_id: companyId.toString(),
       download_type: 'generic_v2', // 仕訳番号取得のため
@@ -465,7 +483,7 @@ export class FreeeAPIClient {
   async checkJournalsDownloadStatus(
     accessToken: string,
     companyId: number,
-    downloadId: number
+    downloadId: string
   ): Promise<{ status: string; downloadUrl?: string }> {
     const url = `${this.config.baseUrl}/api/1/journals/reports/${downloadId}?company_id=${companyId}`;
     
@@ -498,7 +516,7 @@ export class FreeeAPIClient {
   async downloadAndParseJournalsCSV(
     accessToken: string,
     downloadUrl: string
-  ): Promise<any[]> {
+  ): Promise<Record<string, string>[]> {
     console.log('=== freee Journals CSV Download ===');
     console.log('Download URL:', downloadUrl);
 
@@ -525,11 +543,11 @@ export class FreeeAPIClient {
     const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
     console.log('CSV Headers:', headers);
 
-    const rows = [];
+    const rows: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
       if (values.length >= headers.length) {
-        const row = {};
+        const row: Record<string, string> = {};
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
         });
@@ -548,7 +566,7 @@ export class FreeeAPIClient {
     startDate?: string,
     endDate?: string,
     maxWaitTime: number = 60000 // 1分に短縮
-  ): Promise<any[]> {
+  ): Promise<Record<string, string>[]> {
     console.log('=== freee Journals Complete Process ===');
     
     // ダウンロードリクエスト
@@ -608,7 +626,7 @@ export class FreeeAPIClient {
     endDate?: string,
     limit: number = 100,
     offset: number = 0
-  ): Promise<any[]> {
+  ): Promise<FreeeWalletTxn[]> {
     const params = new URLSearchParams({
       company_id: companyId.toString(),
       limit: limit.toString(),
@@ -638,7 +656,7 @@ export class FreeeAPIClient {
       throw new Error(`Get wallet transactions failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data: FreeeWalletTxnsResponse = await response.json();
     console.log('Wallet Txns Response keys:', Object.keys(data));
     console.log('Wallet Txns count:', Array.isArray(data.wallet_txns) ? data.wallet_txns.length : 'Not array');
     
@@ -652,7 +670,7 @@ export class FreeeAPIClient {
     startDate?: string,
     endDate?: string,
     limit: number = 100
-  ): Promise<any[]> {
+  ): Promise<FreeeWalletTxn[]> {
     const params = new URLSearchParams({
       company_id: companyId.toString(),
       limit: limit.toString(),
@@ -677,7 +695,7 @@ export class FreeeAPIClient {
     }
 
     const data = await response.json();
-    return data.walletables;
+    return data.walletables || data.wallet_txns || [];
   }
 
   // レシート一覧を取得
@@ -738,7 +756,7 @@ export class FreeeAPIClient {
   }
 
   // タグ（メモタグ）情報を取得
-  async getTags(accessToken: string, companyId: number): Promise<any[]> {
+  async getTags(accessToken: string, companyId: number): Promise<FreeeTag[]> {
     const url = `${this.config.baseUrl}/api/1/tags?company_id=${companyId}`;
     console.log('=== freee Tags API ===');
     console.log('URL:', url);
@@ -756,7 +774,7 @@ export class FreeeAPIClient {
       throw new Error(`Get tags failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data: FreeeTagsResponse = await response.json();
     console.log('Tags Response keys:', Object.keys(data));
     console.log('Tags count:', Array.isArray(data.tags) ? data.tags.length : 'Not array');
     

@@ -170,7 +170,7 @@ export function createSyncResult(stats: {
   skippedCount: number;
   deletedCount: number;
   errorCount: number;
-  errors: any[];
+  errors: unknown[];
 }) {
   const resultMessage = `
 同期完了:

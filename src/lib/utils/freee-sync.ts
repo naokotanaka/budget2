@@ -1,25 +1,16 @@
 import type { Transaction } from '@prisma/client';
+import type { FreeeDeal as APIDeal, FreeeDealDetail as APIDetail } from '../types/freee-api';
 
-// freee APIからのDealデータの型定義
-export interface FreeDeal {
-  id: number | string;
-  issue_date: string;
+// 既存のコードとの互換性のためエイリアスを提供
+export type FreeDeal = APIDeal & {
+  partner_name?: string;
   ref_number?: string;
   memo?: string;
-  amount?: number;
-  partner_name?: string;
-  partner_id?: number;
-  details?: FreeDealDetail[];
-}
+};
 
-// freee APIからのDeal詳細データの型定義
-export interface FreeDealDetail {
-  id: number | string;
-  amount?: number;
-  account_item_id?: number;
+export type FreeDealDetail = APIDetail & {
   account_item_name?: string;
-  description?: string;
-}
+};
 
 // トランザクションデータの型定義（DB保存用）
 export interface TransactionData {
@@ -35,8 +26,14 @@ export interface TransactionData {
   detailId: bigint;
 }
 
+// 再帰的な型定義
+type JsonPrimitive = string | number | boolean | null;
+type JsonArray = JsonValue[];
+type JsonObject = { [key: string]: JsonValue };
+type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+
 // BigIntをJSON形式に変換するヘルパー関数
-export function bigIntToString(value: any): any {
+export function bigIntToString(value: unknown): JsonValue {
   if (typeof value === 'bigint') {
     return value.toString();
   }
@@ -44,7 +41,7 @@ export function bigIntToString(value: any): any {
     return value.map(bigIntToString);
   }
   if (value !== null && typeof value === 'object') {
-    const result: any = {};
+    const result: JsonObject = {};
     for (const [key, val] of Object.entries(value)) {
       result[key] = bigIntToString(val);
     }
@@ -54,7 +51,7 @@ export function bigIntToString(value: any): any {
 }
 
 // 安全にBigIntに変換するヘルパー関数
-export function safeBigInt(value: any): bigint {
+export function safeBigInt(value: unknown): bigint {
   if (typeof value === 'bigint') {
     return value;
   }
@@ -74,13 +71,13 @@ export function safeBigInt(value: any): bigint {
 }
 
 // 文字列を統一的に正規化する関数
-export function normalizeString(value: any): string {
+export function normalizeString(value: unknown): string {
   if (value === null || value === undefined) return '';
   return String(value).trim();
 }
 
 // 金額を統一的に正規化する関数（DBではInt型、APIでは数値）
-export function normalizeAmount(value: any): number {
+export function normalizeAmount(value: unknown): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'string') {

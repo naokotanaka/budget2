@@ -1,31 +1,31 @@
 // Grant管理画面のヘルパー関数
 
-export interface Grant {
+import type { Grant as PrismaGrant, BudgetItem as PrismaBudgetItem } from '@prisma/client';
+import type { MonthColumn, BudgetItemTableData } from '../types/tabulator';
+
+// Prismaモデルを拡張
+export interface Grant extends Partial<PrismaGrant> {
   id: number;
   name: string;
-  grantCode?: string;
-  totalAmount?: number;
-  startDate?: string;
-  endDate?: string;
+  grantCode?: string | null;
+  totalAmount?: number | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
   status: 'active' | 'completed' | 'applied';
   budgetItemsCount?: number;
   usedAmount?: number;
 }
 
-export interface BudgetItem {
+export interface BudgetItem extends Partial<PrismaBudgetItem> {
   id: number;
   name: string;
-  category?: string;
-  budgetedAmount?: number;
-  usedAmount?: number;
-  note?: string;
+  category?: string | null;
+  budgetedAmount?: number | null;
+  usedAmount?: number | null;
+  note?: string | null;
 }
 
-export interface MonthColumn {
-  year: number;
-  month: number;
-  label: string;
-}
+// MonthColumnはtabulator.tsからexport済み
 
 // 進行中助成金の期間に基づいて月絞り込み範囲を設定
 export function setDefaultFilterRangeFromInProgressGrants(
@@ -99,8 +99,18 @@ export function adjustFilterRangeToData(
 }
 
 // 月データの合計を計算するヘルパー関数
-export function calculateMonthlyTotals(rowData: any, monthColumns: MonthColumn[]) {
-  const settings = (window as any).monthDisplaySettings || {
+export function calculateMonthlyTotals(rowData: BudgetItemTableData, monthColumns: MonthColumn[]) {
+  interface DisplaySettings {
+    showMonthlyBudget: boolean;
+    showMonthlyUsed: boolean;
+    showMonthlyRemaining: boolean;
+    monthFilterStartYear: number;
+    monthFilterStartMonth: number;
+    monthFilterEndYear: number;
+    monthFilterEndMonth: number;
+  }
+  
+  const settings = (window as unknown as { monthDisplaySettings?: DisplaySettings }).monthDisplaySettings || {
     showMonthlyBudget: true,
     showMonthlyUsed: true,
     showMonthlyRemaining: true
@@ -155,7 +165,7 @@ export function calculateMonthlyTotals(rowData: any, monthColumns: MonthColumn[]
 export function generateMonthColumns(
   grantsData: Grant[], 
   selectedGrantData: Grant | null, 
-  currentBudgetItems: any[]
+  currentBudgetItems: BudgetItem[]
 ): MonthColumn[] {
   if (!grantsData || grantsData.length === 0) {
     console.log('No grants data, returning empty months');
@@ -258,7 +268,7 @@ export function getAvailableYears(grants: Grant[]): string[] {
 
 // CSV処理関数（メインファイルから移動）
 export function parseCSVLine(line: string): string[] {
-  const result = [];
+  const result: string[] = [];
   let current = '';
   let inQuotes = false;
   

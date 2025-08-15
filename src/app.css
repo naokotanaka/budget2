@@ -1,3 +1,56 @@
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
+
+/* グローバルスクロール設定 */
+html {
+  overflow-y: auto !important;
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-y: auto !important;
+  min-height: 100vh;
+}
+
+/* ページ遷移時のスクロールバー表示を強制 */
+#app, [data-sveltekit-hydrate] {
+  min-height: 100vh;
+  overflow-y: visible !important;
+}
+
+/* メインコンテンツエリアのスクロール設定 */
+main {
+  overflow-y: visible !important;
+  min-height: calc(100vh - 64px); /* ヘッダーの高さを考慮 */
+}
+
+/* Tabulatorテーブルコンテナのスクロール設定 */
+.tabulator-tableholder {
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+}
+
+/* モーダルが開いているときのスクロール制御 */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+/* スクロールバー常時表示（視認性向上） */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

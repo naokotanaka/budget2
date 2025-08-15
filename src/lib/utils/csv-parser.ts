@@ -1,6 +1,6 @@
 // CSVパーサーユーティリティ
 
-export interface CSVParseResult<T = any> {
+export interface CSVParseResult<T> {
   success: boolean;
   data: T[];
   errors: string[];
@@ -28,7 +28,7 @@ export interface BudgetItemCSVData {
 /**
  * CSVファイルを読み込んでパースする
  */
-export async function parseCSVFile<T = any>(file: File, type: 'grants' | 'budgetItems'): Promise<CSVParseResult<T>> {
+export async function parseCSVFile<T = GrantCSVData | BudgetItemCSVData>(file: File, type: 'grants' | 'budgetItems'): Promise<CSVParseResult<T>> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     
@@ -63,7 +63,7 @@ export async function parseCSVFile<T = any>(file: File, type: 'grants' | 'budget
 /**
  * CSV文字列をパースする
  */
-export function parseCSVText<T = any>(text: string, type: 'grants' | 'budgetItems'): CSVParseResult<T> {
+export function parseCSVText<T = GrantCSVData | BudgetItemCSVData>(text: string, type: 'grants' | 'budgetItems'): CSVParseResult<T> {
   const errors: string[] = [];
   const lines = text.split(/\r\n|\r|\n/).filter(line => line.trim() !== '');
   
@@ -102,7 +102,7 @@ export function parseCSVText<T = any>(text: string, type: 'grants' | 'budgetItem
     const columns = parseCSVLine(line);
     
     try {
-      let parsedData: any;
+      let parsedData: GrantCSVData | BudgetItemCSVData | null;
       
       if (type === 'grants') {
         parsedData = parseGrantRow(columns, headers, lineNumber);
