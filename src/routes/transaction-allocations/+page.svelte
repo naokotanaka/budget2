@@ -3,6 +3,7 @@
   import { writable } from 'svelte/store';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import { onMount, onDestroy } from 'svelte';
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
   
   export let data: PageData;
@@ -67,6 +68,9 @@
   let selectedBudgetItem: BudgetItemWithGrant | null = null;
   let selectedTransaction: TransactionRow | null = null;
   let checkedTransactions = new Set<string>();
+  
+  // キーボードショートカット用の行選択状態
+  let selectedRowIndex = -1;
   
   // 左ペインフィルター状態
   let budgetItemStatusFilter = DEFAULT_BUDGET_STATUS;
@@ -653,6 +657,215 @@
       }
     };
   }
+  
+  // キーボードショートカット関数
+  function moveSelection(direction: number) {
+    const maxIndex = paginatedTransactionData.length - 1;
+    
+    if (maxIndex < 0) return;
+    
+    if (selectedRowIndex === -1) {
+      selectedRowIndex = direction > 0 ? 0 : maxIndex;
+    } else {
+      selectedRowIndex = Math.max(0, Math.min(maxIndex, selectedRowIndex + direction));
+    }
+    
+    // 選択行を更新
+    if (paginatedTransactionData[selectedRowIndex]) {
+      selectedTransaction = paginatedTransactionData[selectedRowIndex];
+      showRightPane = true;
+      scrollToSelectedRow();
+    }
+  }
+  
+  function selectFirstRow() {
+    if (paginatedTransactionData.length > 0) {
+      selectedRowIndex = 0;
+      selectedTransaction = paginatedTransactionData[0];
+      showRightPane = true;
+      scrollToSelectedRow();
+    }
+  }
+  
+  function selectLastRow() {
+    if (paginatedTransactionData.length > 0) {
+      selectedRowIndex = paginatedTransactionData.length - 1;
+      selectedTransaction = paginatedTransactionData[selectedRowIndex];
+      showRightPane = true;
+      scrollToSelectedRow();
+    }
+  }
+  
+  function toggleCurrentRowCheckbox() {
+    if (selectedRowIndex >= 0 && paginatedTransactionData[selectedRowIndex]) {
+      const row = paginatedTransactionData[selectedRowIndex];
+      if (checkedTransactions.has(row.id)) {
+        checkedTransactions.delete(row.id);
+      } else {
+        checkedTransactions.add(row.id);
+      }
+      checkedTransactions = checkedTransactions;
+    }
+  }
+  
+  function selectAllCurrentPage() {
+    paginatedTransactionData.forEach(row => {
+      checkedTransactions.add(row.id);
+    });
+    checkedTransactions = checkedTransactions;
+  }
+  
+  function deselectAll() {
+    checkedTransactions.clear();
+    checkedTransactions = checkedTransactions;
+  }
+  
+  function toggleRightPane() {
+    if (selectedRowIndex >= 0 && paginatedTransactionData[selectedRowIndex]) {
+      if (!selectedTransaction || selectedTransaction.id !== paginatedTransactionData[selectedRowIndex].id) {
+        selectedTransaction = paginatedTransactionData[selectedRowIndex];
+      }
+      showRightPane = !showRightPane;
+    }
+  }
+  
+  function closeModalsAndPanes() {
+    if (showAllocationModal) {
+      closeAllocationModal();
+    } else if (showRightPane) {
+      showRightPane = false;
+    }
+  }
+  
+  function scrollToSelectedRow() {
+    // 少し遅延させて DOM が更新されてからスクロール
+    setTimeout(() => {
+      const tableContainer = document.querySelector('.flex-1.overflow-auto.bg-white');
+      if (tableContainer && selectedRowIndex >= 0) {
+        const rows = tableContainer.querySelectorAll('tbody tr');
+        const selectedRow = rows[selectedRowIndex];
+        if (selectedRow) {
+          selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }, 50);
+  }
+  
+  // キーボードイベントハンドラー
+  function handleKeyDown(e: KeyboardEvent) {
+    // 入力フィールドにフォーカスがある場合は無効
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+      return;
+    }
+  
+    // モーダル表示中の処理
+    if (showAllocationModal) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAllocationModal();
+      }
+      return;
+    }
+  
+    // ショートカット処理
+    switch(e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        moveSelection(-1);
+        break;
+        
+      case 'ArrowDown':
+        e.preventDefault();
+        moveSelection(1);
+        break;
+        
+      case 'Home':
+        e.preventDefault();
+        selectFirstRow();
+        break;
+        
+      case 'End':
+        e.preventDefault();
+        selectLastRow();
+        break;
+        
+      case ' ': // Space
+        e.preventDefault();
+        toggleCurrentRowCheckbox();
+        break;
+        
+      case 'Enter':
+        e.preventDefault();
+        toggleRightPane();
+        break;
+        
+      case 'Escape':
+        e.preventDefault();
+        closeModalsAndPanes();
+        break;
+        
+      case 'PageUp':
+        e.preventDefault();
+        goToPreviousPage();
+        break;
+        
+      case 'PageDown':
+        e.preventDefault();
+        goToNextPage();
+        break;
+        
+      case 'a':
+      case 'A':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            deselectAll();
+          } else {
+            selectAllCurrentPage();
+          }
+        }
+        break;
+        
+      case 'Home':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          goToFirstPage();
+        }
+        break;
+        
+      case 'End':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          goToLastPage();
+        }
+        break;
+    }
+  }
+  
+  // コンポーネントのライフサイクル
+  onMount(() => {
+    window.addEventListener('keydown', handleKeyDown);
+  });
+  
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleKeyDown);
+  });
+  
+  // ページ変更時に選択をリセット
+  $: if (currentPage) {
+    selectedRowIndex = -1;
+  }
+  
+  // ページネーション後のデータが変更されたときに選択インデックスを調整
+  $: if (paginatedTransactionData.length > 0 && selectedTransaction) {
+    const index = paginatedTransactionData.findIndex(row => row.id === selectedTransaction.id);
+    if (index >= 0) {
+      selectedRowIndex = index;
+    } else {
+      selectedRowIndex = -1;
+    }
+  }
 </script>
 
 <div class="flex h-[calc(100vh-90px)] bg-gray-50 overflow-hidden">
@@ -1103,7 +1316,19 @@
         <thead class="sticky top-0 bg-gray-100 border-b-2 border-gray-300">
           <tr>
             <th class="w-8 bg-gray-100">
-              <input type="checkbox" class="checkbox checkbox-xs" />
+              <input 
+                type="checkbox" 
+                class="checkbox checkbox-xs" 
+                checked={paginatedTransactionData.length > 0 && paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
+                indeterminate={paginatedTransactionData.some(row => checkedTransactions.has(row.id)) && !paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
+                on:change={(e) => {
+                  if (e.target.checked) {
+                    selectAllCurrentPage();
+                  } else {
+                    deselectAll();
+                  }
+                }}
+              />
             </th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">割当助成金</th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">予算項目</th>
@@ -1246,8 +1471,12 @@
               class="hover:bg-blue-50 cursor-pointer transition-colors duration-150 border-b border-gray-100"
               class:bg-gray-50={isOdd}
               class:bg-blue-100={selectedTransaction?.id === row.id}
+              class:ring-2={selectedRowIndex === index}
+              class:ring-blue-400={selectedRowIndex === index}
+              class:ring-offset-1={selectedRowIndex === index}
               on:click={() => {
                 selectedTransaction = row;
+                selectedRowIndex = index;
                 showRightPane = true;
               }}
             >
@@ -1607,5 +1836,12 @@
   .table-xs th {
     padding: 0.25rem 0.25rem;
     line-height: 1.2;
+  }
+  
+  /* キーボード選択時のハイライト */
+  .ring-2 {
+    --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
   }
 </style>
