@@ -76,9 +76,12 @@
   // 左ペインソート状態（複数ソート対応）
   let sortFields: SortField[] = [{field: 'grantName', direction: 'asc'}];
   
-  // 取引ソート状態（シンプル単一ソート）
-  let transactionSortField = 'date';
-  let transactionSortDirection: 'asc' | 'desc' = 'desc';
+  // 取引ソート状態（複数ソート対応）
+  let transactionSortFields: SortField[] = [{field: 'date', direction: 'desc'}];
+  
+  // 後方互換性のためのgetter（削除予定）
+  $: transactionSortField = transactionSortFields.length > 0 ? transactionSortFields[0].field : 'date';
+  $: transactionSortDirection = transactionSortFields.length > 0 ? transactionSortFields[0].direction : 'desc';
   
   // ページネーション状態
   let currentPage = 1;
@@ -214,15 +217,43 @@
     return 0;
   });
 
-  // 取引ソート関数（シンプル単一ソート）
-  function handleTransactionSort(field: string) {
-    if (transactionSortField === field) {
-      // 同じフィールドの場合は方向を反転
-      transactionSortDirection = transactionSortDirection === 'asc' ? 'desc' : 'asc';
+  // 取引ソート関数（複数ソート対応）
+  function handleTransactionSort(field: string, event?: MouseEvent) {
+    const isShiftPressed = event?.shiftKey || false;
+    
+    if (isShiftPressed) {
+      // Shiftキー押下時：複数ソート（追加・更新、最大3つまで）
+      const newFields = [...transactionSortFields]; // イミュータブル更新
+      const existingIndex = newFields.findIndex(s => s.field === field);
+      
+      if (existingIndex >= 0) {
+        // 既存のソート条件を更新（方向を反転）
+        newFields[existingIndex] = {
+          ...newFields[existingIndex],
+          direction: newFields[existingIndex].direction === 'asc' ? 'desc' : 'asc'
+        };
+      } else if (newFields.length < 3) {
+        // 新しいソート条件を追加（最大3つまで）
+        const defaultDirection = field === 'date' ? 'desc' : 'asc';
+        newFields.push({ field, direction: defaultDirection });
+      }
+      
+      transactionSortFields = newFields;
     } else {
-      // 新しいフィールドの場合はデフォルト方向で設定
-      transactionSortField = field;
-      transactionSortDirection = field === 'date' ? 'desc' : 'asc';
+      // 通常クリック：単一ソート（リセット）
+      const existingField = transactionSortFields.find(s => s.field === field);
+      const defaultDirection = field === 'date' ? 'desc' : 'asc';
+      
+      if (existingField) {
+        // 同じフィールドの場合は方向を反転
+        transactionSortFields = [{ 
+          field, 
+          direction: existingField.direction === 'asc' ? 'desc' : 'asc' 
+        }];
+      } else {
+        // 新しいフィールドの場合はデフォルト方向で開始
+        transactionSortFields = [{ field, direction: defaultDirection }];
+      }
     }
   }
 
@@ -373,31 +404,36 @@
     return true;
   });
 
-  // ソート処理（シンプル単一ソート）
+  // ソート処理（複数ソート対応）
   $: sortedTransactionData = [...filteredTransactionData].sort((a, b) => {
-    let result = 0;
-    
-    switch (transactionSortField) {
-      case 'date':
-        result = a.dateObj.getTime() - b.dateObj.getTime();
-        break;
-      case 'amount':
-      case 'allocatedAmount':
-        result = a[transactionSortField] - b[transactionSortField];
-        break;
-      case 'account':
-      case 'department':
-      case 'supplier':
-      case 'item':
-        const aStr = a[transactionSortField] || '';
-        const bStr = b[transactionSortField] || '';
-        result = aStr.localeCompare(bStr);
-        break;
-      default:
-        return 0;
+    for (const sortConfig of transactionSortFields) {
+      let result = 0;
+      
+      switch (sortConfig.field) {
+        case 'date':
+          result = a.dateObj.getTime() - b.dateObj.getTime();
+          break;
+        case 'amount':
+        case 'allocatedAmount':
+          result = a[sortConfig.field] - b[sortConfig.field];
+          break;
+        case 'account':
+        case 'department':
+        case 'supplier':
+        case 'item':
+          const aStr = a[sortConfig.field] || '';
+          const bStr = b[sortConfig.field] || '';
+          result = aStr.localeCompare(bStr);
+          break;
+        default:
+          continue;
+      }
+      
+      if (result !== 0) {
+        return sortConfig.direction === 'asc' ? result : -result;
+      }
     }
-    
-    return transactionSortDirection === 'asc' ? result : -result;
+    return 0;
   });
   
   // ページネーション計算
@@ -407,7 +443,7 @@
   $: paginatedTransactionData = sortedTransactionData.slice(startIndex, endIndex);
   
   // フィルターやソートが変更されたらページを1に戻す
-  $: if (filterStatus || filterGrant || searchQuery || startDate || endDate || transactionSortField || transactionSortDirection) {
+  $: if (filterStatus || filterGrant || searchQuery || startDate || endDate || transactionSortFields) {
     currentPage = 1;
     pageInputValue = '1';
   }
@@ -1073,91 +1109,126 @@
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">予算項目</th>
             <th 
               class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
-              on:click={() => handleTransactionSort('allocatedAmount')}
+              on:click={(e) => handleTransactionSort('allocatedAmount', e)}
             >
               <div class="flex items-center gap-1 justify-end">
                 割当額
-                {#if transactionSortField === 'allocatedAmount'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'allocatedAmount') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'allocatedAmount')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'allocatedAmount') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
-              on:click={() => handleTransactionSort('date')}
+              on:click={(e) => handleTransactionSort('date', e)}
             >
               <div class="flex items-center gap-1">
                 発生日
-                {#if transactionSortField === 'date'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'date') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'date')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'date') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
-              on:click={() => handleTransactionSort('amount')}
+              on:click={(e) => handleTransactionSort('amount', e)}
             >
               <div class="flex items-center gap-1 justify-end">
                 金額
-                {#if transactionSortField === 'amount'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'amount') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'amount')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'amount') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
-              on:click={() => handleTransactionSort('account')}
+              on:click={(e) => handleTransactionSort('account', e)}
             >
               <div class="flex items-center gap-1">
                 勘定科目
-                {#if transactionSortField === 'account'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'account') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'account')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'account') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
-              on:click={() => handleTransactionSort('department')}
+              on:click={(e) => handleTransactionSort('department', e)}
             >
               <div class="flex items-center gap-1">
                 部門
-                {#if transactionSortField === 'department'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'department') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'department')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'department') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
-              on:click={() => handleTransactionSort('supplier')}
+              on:click={(e) => handleTransactionSort('supplier', e)}
             >
               <div class="flex items-center gap-1">
                 取引先
-                {#if transactionSortField === 'supplier'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'supplier') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'supplier')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'supplier') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
             </th>
             <th 
               class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
-              on:click={() => handleTransactionSort('item')}
+              on:click={(e) => handleTransactionSort('item', e)}
             >
               <div class="flex items-center gap-1">
                 品目
-                {#if transactionSortField === 'item'}
-                  <span class="text-xs">
-                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                {#if transactionSortFields.findIndex(s => s.field === 'item') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'item')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'item') + 1}
+                      </span>
+                    {/if}
                   </span>
                 {/if}
               </div>
