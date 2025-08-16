@@ -4,6 +4,7 @@
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
   
   export let data: PageData;
@@ -845,11 +846,15 @@
   
   // コンポーネントのライフサイクル
   onMount(() => {
-    window.addEventListener('keydown', handleKeyDown);
+    if (browser) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
   });
   
   onDestroy(() => {
-    window.removeEventListener('keydown', handleKeyDown);
+    if (browser) {
+      window.removeEventListener('keydown', handleKeyDown);
+    }
   });
   
   // ページ変更時に選択をリセット
