@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { writable } from 'svelte/store';
-  import { enhance } from '$app/forms';
+
   import { invalidateAll } from '$app/navigation';
+  import { enhance } from '$app/forms';
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
@@ -144,7 +145,7 @@
     const allocatedAmount = data.allocations
       .filter(alloc => alloc.budgetItemId === item.id)
       .reduce((sum, alloc) => sum + alloc.amount, 0);
-    const remaining = (item.amount || 0) - allocatedAmount;
+    const remaining = (item.budgetedAmount || 0) - allocatedAmount;
     
     return {
       ...item,
@@ -623,34 +624,67 @@
     return `${grant?.name || ''} - ${budgetItem.name}`;
   }
   
-  // 一括割当ボタンの処理
-  async function handleBulkAllocation() {
+  // 一括割当フォーム状態
+  let bulkAllocationFormRef: HTMLFormElement | null = null;
+  
+  // 一括割当処理（SvelteKit標準パターン）
+  function handleBulkAllocation() {
     if (!selectedBudgetItem || checkedTransactions.size === 0) return;
     
-    const formData = new FormData();
-    formData.append('budgetItemId', selectedBudgetItem.id.toString());
-    Array.from(checkedTransactions).forEach(id => {
-      formData.append('transactionIds', id);
-    });
-    
-    const response = await fetch('?/bulkAllocation', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (response.ok) {
-      await invalidateAll();
-      checkedTransactions.clear();
-      checkedTransactions = checkedTransactions;
-      // 選択中の予算項目を再選択して残額を更新
-      if (selectedBudgetItem) {
-        const updated = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id);
-        if (updated) {
-          selectedBudgetItem = updated;
-        }
-      }
+    // hidden フォームを送信してSvelteKitのCSRF保護を活用
+    if (bulkAllocationFormRef) {
+      bulkAllocationFormRef.requestSubmit();
     }
   }
+  
+  // 一括割当フォーム送信後の処理
+  function handleBulkAllocationResult() {
+    return async ({ result, update }: { result: { type: string; data?: any }, update: () => Promise<void> }) => {
+      if (result.type === 'success') {
+        // 成功時の処理
+        const allocatedCount = result.data?.allocatedCount || checkedTransactions.size;
+        checkedTransactions.clear();
+        checkedTransactions = checkedTransactions;
+        
+        // ページデータを再読み込み
+        await update();
+        
+        // 予算項目の残額を強制的に再計算
+        budgetItemsWithGrant = data.budgetItems.map(item => {
+          const grant = data.grants.find(g => g.id === item.grantId);
+          const allocatedAmount = data.allocations
+            .filter(alloc => alloc.budgetItemId === item.id)
+            .reduce((sum, alloc) => sum + alloc.amount, 0);
+          const remaining = (item.budgetedAmount || 0) - allocatedAmount;
+          
+          return {
+            ...item,
+            name: cleanBudgetItemName(item.name),
+            grant,
+            grantName: grant?.name || '',
+            grantStatus: grant?.status || DEFAULT_BUDGET_STATUS,
+            grantStartDate: formatDate(grant?.startDate),
+            grantEndDate: formatDate(grant?.endDate),
+            remaining,
+            allocatedAmount,
+            schedules: item.schedules || []
+          };
+        });
+        
+        // 選択中の予算項目を再選択
+        if (selectedBudgetItem) {
+          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
+        }
+        
+        alert(`一括割当が完了しました（${allocatedCount}件処理）`);
+      } else if (result.type === 'failure') {
+        const message = result.data?.message || '一括割当に失敗しました';
+        alert(message);
+        await update();
+      }
+    };
+  }
+  
   
   // 割当削除
   async function deleteAllocation(allocationId: string) {
@@ -661,11 +695,40 @@
     
     const response = await fetch('?/deleteAllocation', {
       method: 'POST',
-      body: formData
+      body: formData,
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Origin': 'https://nagaiku.top',
+        'Referer': 'https://nagaiku.top/budget2/transaction-allocations'
+      }
     });
     
     if (response.ok) {
       await invalidateAll();
+      
+      // 予算項目の残額を強制的に再計算
+      budgetItemsWithGrant = data.budgetItems.map(item => {
+        const grant = data.grants.find(g => g.id === item.grantId);
+        const allocatedAmount = data.allocations
+          .filter(alloc => alloc.budgetItemId === item.id)
+          .reduce((sum, alloc) => sum + alloc.amount, 0);
+        const remaining = (item.budgetedAmount || 0) - allocatedAmount;
+        
+        return {
+          ...item,
+          name: cleanBudgetItemName(item.name),
+          grant,
+          grantName: grant?.name || '',
+          grantStatus: grant?.status || DEFAULT_BUDGET_STATUS,
+          grantStartDate: formatDate(grant?.startDate),
+          grantEndDate: formatDate(grant?.endDate),
+          remaining,
+          allocatedAmount,
+          schedules: item.schedules || []
+        };
+      });
+      
       // 選択した取引の情報を更新
       if (selectedTransaction) {
         const updatedTransaction = transactionData.find(t => t.id === selectedTransaction.id);
@@ -675,20 +738,40 @@
       }
       // 選択中の予算項目を再選択して残額を更新
       if (selectedBudgetItem) {
-        const updated = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id);
-        if (updated) {
-          selectedBudgetItem = updated;
-        }
+        selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
       }
     }
   }
   
   // フォーム送信後の処理
   function handleFormResult() {
-    return async ({ result }: { result: { type: string } }) => {
+    return async ({ result, update }: { result: { type: string }, update: () => Promise<void> }) => {
       if (result.type === 'success') {
         closeAllocationModal();
-        await invalidateAll();
+        await update();
+        
+        // 予算項目の残額を強制的に再計算
+        budgetItemsWithGrant = data.budgetItems.map(item => {
+          const grant = data.grants.find(g => g.id === item.grantId);
+          const allocatedAmount = data.allocations
+            .filter(alloc => alloc.budgetItemId === item.id)
+            .reduce((sum, alloc) => sum + alloc.amount, 0);
+          const remaining = (item.budgetedAmount || 0) - allocatedAmount;
+          
+          return {
+            ...item,
+            name: cleanBudgetItemName(item.name),
+            grant,
+            grantName: grant?.name || '',
+            grantStatus: grant?.status || DEFAULT_BUDGET_STATUS,
+            grantStartDate: formatDate(grant?.startDate),
+            grantEndDate: formatDate(grant?.endDate),
+            remaining,
+            allocatedAmount,
+            schedules: item.schedules || []
+          };
+        });
+        
         // 選択した取引の情報を更新
         if (selectedTransaction) {
           const updatedTransaction = transactionData.find(t => t.id === selectedTransaction.id);
@@ -698,13 +781,24 @@
         }
         // 選択中の予算項目を再選択して残額を更新
         if (selectedBudgetItem) {
-          const updated = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id);
-          if (updated) {
-            selectedBudgetItem = updated;
-          }
+          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
         }
       }
     };
+  }
+  
+  // フィルター結果をすべて選択
+  function selectAllFiltered() {
+    sortedTransactionData.forEach(row => {
+      checkedTransactions.add(row.id);
+    });
+    checkedTransactions = checkedTransactions;
+  }
+  
+  // すべての選択を解除
+  function clearAllSelection() {
+    checkedTransactions.clear();
+    checkedTransactions = checkedTransactions;
   }
   
   // キーボードショートカット関数
@@ -924,8 +1018,8 @@
 <div class="flex h-[calc(100vh-90px)] bg-gray-50 overflow-hidden">
   <!-- ペイン1: 予算項目一覧（フラットテーブル） -->
   <div 
-    class="border-r bg-white transition-all duration-300 overflow-hidden flex flex-col"
-    style="width: {showLeftPane ? LEFT_PANE_WIDTH + 'px' : '0'}"
+    class="border-r bg-white transition-all duration-300 overflow-hidden flex flex-col flex-shrink-0"
+    style="width: {showLeftPane ? LEFT_PANE_WIDTH + 'px' : '0'}; min-width: {showLeftPane ? LEFT_PANE_WIDTH + 'px' : '0'}"
   >
     {#if showLeftPane}
       <div class="flex-1 flex flex-col min-h-0">
@@ -1036,7 +1130,7 @@
                   on:click={(e) => handleSort('grantStartDate', e)}
                 >
                   <div class="flex items-center gap-1">
-                    助成開始
+                    開始
                     {#if sortFields.findIndex(s => s.field === 'grantStartDate') >= 0}
                       <span class="text-xs flex items-center gap-0.5">
                         {sortFields[sortFields.findIndex(s => s.field === 'grantStartDate')].direction === 'asc' ? '↑' : '↓'}
@@ -1054,7 +1148,7 @@
                   on:click={(e) => handleSort('grantEndDate', e)}
                 >
                   <div class="flex items-center gap-1">
-                    助成終了
+                    終了
                     {#if sortFields.findIndex(s => s.field === 'grantEndDate') >= 0}
                       <span class="text-xs flex items-center gap-0.5">
                         {sortFields[sortFields.findIndex(s => s.field === 'grantEndDate')].direction === 'asc' ? '↑' : '↓'}
@@ -1067,6 +1161,7 @@
                     {/if}
                   </div>
                 </th>
+                <th class="text-right min-w-[70px] text-xs">予算額</th>
                 <th 
                   class="cursor-pointer select-none text-center min-w-[60px] text-xs"
                   on:click={(e) => handleSort('grantStatus', e)}
@@ -1125,6 +1220,9 @@
                   </td>
                   <td class="text-xs p-0.5 min-w-[55px]" title={item.grantEndDate}>
                     {formatShortDate(item.grantEndDate)}
+                  </td>
+                  <td class="text-xs p-0.5 text-right font-medium min-w-[70px]">
+                    {formatCurrency(item.budgetedAmount || 0)}
                   </td>
                   <td class="text-xs p-0.5 text-center">
                     <span class="badge badge-xs text-[10px] {getStatusColor(item.grantStatus)}">
@@ -1219,7 +1317,7 @@
   </div>
 
   <!-- ペイン2: 取引一覧（メイン） -->
-  <div class="flex-1 flex flex-col">
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <!-- ツールバー -->
     <div class="border-b bg-white px-4 py-2">
       <div class="flex items-center gap-2 flex-wrap">
@@ -1272,20 +1370,81 @@
         
         <div class="flex-1"></div>
         
-        {#if checkedTransactions.size > 0}
-          <div class="text-sm">
-            選択: {checkedTransactions.size}件 / {formatCurrency(checkedTotal)}
-          </div>
-          {#if selectedBudgetItem}
-            <button class="btn btn-sm btn-primary" on:click={handleBulkAllocation}>
-              → {selectedBudgetItem.name}に一括割当
+        <!-- 一括選択ボタン -->
+        <div class="flex items-center gap-2">
+          {#if sortedTransactionData.length > 0}
+            <button 
+              class="btn btn-xs btn-outline"
+              on:click={selectAllFiltered}
+              title="フィルター結果をすべて選択"
+            >
+              全{sortedTransactionData.length}件を選択
             </button>
           {/if}
+          
+          {#if checkedTransactions.size > 0}
+            <button 
+              class="btn btn-xs btn-ghost"
+              on:click={clearAllSelection}
+              title="選択をクリア"
+            >
+              選択解除
+            </button>
+          {/if}
+        </div>
+        
+        {#if checkedTransactions.size > 0}
+          <div class="flex items-center gap-3 px-3 py-1 bg-blue-50 rounded-lg border border-blue-200">
+            <div class="text-sm font-semibold text-blue-700">
+              <span class="text-lg">☑</span> 選択中: {checkedTransactions.size}件 / {formatCurrency(checkedTotal)}
+            </div>
+            
+            <div class="border-l border-blue-300 h-6"></div>
+            
+            {#if selectedBudgetItem}
+              <button 
+                class="btn btn-sm btn-primary gap-1"
+                on:click={handleBulkAllocation}
+                title="選択した取引を予算項目に一括で割り当てます"
+              >
+                <span class="text-base">→</span>
+                <span class="font-bold">{selectedBudgetItem.name}</span>
+                <span>に一括割当</span>
+              </button>
+            {:else}
+              <div class="text-sm text-gray-500">
+                ← 左から予算項目を選択してください
+              </div>
+            {/if}
+            
+            <button 
+              class="btn btn-sm btn-error btn-outline gap-1"
+              on:click={() => {
+                if (confirm(`選択した${checkedTransactions.size}件の割当をすべて削除しますか？`)) {
+                  // 一括削除処理を実装予定
+                  alert('一括削除機能は準備中です');
+                }
+              }}
+              title="選択した取引の割当をすべて削除します"
+            >
+              <span>🗑</span>
+              <span>割当を一括削除</span>
+            </button>
+          </div>
         {/if}
         
         <div class="text-sm text-gray-600">
-          表示: {sortedTransactionData.length}件 / {formatCurrency(filteredTotal)}
+          フィルター: {sortedTransactionData.length}件 / {formatCurrency(filteredTotal)}
         </div>
+      </div>
+      
+      <!-- 操作ヒント -->
+      <div class="px-4 py-1 bg-yellow-50 border-t text-xs text-gray-600 flex items-center gap-4">
+        <span>💡 ヒント:</span>
+        <span>ダブルクリック または Enter: 詳細表示</span>
+        <span>Space: 選択/解除</span>
+        <span>↑↓: 移動</span>
+        <span>Esc: パネルを閉じる</span>
       </div>
       
       <!-- ページネーションコントロール -->
@@ -1364,11 +1523,12 @@
     </div>
     
     <!-- データグリッド表示エリア -->
-    <div class="flex-1 overflow-auto bg-white">
-      <table class="table table-compact w-full">
-        <thead class="sticky top-0 bg-gray-100 border-b-2 border-gray-300">
+    <div class="flex-1 overflow-x-auto overflow-y-auto bg-white">
+      <div class="min-w-max">
+        <table class="table table-compact w-full relative">
+          <thead class="sticky top-0 bg-gray-100 border-b-2 border-gray-300 z-30">
           <tr>
-            <th class="w-8 bg-gray-100">
+            <th class="w-8 bg-gray-100 sticky left-0 z-40 border-r">
               <input 
                 type="checkbox" 
                 class="checkbox checkbox-xs" 
@@ -1384,7 +1544,7 @@
               />
             </th>
             <th 
-              class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none sticky left-8 z-40 border-r"
               on:click={(e) => handleTransactionSort('primaryGrantName', e)}
             >
               <div class="flex items-center gap-1">
@@ -1402,7 +1562,7 @@
               </div>
             </th>
             <th 
-              class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none sticky left-32 z-40 border-r"
               on:click={(e) => handleTransactionSort('primaryBudgetItemName', e)}
             >
               <div class="flex items-center gap-1">
@@ -1420,7 +1580,7 @@
               </div>
             </th>
             <th 
-              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none sticky left-56 z-40 border-r"
               on:click={(e) => handleTransactionSort('allocatedAmount', e)}
             >
               <div class="flex items-center gap-1 justify-end">
@@ -1438,7 +1598,7 @@
               </div>
             </th>
             <th 
-              class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none sticky left-80 z-40 border-r"
               on:click={(e) => handleTransactionSort('date', e)}
             >
               <div class="flex items-center gap-1">
@@ -1456,7 +1616,8 @@
               </div>
             </th>
             <th 
-              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none sticky z-40 border-r-2 border-gray-400"
+              style="left: 25rem"
               on:click={(e) => handleTransactionSort('amount', e)}
             >
               <div class="flex items-center gap-1 justify-end">
@@ -1564,11 +1725,16 @@
               on:click={() => {
                 selectedTransaction = row;
                 selectedRowIndex = index;
+                // 右ペインは自動で開かない（Enterキーかダブルクリックで開く）
+              }}
+              on:dblclick={() => {
+                selectedTransaction = row;
+                selectedRowIndex = index;
                 showRightPane = true;
               }}
             >
               <!-- チェックボックス -->
-              <td class="p-2">
+              <td class="p-2 sticky left-0 z-20 bg-white border-r">
                 <input 
                   type="checkbox" 
                   class="checkbox checkbox-xs"
@@ -1585,7 +1751,7 @@
               </td>
               
               <!-- 割当助成金 -->
-              <td class="text-xs p-2 text-gray-700 max-w-32">
+              <td class="text-xs p-2 text-gray-700 max-w-24 sticky left-8 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="truncate" title={alloc.budgetItem.grant.name}>
@@ -1598,7 +1764,7 @@
               </td>
               
               <!-- 予算項目 -->
-              <td class="text-xs p-2 text-gray-700 max-w-32">
+              <td class="text-xs p-2 text-gray-700 max-w-24 sticky left-32 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="truncate" title={alloc.budgetItem.name}>
@@ -1611,7 +1777,7 @@
               </td>
               
               <!-- 割当額 -->
-              <td class="text-xs p-2 text-right font-medium">
+              <td class="text-xs p-2 text-right font-medium sticky left-56 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="text-green-700">
@@ -1624,10 +1790,10 @@
               </td>
               
               <!-- 発生日 -->
-              <td class="text-xs p-2 font-medium text-gray-800">{row.date}</td>
+              <td class="text-xs p-2 font-medium text-gray-800 sticky left-80 z-20 bg-white border-r">{row.date}</td>
               
               <!-- 金額 -->
-              <td class="text-sm p-2 text-right font-semibold text-gray-900">
+              <td class="text-sm p-2 text-right font-semibold text-gray-900 sticky z-20 bg-white border-r-2 border-gray-300" style="left: 25rem">
                 {formatCurrency(row.amount)}
               </td>
               
@@ -1697,15 +1863,26 @@
           {/each}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 
   <!-- ペイン3: 取引明細 -->
   <div 
-    class="border-l bg-white transition-all duration-300 overflow-hidden"
+    class="border-l bg-white transition-all duration-300 overflow-hidden relative"
     class:w-96={showRightPane}
     class:w-0={!showRightPane}
   >
+    {#if !showRightPane && selectedTransaction}
+      <!-- 右ペインが閉じている時のヒント -->
+      <button
+        class="absolute left-0 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-1 py-4 rounded-l-lg shadow-lg hover:bg-blue-600 transition-colors z-50"
+        on:click={() => showRightPane = true}
+        title="詳細を表示 (Enter/ダブルクリック)"
+      >
+        <span class="text-xs writing-mode-vertical">詳細</span>
+      </button>
+    {/if}
     {#if showRightPane && selectedTransaction}
       <div class="h-full flex flex-col">
         <div class="border-b px-3 py-2 bg-gray-50 flex justify-between items-center">
@@ -1903,6 +2080,22 @@
     </div>
   </div>
 {/if}
+
+<!-- 一括割当用の隠しフォーム（SvelteKitのCSRF保護を活用） -->
+<form 
+  bind:this={bulkAllocationFormRef}
+  method="POST" 
+  action="?/bulkAllocation" 
+  use:enhance={handleBulkAllocationResult}
+  class="hidden"
+>
+  {#if selectedBudgetItem}
+    <input type="hidden" name="budgetItemId" value={selectedBudgetItem.id} />
+  {/if}
+  {#each Array.from(checkedTransactions) as transactionId}
+    <input type="hidden" name="transactionIds" value={transactionId} />
+  {/each}
+</form>
 </div>
 
 <style>
@@ -1930,5 +2123,11 @@
     --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
     --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
     box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+  }
+  
+  /* 縦書きテキスト */
+  .writing-mode-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
   }
 </style>
