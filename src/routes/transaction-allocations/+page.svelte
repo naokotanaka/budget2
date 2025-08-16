@@ -76,6 +76,15 @@
   // 左ペインソート状態（複数ソート対応）
   let sortFields: SortField[] = [{field: 'grantName', direction: 'asc'}];
   
+  // 取引ソート状態（シンプル単一ソート）
+  let transactionSortField = 'date';
+  let transactionSortDirection: 'asc' | 'desc' = 'desc';
+  
+  // ページネーション状態
+  let currentPage = 1;
+  let itemsPerPage = 100;
+  let pageInputValue = '1';
+  
   // 後方互換性のためのgetter
   $: sortField = sortFields.length > 0 ? sortFields[0].field : 'grantName';
   $: sortDirection = sortFields.length > 0 ? sortFields[0].direction : 'asc';
@@ -205,6 +214,18 @@
     return 0;
   });
 
+  // 取引ソート関数（シンプル単一ソート）
+  function handleTransactionSort(field: string) {
+    if (transactionSortField === field) {
+      // 同じフィールドの場合は方向を反転
+      transactionSortDirection = transactionSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // 新しいフィールドの場合はデフォルト方向で設定
+      transactionSortField = field;
+      transactionSortDirection = field === 'date' ? 'desc' : 'asc';
+    }
+  }
+
   // ソート関数（複数ソート対応）
   function handleSort(field: string, event?: MouseEvent) {
     const isShiftPressed = event?.shiftKey || false;
@@ -260,8 +281,8 @@
     }
   }
 
-  // 取引データの準備
-  $: transactionData = data.transactions.map(transaction => ({
+  // 取引データの準備（一度だけ実行）
+  let transactionData = data.transactions.map(transaction => ({
     id: transaction.id,
     date: formatDate(transaction.date),
     journalNumber: transaction.journalNumber.toString(),
@@ -283,14 +304,47 @@
     dateObj: new Date(transaction.date)
   }));
   
+  // データ更新時の処理（invalidateAll等による更新時のみ）
+  let prevTransactions = data.transactions;
+  $: if (data.transactions && data.transactions !== prevTransactions) {
+    prevTransactions = data.transactions;
+    transactionData = data.transactions.map(transaction => ({
+      id: transaction.id,
+      date: formatDate(transaction.date),
+      journalNumber: transaction.journalNumber.toString(),
+      description: transaction.description || '',
+      detailDescription: transaction.detailDescription || '',
+      amount: transaction.amount,
+      allocatedAmount: transaction.allocatedAmount,
+      unallocatedAmount: transaction.unallocatedAmount,
+      allocationStatus: transaction.allocationStatus,
+      allocationCount: transaction.allocations.length,
+      allocations: transaction.allocations,
+      supplier: transaction.supplier || '',
+      department: transaction.department || '',
+      account: transaction.account || '',
+      memo: transaction.memo || '',
+      tags: transaction.tags || '',
+      item: transaction.item || '',
+      receiptIds: transaction.receiptIds || [],
+      dateObj: new Date(transaction.date)
+    }));
+  }
+  
   // チェックされた取引の合計額
   $: checkedTotal = Array.from(checkedTransactions).reduce((sum, id) => {
     const transaction = transactionData.find(t => t.id === id);
     return sum + (transaction?.amount || 0);
   }, 0);
   
-  // フィルター適用後のデータ
-  $: filteredData = transactionData.filter(row => {
+  // 期間フィルター用のキャッシュ
+  let startDateObj: Date | null = null;
+  let endDateObj: Date | null = null;
+  $: startDateObj = startDate ? new Date(startDate) : null;
+  $: endDateObj = endDate ? new Date(endDate) : null;
+  
+  // フィルタリング処理（シンプル分離）
+  $: filteredTransactionData = transactionData.filter(row => {
     // 割当状況フィルター
     if (filterStatus === 'allocated' && row.allocationStatus !== 'full') return false;
     if (filterStatus === 'unallocated' && row.allocationStatus !== 'unallocated') return false;
@@ -300,26 +354,115 @@
     if (filterGrant && !row.allocations.some(alloc => alloc.budgetItem.grantId.toString() === filterGrant)) return false;
     
     // 期間フィルター
-    if (startDate && row.dateObj < new Date(startDate)) return false;
-    if (endDate && row.dateObj > new Date(endDate)) return false;
+    if (startDateObj && row.dateObj < startDateObj) return false;
+    if (endDateObj && row.dateObj > endDateObj) return false;
     
     // 検索クエリフィルター
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      return (
-        row.description.toLowerCase().includes(query) ||
-        row.detailDescription.toLowerCase().includes(query) ||
-        row.supplier.toLowerCase().includes(query) ||
-        row.journalNumber.includes(query) ||
-        row.account.toLowerCase().includes(query)
+      const searchText = (
+        row.description.toLowerCase() + ' ' +
+        row.detailDescription.toLowerCase() + ' ' +
+        row.supplier.toLowerCase() + ' ' +
+        row.journalNumber + ' ' +
+        row.account.toLowerCase()
       );
+      return searchText.includes(query);
     }
     
     return true;
   });
+
+  // ソート処理（シンプル単一ソート）
+  $: sortedTransactionData = [...filteredTransactionData].sort((a, b) => {
+    let result = 0;
+    
+    switch (transactionSortField) {
+      case 'date':
+        result = a.dateObj.getTime() - b.dateObj.getTime();
+        break;
+      case 'amount':
+      case 'allocatedAmount':
+        result = a[transactionSortField] - b[transactionSortField];
+        break;
+      case 'account':
+      case 'department':
+      case 'supplier':
+      case 'item':
+        const aStr = a[transactionSortField] || '';
+        const bStr = b[transactionSortField] || '';
+        result = aStr.localeCompare(bStr);
+        break;
+      default:
+        return 0;
+    }
+    
+    return transactionSortDirection === 'asc' ? result : -result;
+  });
   
-  // フィルター適用後の合計額
-  $: filteredTotal = filteredData.reduce((sum, row) => sum + row.amount, 0);
+  // ページネーション計算
+  $: totalPages = Math.ceil(sortedTransactionData.length / itemsPerPage);
+  $: startIndex = (currentPage - 1) * itemsPerPage;
+  $: endIndex = Math.min(startIndex + itemsPerPage, sortedTransactionData.length);
+  $: paginatedTransactionData = sortedTransactionData.slice(startIndex, endIndex);
+  
+  // フィルターやソートが変更されたらページを1に戻す
+  $: if (filterStatus || filterGrant || searchQuery || startDate || endDate || transactionSortField || transactionSortDirection) {
+    currentPage = 1;
+    pageInputValue = '1';
+  }
+  
+  // ページ変更時のスクロール処理
+  function scrollToTableTop() {
+    const tableContainer = document.querySelector('.flex-1.overflow-auto.bg-white');
+    if (tableContainer) {
+      tableContainer.scrollTop = 0;
+    }
+  }
+  
+  // ページ変更関数
+  function goToPage(page: number) {
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      pageInputValue = page.toString();
+      scrollToTableTop();
+    }
+  }
+  
+  function goToFirstPage() {
+    goToPage(1);
+  }
+  
+  function goToLastPage() {
+    goToPage(totalPages);
+  }
+  
+  function goToPreviousPage() {
+    goToPage(currentPage - 1);
+  }
+  
+  function goToNextPage() {
+    goToPage(currentPage + 1);
+  }
+  
+  function handlePageInput() {
+    const page = parseInt(pageInputValue);
+    if (!isNaN(page)) {
+      goToPage(page);
+    } else {
+      pageInputValue = currentPage.toString();
+    }
+  }
+  
+  function handleItemsPerPageChange() {
+    currentPage = 1;
+    pageInputValue = '1';
+    scrollToTableTop();
+  }
+
+  
+  // フィルター適用後の合計額（メモ化）
+  $: filteredTotal = sortedTransactionData.reduce((sum, row) => sum + row.amount, 0);
   
   // 割当状況のラベル
   function getAllocationStatusLabel(status: string): string {
@@ -839,7 +982,81 @@
         {/if}
         
         <div class="text-sm text-gray-600">
-          表示: {filteredData.length}件 / {formatCurrency(filteredTotal)}
+          表示: {sortedTransactionData.length}件 / {formatCurrency(filteredTotal)}
+        </div>
+      </div>
+      
+      <!-- ページネーションコントロール -->
+      <div class="flex items-center justify-between gap-4 px-4 py-2 bg-gray-50 border-t">
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-600">表示件数:</label>
+          <select 
+            class="select select-sm select-bordered w-20"
+            bind:value={itemsPerPage}
+            on:change={handleItemsPerPageChange}
+          >
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={500}>500</option>
+          </select>
+          <span class="text-sm text-gray-600 ml-2">
+            {startIndex + 1}-{endIndex}件 / 全{sortedTransactionData.length}件
+          </span>
+        </div>
+        
+        <div class="flex items-center gap-1">
+          <button 
+            class="btn btn-sm btn-outline"
+            on:click={goToFirstPage}
+            disabled={currentPage === 1}
+            title="最初のページ"
+          >
+            ≪
+          </button>
+          <button 
+            class="btn btn-sm btn-outline"
+            on:click={goToPreviousPage}
+            disabled={currentPage === 1}
+            title="前のページ"
+          >
+            ＜
+          </button>
+          
+          <div class="flex items-center gap-1 mx-2">
+            <span class="text-sm text-gray-600">ページ</span>
+            <input 
+              type="number" 
+              class="input input-sm input-bordered w-16 text-center"
+              bind:value={pageInputValue}
+              on:blur={handlePageInput}
+              on:keydown={(e) => e.key === 'Enter' && handlePageInput()}
+              min="1"
+              max={totalPages}
+            />
+            <span class="text-sm text-gray-600">/ {totalPages}</span>
+          </div>
+          
+          <button 
+            class="btn btn-sm btn-outline"
+            on:click={goToNextPage}
+            disabled={currentPage === totalPages}
+            title="次のページ"
+          >
+            ＞
+          </button>
+          <button 
+            class="btn btn-sm btn-outline"
+            on:click={goToLastPage}
+            disabled={currentPage === totalPages}
+            title="最後のページ"
+          >
+            ≫
+          </button>
+        </div>
+        
+        <div class="text-sm text-gray-600">
+          全{totalPages}ページ
         </div>
       </div>
     </div>
@@ -854,13 +1071,97 @@
             </th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">割当助成金</th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">予算項目</th>
-            <th class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right">割当額</th>
-            <th class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700">発生日</th>
-            <th class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right">金額</th>
-            <th class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700">勘定科目</th>
-            <th class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700">部門</th>
-            <th class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700">取引先</th>
-            <th class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700">品目</th>
+            <th 
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
+              on:click={() => handleTransactionSort('allocatedAmount')}
+            >
+              <div class="flex items-center gap-1 justify-end">
+                割当額
+                {#if transactionSortField === 'allocatedAmount'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={() => handleTransactionSort('date')}
+            >
+              <div class="flex items-center gap-1">
+                発生日
+                {#if transactionSortField === 'date'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
+              on:click={() => handleTransactionSort('amount')}
+            >
+              <div class="flex items-center gap-1 justify-end">
+                金額
+                {#if transactionSortField === 'amount'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={() => handleTransactionSort('account')}
+            >
+              <div class="flex items-center gap-1">
+                勘定科目
+                {#if transactionSortField === 'account'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-20 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={() => handleTransactionSort('department')}
+            >
+              <div class="flex items-center gap-1">
+                部門
+                {#if transactionSortField === 'department'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-28 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={() => handleTransactionSort('supplier')}
+            >
+              <div class="flex items-center gap-1">
+                取引先
+                {#if transactionSortField === 'supplier'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={() => handleTransactionSort('item')}
+            >
+              <div class="flex items-center gap-1">
+                品目
+                {#if transactionSortField === 'item'}
+                  <span class="text-xs">
+                    {transactionSortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                {/if}
+              </div>
+            </th>
             <th class="bg-gray-100 text-[11px] font-semibold text-gray-700">取引内容</th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">メモ・タグ</th>
             <th class="w-16 bg-gray-100 text-[11px] font-semibold text-gray-700 text-center">📎</th>
@@ -868,7 +1169,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each filteredData as row, index}
+          {#each paginatedTransactionData as row, index}
             {@const isOdd = index % 2 === 1}
             <tr 
               class="hover:bg-blue-50 cursor-pointer transition-colors duration-150 border-b border-gray-100"
