@@ -48,6 +48,8 @@
     item: string;
     receiptIds: string[];
     dateObj: Date;
+    primaryGrantName: string;
+    primaryBudgetItemName: string;
   }
   
   interface SortField {
@@ -318,33 +320,19 @@
   }
 
   // 取引データの準備（一度だけ実行）
-  let transactionData = data.transactions.map(transaction => ({
-    id: transaction.id,
-    date: formatDate(transaction.date),
-    journalNumber: transaction.journalNumber.toString(),
-    description: transaction.description || '',
-    detailDescription: transaction.detailDescription || '',
-    amount: transaction.amount,
-    allocatedAmount: transaction.allocatedAmount,
-    unallocatedAmount: transaction.unallocatedAmount,
-    allocationStatus: transaction.allocationStatus,
-    allocationCount: transaction.allocations.length,
-    allocations: transaction.allocations,
-    supplier: transaction.supplier || '',
-    department: transaction.department || '',
-    account: transaction.account || '',
-    memo: transaction.memo || '',
-    tags: transaction.tags || '',
-    item: transaction.item || '',
-    receiptIds: transaction.receiptIds || [],
-    dateObj: new Date(transaction.date)
-  }));
-  
-  // データ更新時の処理（invalidateAll等による更新時のみ）
-  let prevTransactions = data.transactions;
-  $: if (data.transactions && data.transactions !== prevTransactions) {
-    prevTransactions = data.transactions;
-    transactionData = data.transactions.map(transaction => ({
+  let transactionData = data.transactions.map(transaction => {
+    // 最大割当額の助成金と予算項目を特定
+    let primaryGrantName = '';
+    let primaryBudgetItemName = '';
+    if (transaction.allocations && transaction.allocations.length > 0) {
+      const maxAllocation = transaction.allocations.reduce((max, alloc) => 
+        alloc.amount > max.amount ? alloc : max
+      );
+      primaryGrantName = maxAllocation.budgetItem.grant.name || '';
+      primaryBudgetItemName = maxAllocation.budgetItem.name || '';
+    }
+
+    return {
       id: transaction.id,
       date: formatDate(transaction.date),
       journalNumber: transaction.journalNumber.toString(),
@@ -363,8 +351,52 @@
       tags: transaction.tags || '',
       item: transaction.item || '',
       receiptIds: transaction.receiptIds || [],
-      dateObj: new Date(transaction.date)
-    }));
+      dateObj: new Date(transaction.date),
+      primaryGrantName: primaryGrantName,
+      primaryBudgetItemName: primaryBudgetItemName
+    };
+  });
+  
+  // データ更新時の処理（invalidateAll等による更新時のみ）
+  let prevTransactions = data.transactions;
+  $: if (data.transactions && data.transactions !== prevTransactions) {
+    prevTransactions = data.transactions;
+    transactionData = data.transactions.map(transaction => {
+      // 最大割当額の助成金と予算項目を特定
+      let primaryGrantName = '';
+      let primaryBudgetItemName = '';
+      if (transaction.allocations && transaction.allocations.length > 0) {
+        const maxAllocation = transaction.allocations.reduce((max, alloc) => 
+          alloc.amount > max.amount ? alloc : max
+        );
+        primaryGrantName = maxAllocation.budgetItem.grant.name || '';
+        primaryBudgetItemName = maxAllocation.budgetItem.name || '';
+      }
+
+      return {
+        id: transaction.id,
+        date: formatDate(transaction.date),
+        journalNumber: transaction.journalNumber.toString(),
+        description: transaction.description || '',
+        detailDescription: transaction.detailDescription || '',
+        amount: transaction.amount,
+        allocatedAmount: transaction.allocatedAmount,
+        unallocatedAmount: transaction.unallocatedAmount,
+        allocationStatus: transaction.allocationStatus,
+        allocationCount: transaction.allocations.length,
+        allocations: transaction.allocations,
+        supplier: transaction.supplier || '',
+        department: transaction.department || '',
+        account: transaction.account || '',
+        memo: transaction.memo || '',
+        tags: transaction.tags || '',
+        item: transaction.item || '',
+        receiptIds: transaction.receiptIds || [],
+        dateObj: new Date(transaction.date),
+        primaryGrantName: primaryGrantName,
+        primaryBudgetItemName: primaryBudgetItemName
+      };
+    });
   }
   
   // チェックされた取引の合計額
@@ -421,6 +453,22 @@
         case 'amount':
         case 'allocatedAmount':
           result = a[sortConfig.field] - b[sortConfig.field];
+          break;
+        case 'primaryGrantName':
+          // 助成金名でソート（空文字は最後に）
+          const aGrant = a.primaryGrantName || '';
+          const bGrant = b.primaryGrantName || '';
+          if (!aGrant && bGrant) result = 1;
+          else if (aGrant && !bGrant) result = -1;
+          else result = aGrant.localeCompare(bGrant, 'ja');
+          break;
+        case 'primaryBudgetItemName':
+          // 予算項目名でソート（空文字は最後に）
+          const aBudget = a.primaryBudgetItemName || '';
+          const bBudget = b.primaryBudgetItemName || '';
+          if (!aBudget && bBudget) result = 1;
+          else if (aBudget && !bBudget) result = -1;
+          else result = aBudget.localeCompare(bBudget, 'ja');
           break;
         case 'account':
         case 'department':
@@ -1335,8 +1383,42 @@
                 }}
               />
             </th>
-            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">割当助成金</th>
-            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">予算項目</th>
+            <th 
+              class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={(e) => handleTransactionSort('primaryGrantName', e)}
+            >
+              <div class="flex items-center gap-1">
+                割当助成金
+                {#if transactionSortFields.findIndex(s => s.field === 'primaryGrantName') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'primaryGrantName')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'primaryGrantName') + 1}
+                      </span>
+                    {/if}
+                  </span>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700 cursor-pointer select-none"
+              on:click={(e) => handleTransactionSort('primaryBudgetItemName', e)}
+            >
+              <div class="flex items-center gap-1">
+                予算項目
+                {#if transactionSortFields.findIndex(s => s.field === 'primaryBudgetItemName') >= 0}
+                  <span class="text-xs flex items-center gap-0.5">
+                    {transactionSortFields[transactionSortFields.findIndex(s => s.field === 'primaryBudgetItemName')].direction === 'asc' ? '↑' : '↓'}
+                    {#if transactionSortFields.length > 1}
+                      <span class="text-[10px] bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center">
+                        {transactionSortFields.findIndex(s => s.field === 'primaryBudgetItemName') + 1}
+                      </span>
+                    {/if}
+                  </span>
+                {/if}
+              </div>
+            </th>
             <th 
               class="w-24 bg-gray-100 text-[11px] font-semibold text-gray-700 text-right cursor-pointer select-none"
               on:click={(e) => handleTransactionSort('allocatedAmount', e)}
