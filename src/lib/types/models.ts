@@ -35,21 +35,27 @@ export interface Transaction {
   journalLineNumber: number;
   detailId: bigint;
   date: Date;
-  dueDate?: Date | null;
-  freeeAccountItemName?: string | null;
   description?: string | null;
   amount: number;
-  subAccountItemName?: string | null;
+  account?: string | null;
+  supplier?: string | null;
+  item?: string | null;
   memo?: string | null;
-  hasReceipt?: boolean;
+  remark?: string | null;
+  department?: string | null;
+  managementNumber?: string | null;
+  freeDealId?: bigint | null;
+  detailDescription?: string | null;
+  receiptIds?: string | null;
+  tags?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 // AllocationSplit関連の型定義
 export interface AllocationSplit {
-  id: number;
-  transactionId: string;
+  id: string;
+  detailId?: bigint | null;
   budgetItemId: number;
   amount: number;
   note?: string | null;

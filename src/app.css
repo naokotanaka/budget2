@@ -4,12 +4,12 @@
 
 /* グローバルスクロール設定 */
 html {
-  overflow-y: auto !important;
+  /* overflow-y: auto !important; */
   scroll-behavior: smooth;
 }
 
 body {
-  overflow-y: auto !important;
+  /* overflow-y: auto !important; */
   min-height: 100vh;
 }
 

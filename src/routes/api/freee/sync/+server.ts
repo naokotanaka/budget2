@@ -38,40 +38,6 @@ function safeBigInt(value: any): bigint {
   throw new Error(`Cannot convert ${typeof value} to BigInt: ${value}`);
 }
 
-// ヘルパー関数：備考とメモタグを分離
-function parseRemarkAndTags(description: string | null, deal: any): { remark: string | null, tags: string | null, detailDescription: string | null } {
-  let remark = null;
-  let tags = null;
-  let detailDescription = null;
-
-  // 明細レベルの備考を抽出
-  if (deal.details && deal.details.length > 0) {
-    detailDescription = deal.details[0]?.description || null;
-  }
-
-  // メモからタグを抽出（現行システムの実装を参照）
-  if (deal.memo) {
-    // メモからタグ部分を抽出（例：#タグ1 #タグ2 のような形式）
-    const tagMatches = deal.memo.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g);
-    if (tagMatches) {
-      tags = tagMatches.join(' ');
-    }
-    
-    // タグ以外の部分を備考として抽出
-    const remarkText = deal.memo.replace(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g, '').trim();
-    if (remarkText) {
-      remark = remarkText;
-    }
-  }
-
-  // descriptionが別途ある場合は備考に追加
-  if (description && description !== detailDescription) {
-    remark = remark ? `${remark} ${description}` : description;
-  }
-
-  return { remark, tags, detailDescription };
-}
-
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const { startDate, endDate, companyId } = await request.json();
@@ -166,6 +132,81 @@ export const POST: RequestHandler = async ({ request }) => {
       console.log(`勘定科目マスタ取得完了: ${accountItemMap.size}件`);
     }
 
+    // 取引先マスタを取得
+    console.log('=== 取引先マスタ取得開始 ===');
+    const partnersResponse = await fetch(
+      `${FREEE_BASE_URL}/api/1/partners?company_id=${selectedCompanyId}&limit=3000`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const partnerMap = new Map<number, string>();
+    if (partnersResponse.ok) {
+      const partnersData = await partnersResponse.json();
+      if (partnersData.partners) {
+        partnersData.partners.forEach((partner: any) => {
+          partnerMap.set(partner.id, partner.name);
+        });
+        console.log(`取引先マスタ取得完了: ${partnerMap.size}件`);
+      }
+    }
+
+    // 品目マスタを取得
+    console.log('=== 品目マスタ取得開始 ===');
+    const itemsResponse = await fetch(
+      `${FREEE_BASE_URL}/api/1/items?company_id=${selectedCompanyId}&limit=3000`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const itemMap = new Map<number, string>();
+    if (itemsResponse.ok) {
+      const itemsData = await itemsResponse.json();
+      if (itemsData.items) {
+        itemsData.items.forEach((item: any) => {
+          itemMap.set(item.id, item.name);
+          console.log(`  品目ID ${item.id}: ${item.name}`);
+        });
+        console.log(`品目マスタ取得完了: ${itemMap.size}件`);
+      }
+    } else {
+      console.error('品目マスタの取得に失敗しました');
+    }
+
+    // 部門マスタを取得
+    console.log('=== 部門マスタ取得開始 ===');
+    const sectionsResponse = await fetch(
+      `${FREEE_BASE_URL}/api/1/sections?company_id=${selectedCompanyId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const sectionMap = new Map<number, string>();
+    if (sectionsResponse.ok) {
+      const sectionsData = await sectionsResponse.json();
+      if (sectionsData.sections) {
+        sectionsData.sections.forEach((section: any) => {
+          sectionMap.set(section.id, section.name);
+          console.log(`  部門ID ${section.id}: ${section.name}`);
+        });
+        console.log(`部門マスタ取得完了: ${sectionMap.size}件`);
+      }
+    } else {
+      console.error('部門マスタの取得に失敗しました');
+    }
+
     // 取引データを全件取得（ページネーション実装）
     let allDeals = [];
     let offset = 0;
@@ -223,22 +264,34 @@ export const POST: RequestHandler = async ({ request }) => {
     // 取引データをデータベースに保存
     for (const deal of deals) {
       try {
+        // マスタデータから名前を取得
+        const partnerName = deal.partner_id ? partnerMap.get(deal.partner_id) || null : null;
+        const detail = deal.details?.[0];
+        const accountName = detail?.account_item_id ? accountItemMap.get(detail.account_item_id) || '不明' : '不明';
+        const itemName = detail?.item_id ? itemMap.get(detail.item_id) || null : null;
+        const sectionName = detail?.section_id ? sectionMap.get(detail.section_id) || null : null;
+
         // デバッグ用：取引データの詳細をログ出力
         console.log(`=== Processing Deal ID ${deal.id} ===`);
         console.log('Deal data:', {
           id: deal.id,
-          description: deal.description,
-          memo: deal.memo,
-          ref_number: deal.ref_number,
-          partner_name: deal.partner_name,
+          ref_number: deal.ref_number,  // 管理番号
+          partner_id: deal.partner_id,
+          partner_name: partnerName,  // 取引先名（マスタから取得）
+          issue_date: deal.issue_date,  // 発生日
           type: deal.type,
           amount: deal.amount,
+          memo: deal.memo,
           receipt_ids: deal.receipt_ids,
-          details: deal.details?.map(detail => ({
-            account_item_name: detail.account_item_name,
-            item_name: detail.item_name,
-            description: detail.description,
-            section_name: detail.section_name
+          details: deal.details?.map(d => ({
+            id: d.id,  // 明細ID
+            account_item_id: d.account_item_id,
+            account_item_name: d.account_item_id ? accountItemMap.get(d.account_item_id) : null,  // 勘定科目名（マスタから取得）
+            item_id: d.item_id,
+            item_name: d.item_id ? itemMap.get(d.item_id) : null,  // 品目名（マスタから取得）
+            description: d.description,  // 明細の備考
+            section_id: d.section_id,
+            section_name: d.section_id ? sectionMap.get(d.section_id) : null  // 部門名（マスタから取得）
           }))
         });
 
@@ -259,49 +312,37 @@ export const POST: RequestHandler = async ({ request }) => {
           where: { detailId: BigInt(detailId) }
         });
 
-        // 備考とメモタグを分離
-        const { remark, tags, detailDescription } = parseRemarkAndTags(deal.details[0]?.description, deal);
-        
         // レシートIDをJSON文字列として保存
         const receiptIdsJson = deal.receipt_ids && deal.receipt_ids.length > 0 
           ? JSON.stringify(deal.receipt_ids) 
           : null;
 
-        // 勘定科目名を取得（マスタから取得）
-        let accountName = '不明';
-        if (deal.details && deal.details.length > 0) {
-          const detail = deal.details[0];
-          
-          // デバッグ: 取得したデータを確認
-          console.log(`=== 勘定科目取得 Deal ID: ${deal.id} ===`);
-          console.log('  account_item_id:', detail.account_item_id);
-          console.log('  account_item_name:', detail.account_item_name);
-          
-          // まずaccount_item_nameがあればそれを使用
-          if (detail.account_item_name) {
-            accountName = detail.account_item_name;
-            console.log(`  ✅ account_item_nameから取得: ${accountName}`);
-          } 
-          // なければaccount_item_idからマスタを参照
-          else if (detail.account_item_id) {
-            const masterName = accountItemMap.get(detail.account_item_id);
-            if (masterName) {
-              accountName = masterName;
-              console.log(`  ✅ マスタから取得: ${accountName}`);
-            } else {
-              console.log(`  ❌ 勘定科目マスタに存在しないID: ${detail.account_item_id}`);
-            }
+        // 勘定科目名の確認（既に上で取得済み）
+        console.log(`=== 勘定科目取得 Deal ID: ${deal.id} ===`);
+        console.log('  account_item_id:', detail?.account_item_id);
+        console.log('  勘定科目名（マスタから）:', accountName);
+        
+        // 部門と品目の確認
+        console.log(`=== 部門・品目取得 Deal ID: ${deal.id} ===`);
+        console.log('  section_id:', detail?.section_id);
+        console.log('  部門名（マスタから）:', sectionName);
+        console.log('  item_id:', detail?.item_id);
+        console.log('  品目名（マスタから）:', itemName);
+
+        // freee APIから取得した各フィールドをそのまま使用（加工禁止）
+        // description: freee APIのdeals APIにはdeal.descriptionフィールドは存在しないため、nullを設定
+        const transactionDescription = null;
+        
+        // detailDescription: freee APIの明細レベルのdescriptionフィールド（details[0].description）
+        const detailDescription = detail?.description || null;
+        
+        // tags: メモからハッシュタグを抽出（タグ抽出のみ許可）
+        let tags = null;
+        if (deal.memo) {
+          const tagMatches = deal.memo.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g);
+          if (tagMatches) {
+            tags = tagMatches.join(' ');
           }
-          
-          // それでも取得できない場合のデバッグ
-          if (accountName === '不明') {
-            console.log(`  ❌ 勘定科目が取得できません！`);
-            console.log('  Detail全データ:', detail);
-          }
-          
-          console.log(`  最終勘定科目名: ${accountName}`);
-        } else {
-          console.log(`⚠️ 明細データなし - Deal ID: ${deal.id}`);
         }
 
         // 共通のデータオブジェクト
@@ -309,21 +350,26 @@ export const POST: RequestHandler = async ({ request }) => {
           journalNumber: BigInt(deal.id),
           journalLineNumber: 1,
           date: new Date(deal.issue_date),
-          description: deal.description,
+          description: transactionDescription,  // nullを設定（freee APIのdeals APIにはdescriptionフィールドが存在しないため）
           amount: Math.abs(deal.amount),
-          account: accountName,
-          supplier: deal.partner_name,
-          department: deal.details[0]?.section_name,
-          item: deal.details[0]?.item_name || null,
-          memo: deal.memo || null,
-          remark: remark,
-          managementNumber: deal.ref_number || null,
+          account: accountName,  // account_item_idから変換した名前
+          supplier: partnerName,  // partner_idから変換した名前
+          department: sectionName,  // section_idから変換した名前
+          item: itemName || null,  // item_idから変換した名前
+          memo: deal.memo || null,  // freee APIのmemoをそのまま使用
+          remark: null,  // remarkフィールドは使用しない（加工禁止）
+          managementNumber: deal.ref_number || null,  // freee APIのref_numberをそのまま使用
           freeDealId: BigInt(deal.id),
-          tags: tags,
-          detailDescription: detailDescription,
+          tags: tags,  // メモから抽出したタグのみ
+          detailDescription: detailDescription,  // details[0].descriptionをそのまま使用
           detailId: BigInt(detailId),
           receiptIds: receiptIdsJson
         };
+        
+        // 保存前のデータ確認
+        console.log(`=== 保存データ Deal ID: ${deal.id} ===`);
+        console.log('  department:', transactionData.department);
+        console.log('  item:', transactionData.item);
 
         if (existingTransaction) {
           // 既存の取引を更新

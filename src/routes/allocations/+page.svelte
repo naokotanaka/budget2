@@ -1,5 +1,5 @@
 <script lang="ts">
-  // import { Grid } from "wx-svelte-grid";
+  import { onMount } from 'svelte';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import type { Transaction, AllocationSplit, BudgetItem } from '$lib/types/models.js';
@@ -12,8 +12,6 @@
         grant: { name: string };
       };
     })[];
-    account?: string;
-    supplier?: string;
   }
   
   interface AllocationSplitForm {
@@ -23,6 +21,19 @@
     note: string;
     budgetItemName?: string;
     isNew?: boolean;
+  }
+
+  interface FlatAllocationRow {
+    id: string;
+    date: string;
+    description: string;
+    grantName: string;
+    budgetItemName: string;
+    category: string;
+    amount: number;
+    note: string;
+    createdAt: string;
+    transactionAmount: number;
   }
   
   export let data: PageData;
@@ -34,6 +45,10 @@
   let allAllocations: AllocationSplit[] = [];
   
   $: ({ transactions = [], budgetItems = [], allAllocations = [] } = data);
+
+  // Gridテーブル関連
+  let tableData: any[] = [];
+  let allocationHistoryData: any[] = [];
 
   // 分割割当モーダルの状態
   let showAllocationModal = false;
@@ -82,145 +97,156 @@
   $: totalAllocated = allocationSplits.reduce((sum, split) => sum + split.amount, 0);
   $: remaining = selectedTransaction ? selectedTransaction.amount - totalAllocated : 0;
 
-  // 未割当取引の表示用データ
-  $: formattedTransactions = transactions.map(tx => ({
-    id: tx.id,
-    date: new Date(tx.date).toLocaleDateString('ja-JP'),
-    description: tx.description || '',
-    account: tx.account || '',
-    amount: tx.amount,
-    supplier: tx.supplier || '',
-    totalAllocated: tx.allocations.reduce((sum, a) => sum + a.amount, 0),
-    remaining: tx.amount - tx.allocations.reduce((sum, a) => sum + a.amount, 0),
-    allocationsCount: tx.allocations.length,
-    allocations: tx.allocations.map(a => `${a.budgetItem.grant.name} - ${a.budgetItem.name}`).join(', ')
-  }));
+  // 取引割当一覧の表示用データ
+  $: {
+    tableData = transactions.map(tx => {
+      const totalAllocated = tx.allocations.reduce((sum, a) => sum + a.amount, 0);
+      const remaining = tx.amount - totalAllocated;
+      const allocationStatus = tx.allocations.length > 0 
+        ? (remaining === 0 ? '完全割当' : '部分割当') 
+        : '未割当';
+      
+      return {
+        id: tx.id,
+        allocationStatus,
+        totalAllocated,
+        allocations: tx.allocations.length > 0 
+          ? tx.allocations.map(a => `${a.budgetItem.grant.name} - ${a.budgetItem.name} (¥${a.amount.toLocaleString()})`).join('\n')
+          : '',
+        remaining,
+        date: new Date(tx.date).toLocaleDateString('ja-JP'),
+        amount: tx.amount,
+        account: tx.account || '',
+        department: tx.department || '',
+        supplier: tx.supplier || '',
+        item: tx.item || '',
+        description: tx.description || '',
+        detailDescription: tx.detailDescription || '',
+        tags: tx.tags || '',
+        managementNumber: tx.managementNumber || '',
+        memo: tx.memo || '',
+        remark: tx.remark || '',
+        journalNumber: typeof tx.journalNumber === 'bigint' ? tx.journalNumber.toString() : tx.journalNumber,
+        journalLineNumber: tx.journalLineNumber,
+        receiptIds: tx.receiptIds || ''
+      };
+    });
+  }
 
-  // 取引一覧用の列定義
-  const transactionColumns = [
-    { 
-      id: "date", 
-      header: "日付", 
-      width: 120, 
-      sort: true 
-    },
-    { 
-      id: "description", 
-      header: "摘要", 
-      width: 180, 
-      sort: true
-    },
-    { 
-      id: "account", 
-      header: "勘定科目", 
-      width: 120, 
-      sort: true 
-    },
-    { 
-      id: "amount", 
-      header: "金額", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => `¥${value.toLocaleString()}`
-    },
-    { 
-      id: "totalAllocated", 
-      header: "割当済", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => value > 0 ? `¥${value.toLocaleString()}` : '-'
-    },
-    { 
-      id: "remaining", 
-      header: "残額", 
-      width: 120, 
-      sort: true,
-      align: "right",
-      template: (value) => {
-        if (value > 0) {
-          return `<span class="text-orange-600 font-medium">¥${value.toLocaleString()}</span>`;
-        } else {
-          return `<span class="text-green-600">¥0</span>`;
-        }
+  // HTMLテーブル実装に変更したため、Grid列定義は削除済み
+
+  // フラット表示用データ
+  let flatAllocations: FlatAllocationRow[] = [];
+  let filteredAllocations: FlatAllocationRow[] = [];
+  let sortField = 'date';
+  let sortDirection = 'desc';
+  
+  // フィルター条件
+  let grantFilter = '';
+  let budgetItemFilter = '';
+  let dateFromFilter = '';
+  let dateToFilter = '';
+  let amountMinFilter = '';
+  let amountMaxFilter = '';
+  
+  // ユニークな助成金・予算項目リスト
+  let uniqueGrants: string[] = [];
+  let uniqueBudgetItems: string[] = [];
+  
+  $: {
+    // フラットデータの生成
+    flatAllocations = allAllocations.map(allocation => ({
+      id: allocation.id,
+      date: new Date(allocation.transaction.date).toLocaleDateString('ja-JP'),
+      description: allocation.transaction.description || '',
+      grantName: allocation.budgetItem.grant.name,
+      budgetItemName: allocation.budgetItem.name,
+      category: allocation.budgetItem.category || '未分類',
+      amount: allocation.amount,
+      note: allocation.note || '',
+      createdAt: new Date(allocation.createdAt).toLocaleDateString('ja-JP'),
+      transactionAmount: allocation.transaction.amount
+    }));
+    
+    // ユニークリストの生成
+    uniqueGrants = [...new Set(flatAllocations.map(a => a.grantName))].sort();
+    uniqueBudgetItems = [...new Set(flatAllocations.map(a => a.budgetItemName))].sort();
+  }
+  
+  // フィルタリング
+  $: {
+    filteredAllocations = flatAllocations.filter(allocation => {
+      // 助成金フィルター
+      if (grantFilter && allocation.grantName !== grantFilter) return false;
+      
+      // 予算項目フィルター
+      if (budgetItemFilter && allocation.budgetItemName !== budgetItemFilter) return false;
+      
+      // 日付フィルター
+      const allocationDate = new Date(allocation.date.split('/').reverse().join('-'));
+      if (dateFromFilter) {
+        const fromDate = new Date(dateFromFilter);
+        if (allocationDate < fromDate) return false;
       }
-    },
-    { 
-      id: "allocationsCount", 
-      header: "分割数", 
-      width: 80, 
-      sort: true,
-      align: "center"
-    },
-    {
-      id: "action",
-      header: "操作",
-      width: 100,
-      template: (value, obj) => `<button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="selectTransaction('${obj.id}')">割当</button>`
+      if (dateToFilter) {
+        const toDate = new Date(dateToFilter);
+        if (allocationDate > toDate) return false;
+      }
+      
+      // 金額フィルター
+      if (amountMinFilter && allocation.amount < parseInt(amountMinFilter)) return false;
+      if (amountMaxFilter && allocation.amount > parseInt(amountMaxFilter)) return false;
+      
+      return true;
+    });
+  }
+  
+  // ソート機能
+  function sortBy(field: string) {
+    if (sortField === field) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortField = field;
+      sortDirection = 'asc';
     }
-  ];
+  }
+  
+  $: {
+    filteredAllocations = [...filteredAllocations].sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortField) {
+        case 'date':
+          aVal = new Date(a.date.split('/').reverse().join('-'));
+          bVal = new Date(b.date.split('/').reverse().join('-'));
+          break;
+        case 'amount':
+        case 'transactionAmount':
+          aVal = a[sortField];
+          bVal = b[sortField];
+          break;
+        default:
+          aVal = a[sortField as keyof FlatAllocationRow]?.toString().toLowerCase() || '';
+          bVal = b[sortField as keyof FlatAllocationRow]?.toString().toLowerCase() || '';
+      }
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+  
+  // フィルタークリア
+  function clearFilters() {
+    grantFilter = '';
+    budgetItemFilter = '';
+    dateFromFilter = '';
+    dateToFilter = '';
+    amountMinFilter = '';
+    amountMaxFilter = '';
+  }
 
-  // 全割当履歴の表示用データ
-  $: formattedAllocations = allAllocations.map(allocation => ({
-    id: allocation.id,
-    date: new Date(allocation.transaction.date).toLocaleDateString('ja-JP'),
-    transactionDescription: allocation.transaction.description || '',
-    transactionAmount: allocation.transaction.amount,
-    grantName: allocation.budgetItem.grant.name,
-    budgetItemName: allocation.budgetItem.name,
-    amount: allocation.amount,
-    note: allocation.note || '',
-    createdAt: new Date(allocation.createdAt).toLocaleDateString('ja-JP')
-  }));
-
-  // 割当履歴用の列定義
-  const allocationColumns = [
-    { 
-      id: "date", 
-      header: "取引日", 
-      width: 100, 
-      sort: true 
-    },
-    { 
-      id: "transactionDescription", 
-      header: "取引内容", 
-      width: 150, 
-      sort: true
-    },
-    { 
-      id: "grantName", 
-      header: "助成金", 
-      width: 130, 
-      sort: true
-    },
-    { 
-      id: "budgetItemName", 
-      header: "予算項目", 
-      width: 150, 
-      sort: true
-    },
-    { 
-      id: "amount", 
-      header: "割当額", 
-      width: 100, 
-      sort: true,
-      align: "right",
-      template: (value) => `¥${value.toLocaleString()}`
-    },
-    { 
-      id: "note", 
-      header: "備考", 
-      width: 120, 
-      sort: true
-    },
-    { 
-      id: "createdAt", 
-      header: "作成日", 
-      width: 100, 
-      sort: true
-    }
-  ];
+  // HTMLテーブル実装のため、割当履歴列定義も削除済み
 
   // 分割割当を保存
   let saving = false;
@@ -257,28 +283,24 @@
     }
   }
 
-  // グローバル関数（テンプレートから呼び出される）
-  globalThis.selectTransaction = (transactionId) => {
-    const transaction = transactions.find(t => t.id === transactionId);
-    if (transaction) {
-      selectTransactionForAllocation(transaction);
-    }
-  };
+  // HTMLテーブル実装では不要なため削除済み
 </script>
+
+<!-- HTML テーブルを使用しているため、特別なスタイルは不要 -->
 
 <div class="space-y-6">
   <!-- ページヘッダー -->
   <div>
     <h2 class="text-2xl font-bold text-gray-900">
-      分割割当管理
+      割当管理
     </h2>
     <p class="mt-2 text-sm text-gray-600">
-      取引を複数の予算項目に分割して割り当てることができます
+      すべての予算割当を一覧で確認・管理できます
     </p>
   </div>
 
   <!-- 統計情報 -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
     <div class="bg-white overflow-hidden shadow rounded-lg">
       <div class="p-5">
         <div class="flex items-center">
@@ -334,41 +356,283 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 割当対象取引 -->
-  <div class="bg-white shadow rounded-lg overflow-hidden">
-    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-      <h3 class="text-lg leading-6 font-medium text-gray-900">
-        割当対象取引
-      </h3>
-      <p class="mt-1 max-w-2xl text-sm text-gray-500">
-        未割当または部分割当の取引一覧です
-      </p>
-    </div>
-    
-    <div class="p-4">
-      <div style="height: 400px;">
-        <!-- <Grid data={formattedTransactions} columns={transactionColumns} /> -->
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+              <span class="text-white text-sm font-medium">表</span>
+            </div>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">表示件数</dt>
+              <dd class="text-lg font-medium text-gray-900">{filteredAllocations.length}件</dd>
+            </dl>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 割当履歴 -->
+  <!-- フィルター -->  
   <div class="bg-white shadow rounded-lg overflow-hidden">
     <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
       <h3 class="text-lg leading-6 font-medium text-gray-900">
-        分割割当履歴
+        フィルター
+      </h3>
+    </div>
+    
+    <div class="p-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <!-- 助成金フィルター -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">助成金</label>
+          <select bind:value={grantFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            <option value="">すべて</option>
+            {#each uniqueGrants as grant}
+              <option value={grant}>{grant}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- 予算項目フィルター -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">予算項目</label>
+          <select bind:value={budgetItemFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            <option value="">すべて</option>
+            {#each uniqueBudgetItems as item}
+              <option value={item}>{item}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- 日付From -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">日付開始</label>
+          <input type="date" bind:value={dateFromFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+        </div>
+        
+        <!-- 日付To -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">日付終了</label>
+          <input type="date" bind:value={dateToFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+        </div>
+        
+        <!-- 金額Min -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">金額最小</label>
+          <input type="number" bind:value={amountMinFilter} placeholder="0" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+        </div>
+        
+        <!-- 金額Max -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">金額最大</label>
+          <input type="number" bind:value={amountMaxFilter} placeholder="1000000" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <button on:click={clearFilters} class="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600">
+          フィルタークリア
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メイン割当テーブル -->
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">
+        予算割当一覧
       </h3>
       <p class="mt-1 max-w-2xl text-sm text-gray-500">
-        過去の割当実績を確認できます
+        すべての予算割当をフラットに表示します
       </p>
     </div>
     
     <div class="p-4">
-      <div style="height: 400px;">
-        <!-- <Grid data={formattedAllocations} columns={allocationColumns} /> -->
-      </div>
+      {#if filteredAllocations.length > 0}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('date')}>
+                  日付 
+                  {#if sortField === 'date'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('description')}>
+                  摘要
+                  {#if sortField === 'description'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('grantName')}>
+                  助成金
+                  {#if sortField === 'grantName'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('budgetItemName')}>
+                  予算項目
+                  {#if sortField === 'budgetItemName'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('category')}>
+                  カテゴリ
+                  {#if sortField === 'category'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('amount')}>
+                  割当金額
+                  {#if sortField === 'amount'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('transactionAmount')}>
+                  取引金額
+                  {#if sortField === 'transactionAmount'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('note')}>
+                  メモ
+                  {#if sortField === 'note'}
+                    <span class="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {#each filteredAllocations as allocation}
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{allocation.date}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" title={allocation.description}>
+                    {allocation.description.length > 30 ? allocation.description.substring(0, 30) + '...' : allocation.description}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{allocation.grantName}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{allocation.budgetItemName}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{allocation.category}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">¥{allocation.amount.toLocaleString()}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">¥{allocation.transactionAmount.toLocaleString()}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" title={allocation.note}>
+                    {allocation.note.length > 20 ? allocation.note.substring(0, 20) + '...' : allocation.note}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <form method="POST" action="?/deleteAllocation" use:enhance class="inline">
+                      <input type="hidden" name="allocationId" value={allocation.id}>
+                      <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('この割当を削除しますか？')">
+                        削除
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else}
+        <div class="text-center py-12">
+          <div class="text-gray-500">
+            <p>表示する割当データがありません</p>
+            {#if grantFilter || budgetItemFilter || dateFromFilter || dateToFilter || amountMinFilter || amountMaxFilter}
+              <p class="text-sm mt-2">フィルター条件を変更してください</p>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <!-- 分割割当対象取引（縮小版） -->
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">
+        分割割当対象取引
+      </h3>
+      <p class="mt-1 max-w-2xl text-sm text-gray-500">
+        未割当または部分割当の取引一覧です（分割割当機能用）
+      </p>
+    </div>
+    
+    <div class="p-4">
+      {#if tableData.length > 0}
+        <!-- 基本HTMLテーブル -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割当状況</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割当済み金額</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">未割当金額</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">発生日</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金額</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">勘定科目</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">取引内容</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {#each tableData as row}
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    {#if row.allocationStatus === '完全割当'}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{row.allocationStatus}</span>
+                    {:else if row.allocationStatus === '部分割当'}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{row.allocationStatus}</span>
+                    {:else}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">{row.allocationStatus}</span>
+                    {/if}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    {row.totalAllocated > 0 ? `¥${row.totalAllocated.toLocaleString()}` : '-'}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    {#if row.remaining > 0}
+                      <span class="text-orange-600 font-medium">¥{row.remaining.toLocaleString()}</span>
+                    {:else if row.remaining < 0}
+                      <span class="text-red-600 font-medium">¥{row.remaining.toLocaleString()}</span>
+                    {:else}
+                      <span class="text-green-600">¥0</span>
+                    {/if}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.date}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">¥{row.amount.toLocaleString()}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.account}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.description}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      on:click={() => {
+                        const transaction = transactions.find(t => t.id === row.id);
+                        if (transaction) {
+                          selectTransactionForAllocation(transaction);
+                        }
+                      }}
+                      class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
+                      割当
+                    </button>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else}
+        <div class="text-center py-12">
+          <div class="text-gray-500">
+            <p>取引データがありません</p>
+            <p class="text-sm mt-2">freee連携ページでデータを同期してください</p>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div>

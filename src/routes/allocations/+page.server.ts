@@ -4,7 +4,9 @@ import { fail, redirect } from '@sveltejs/kit'
 
 export const load: PageServerLoad = async () => {
   try {
+    console.log('Loading allocations page...');
     // 未割当または部分割当の取引を取得
+    console.log('Fetching transactions...');
     const transactions = await prisma.transaction.findMany({
       include: {
         allocations: {
@@ -26,7 +28,10 @@ export const load: PageServerLoad = async () => {
       return totalAllocated < tx.amount // 完全割当でない取引
     })
 
+    console.log('Fetched transactions:', transactions.length);
+
     // 予算項目一覧（割当用）
+    console.log('Fetching budget items...');
     const budgetItems = await prisma.budgetItem.findMany({
       include: {
         grant: true,
@@ -42,7 +47,10 @@ export const load: PageServerLoad = async () => {
       ]
     })
 
+    console.log('Fetched budget items:', budgetItems.length);
+
     // 全ての分割割当を取得
+    console.log('Fetching all allocations...');
     const allAllocations = await prisma.allocationSplit.findMany({
       include: {
         transaction: true,
@@ -55,10 +63,38 @@ export const load: PageServerLoad = async () => {
       orderBy: { createdAt: 'desc' }
     })
 
+    console.log('Fetched all allocations:', allAllocations.length);
+
+    // bigintフィールドを文字列に変換してシリアライゼーション対応
+    console.log('Serializing transactions...');
+    const serializedTransactions = unallocatedOrPartial.map(tx => ({
+      ...tx,
+      journalNumber: tx.journalNumber.toString(),
+      detailId: tx.detailId.toString(),
+      freeDealId: tx.freeDealId ? tx.freeDealId.toString() : null,
+      allocations: tx.allocations.map(allocation => ({
+        ...allocation,
+        detailId: allocation.detailId ? allocation.detailId.toString() : null
+      }))
+    }))
+
+    const serializedAllocations = allAllocations.map(allocation => ({
+      ...allocation,
+      detailId: allocation.detailId ? allocation.detailId.toString() : null,
+      transaction: allocation.transaction ? {
+        ...allocation.transaction,
+        journalNumber: allocation.transaction.journalNumber.toString(),
+        detailId: allocation.transaction.detailId.toString(),
+        freeDealId: allocation.transaction.freeDealId ? allocation.transaction.freeDealId.toString() : null
+      } : null
+    }))
+
+    console.log('Serialization complete. Returning data...');
+    
     return {
-      transactions: unallocatedOrPartial,
+      transactions: serializedTransactions,
       budgetItems,
-      allAllocations
+      allAllocations: serializedAllocations
     }
   } catch (error) {
     console.error('Allocations loading error:', error)
@@ -83,18 +119,27 @@ export const actions: Actions = {
 
       const allocations = JSON.parse(allocationsJson)
 
+      // 取引IDから detailId を取得
+      const transaction = await prisma.transaction.findUnique({
+        where: { id: transactionId }
+      })
+
+      if (!transaction) {
+        return fail(404, { error: 'Transaction not found' })
+      }
+
       // トランザクション内で分割割当を更新
       await prisma.$transaction(async (tx) => {
         // 既存の分割割当を削除
         await tx.allocationSplit.deleteMany({
-          where: { transactionId }
+          where: { detailId: transaction.detailId }
         })
 
         // 新しい分割割当を作成
         for (const allocation of allocations) {
           await tx.allocationSplit.create({
             data: {
-              transactionId,
+              detailId: transaction.detailId,
               budgetItemId: allocation.budgetItemId,
               amount: allocation.amount,
               note: allocation.note || null

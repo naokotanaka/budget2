@@ -21,39 +21,11 @@
         
         <div class="flex items-center space-x-4">
           <a 
-            href={createRouteUrl.dashboard()} 
-            class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.DASHBOARD) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
-            data-sveltekit-preload-data="hover"
-          >
-            ダッシュボード
-          </a>
-          <a 
-            href={createRouteUrl.transactions()} 
-            class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.TRANSACTIONS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
-            data-sveltekit-preload-data="hover"
-          >
-            取引一覧
-          </a>
-          <a 
             href={createRouteUrl.transactionAllocations()} 
             class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.TRANSACTION_ALLOCATIONS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
             data-sveltekit-preload-data="hover"
           >
             取引割当一覧
-          </a>
-          <a 
-            href={createRouteUrl.budgetItems()} 
-            class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.BUDGET_ITEMS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
-            data-sveltekit-preload-data="hover"
-          >
-            予算項目
-          </a>
-          <a 
-            href={createRouteUrl.allocations()} 
-            class="px-3 py-2 rounded-md text-sm font-medium {isActive(ROUTES.ALLOCATIONS) ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}"
-            data-sveltekit-preload-data="hover"
-          >
-            分割割当
           </a>
           <a 
             href={createRouteUrl.grants()} 

@@ -224,16 +224,11 @@
         minWidth: 120,
         formatter: function(cell) {
           const row = cell.getRow().getData();
-          // Wallet Txnsからの詳細説明を優先表示
+          // Wallet Txnsからの詳細説明のみ表示
           if (row.wallet_description) {
             return `<span class="text-indigo-600 font-medium" title="Wallet Txnsより">${row.wallet_description}</span>`;
           }
-          // 明細の説明を次に表示
-          if (row.details && row.details[0] && row.details[0].description) {
-            return row.details[0].description;
-          }
-          // その他のフォールバック
-          return row.description || row.ref_number || '';
+          return '';
         },
         sorter: "string",
         headerSort: true
