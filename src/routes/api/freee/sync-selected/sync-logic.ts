@@ -5,6 +5,50 @@ import {
   hasTransactionChanged 
 } from './helpers';
 import { logger, PerformanceTimer } from './logger';
+import { FreeeAPIClient } from '$lib/freee/client';
+import { prisma } from '$lib/database';
+
+// freee API設定を取得
+function getFreeeConfig() {
+  return {
+    clientId: process.env.FREEE_CLIENT_ID || '',
+    clientSecret: process.env.FREEE_CLIENT_SECRET || '',
+    redirectUri: process.env.FREEE_REDIRECT_URI || 'https://nagaiku.top/budget2/auth/freee/callback',
+    baseUrl: process.env.FREEE_BASE_URL || 'https://api.freee.co.jp'
+  };
+}
+
+/**
+ * 会社IDとアクセストークンを取得
+ */
+async function getFreeeCredentials(): Promise<{ companyId: number; accessToken: string } | null> {
+  try {
+    const tokenRecord = await prisma.freeeToken.findFirst({
+      orderBy: { updatedAt: 'desc' }
+    });
+    
+    if (!tokenRecord || new Date() >= tokenRecord.expiresAt) {
+      logger.error('freee トークンが見つからないか期限切れです');
+      return null;
+    }
+    
+    const client = new FreeeAPIClient(getFreeeConfig());
+    const companies = await client.getCompanies(tokenRecord.accessToken);
+    
+    if (companies.length === 0) {
+      logger.error('アクセス可能な会社が見つかりません');
+      return null;
+    }
+    
+    return {
+      companyId: companies[0].id,
+      accessToken: tokenRecord.accessToken
+    };
+  } catch (error) {
+    logger.error('freee認証情報取得エラー:', error);
+    return null;
+  }
+}
 
 /**
  * 同期処理の統計情報
@@ -37,10 +81,11 @@ export interface ProcessResult {
 export async function processSingleDeal(
   deal: any,
   existingTransaction: Transaction | undefined,
-  tx: any
+  tx: any,
+  tagMap?: Map<number, string>
 ): Promise<ProcessResult> {
   try {
-    const newTransactionData = createTransactionData(deal);
+    const newTransactionData = createTransactionData(deal, tagMap);
     const freeDealId = deal.id.toString();
 
     if (existingTransaction) {
@@ -123,6 +168,23 @@ export async function executeSync(
   const timer = new PerformanceTimer(`同期処理 ${deals.length}件`);
   
   try {
+    // タグマップを取得（同期処理の前に一度だけ取得）
+    let tagMap: Map<number, string> | undefined;
+    try {
+      const credentials = await getFreeeCredentials();
+      if (credentials) {
+        const client = new FreeeAPIClient(getFreeeConfig());
+        const tags = await client.getTags(credentials.accessToken, credentials.companyId);
+        tagMap = new Map(tags.map(tag => [String(tag.id), tag.name]));
+        logger.info(`タグマップ取得: ${tagMap.size}件`);
+      } else {
+        logger.warn('freee認証情報が取得できないため、タグマップなしで処理を続行');
+      }
+    } catch (error) {
+      logger.error('タグマップ取得エラー:', error);
+      logger.warn('タグマップなしで処理を続行');
+    }
+    
     const result = await prisma.$transaction(async (tx) => {
       logger.info(`同期開始: ${deals.length}件の取引を処理`);
       
@@ -166,7 +228,7 @@ export async function executeSync(
         
         logger.syncDetail(`処理中: freeDealId ${dealIdStr}`);
         
-        const result = await processSingleDeal(deal, existingTransaction, tx);
+        const result = await processSingleDeal(deal, existingTransaction, tx, tagMap);
         
         switch (result.type) {
           case 'created':

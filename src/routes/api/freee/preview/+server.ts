@@ -113,7 +113,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
       ),
       fetch(
-        `${FREEE_BASE_URL}/api/1/tags?company_id=${selectedCompanyId}`,
+        `${FREEE_BASE_URL}/api/1/tags?company_id=${selectedCompanyId}&limit=3000`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -134,7 +134,8 @@ export const POST: RequestHandler = async ({ request }) => {
     const sectionMap = new Map<number, string>();
     const partnerMap = new Map<number, string>();
     const itemMap = new Map<number, string>();
-    const tagMap = new Map<number, string>();
+    // タグマップは文字列キーで作成（freee APIのtag_idsは数値だが、統一的に文字列として扱う）
+    const tagMap = new Map<string, string>();
     
     if (accountItemsData.account_items) {
       accountItemsData.account_items.forEach((item: any) => {
@@ -166,7 +167,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     if (tagsData.tags) {
       tagsData.tags.forEach((tag: any) => {
-        tagMap.set(tag.id, tag.name);
+        tagMap.set(String(tag.id), tag.name);
       });
       console.log(`タグマスタ取得完了: ${tagMap.size}件`);
     }
@@ -283,7 +284,7 @@ export const POST: RequestHandler = async ({ request }) => {
         // タグ名を補完（deal レベル）
         if (deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0) {
           const tagNames = deal.tag_ids
-            .map((tagId: number) => tagMap.get(tagId))
+            .map((tagId: number) => tagMap.get(String(tagId)))
             .filter(Boolean); // undefined/null を除外
           deal.tag_names = tagNames.join(', ');
           if (tagNames.length > 0) {
@@ -317,7 +318,7 @@ export const POST: RequestHandler = async ({ request }) => {
             // タグ名を補完（detail レベル）
             if (detail.tag_ids && Array.isArray(detail.tag_ids) && detail.tag_ids.length > 0) {
               const tagNames = detail.tag_ids
-                .map((tagId: number) => tagMap.get(tagId))
+                .map((tagId: number) => tagMap.get(String(tagId)))
                 .filter(Boolean);
               detail.tag_names = tagNames.join(', ');
             } else {

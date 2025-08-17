@@ -177,7 +177,7 @@ export function hasTransactionChanged(existing: Transaction, newData: Transactio
 }
 
 // freee dealからトランザクションデータを生成する関数
-export function createTransactionDataFromDeal(deal: FreeDeal): TransactionData {
+export function createTransactionDataFromDeal(deal: FreeDeal, tagMap?: Map<number, string>): TransactionData {
   // 明細データから金額と勘定科目を取得
   let amount = 0;
   let accountItemName = '不明';
@@ -197,15 +197,28 @@ export function createTransactionDataFromDeal(deal: FreeDeal): TransactionData {
     ? safeBigInt(deal.details[0].id)
     : safeBigInt(deal.id);
 
+  // タグIDsからタグ名を取得（メモタグの正しい処理）
+  let memoTags: string | null = null;
+  if (deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0 && tagMap) {
+    // tag_idsからタグ名を取得し、複数ある場合はカンマ区切りで結合
+    const tagNames = deal.tag_ids
+      .map((tagId: number) => tagMap.get(tagId))
+      .filter((tagName: string | undefined) => tagName !== undefined);
+    
+    if (tagNames.length > 0) {
+      memoTags = tagNames.join(', ');
+    }
+  }
+
   return {
     journalNumber: safeBigInt(deal.id),
     journalLineNumber: 1,
     date: new Date(deal.issue_date),
-    description: normalizeString(deal.ref_number || deal.memo || description || ''),
+    description: normalizeString(deal.ref_number || description || ''),
     amount: amount,
     account: normalizeString(accountItemName),
     supplier: normalizeString(deal.partner_name),
-    memo: normalizeString(deal.memo),
+    memo: normalizeString(memoTags),
     freeDealId: safeBigInt(deal.id),
     detailId: detailIdValue
   };

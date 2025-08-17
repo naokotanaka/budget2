@@ -120,7 +120,7 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
 /**
  * freee dealデータからトランザクションデータを生成
  */
-export function createTransactionData(deal: any) {
+export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
   // 明細データから金額と勘定科目を取得
   let amount = 0;
   let accountItemId = null;
@@ -146,15 +146,44 @@ export function createTransactionData(deal: any) {
   const resolvedPartnerName = deal.partner_name || null;
   const resolvedAccountName = accountItemName;
   
+  // タグIDsからタグ名を取得（メモタグの正しい処理）
+  let memoTags: string | null = null;
+  
+  // まずdealレベルのタグを確認
+  if (deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0 && tagMap) {
+    const tagNames = deal.tag_ids
+      .map((tagId: number) => tagMap.get(String(tagId)))
+      .filter((tagName: string | undefined) => tagName !== undefined);
+    
+    if (tagNames.length > 0) {
+      memoTags = tagNames.join(', ');
+    }
+  }
+  
+  // 明細レベルのタグも確認（freee APIは明細レベルにもタグを持つ場合がある）
+  if (!memoTags && deal.details && deal.details.length > 0) {
+    const detail = deal.details[0];
+    if (detail.tag_ids && Array.isArray(detail.tag_ids) && detail.tag_ids.length > 0 && tagMap) {
+      const tagNames = detail.tag_ids
+        .map((tagId: number) => tagMap.get(String(tagId)))
+        .filter((tagName: string | undefined) => tagName !== undefined);
+      
+      if (tagNames.length > 0) {
+        memoTags = tagNames.join(', ');
+      }
+    }
+  }
+  
   return {
     journalNumber: safeBigInt(deal.id),
     journalLineNumber: 1,
     date: new Date(deal.issue_date),
-    description: normalizeString(deal.ref_number || deal.memo || description || ''),
+    description: normalizeString(deal.ref_number || description || ''),
     amount: amount,
     account: normalizeString(resolvedAccountName),
     supplier: normalizeString(resolvedPartnerName),
-    memo: normalizeString(deal.memo),
+    memo: normalizeString(deal.memo),  // memoはdeal.memoから取得
+    tags: normalizeString(memoTags),    // tagsカラムにタグ名を保存
     freeDealId: safeBigInt(deal.id),
     detailId: detailIdValue
   };

@@ -757,7 +757,8 @@ export class FreeeAPIClient {
 
   // タグ（メモタグ）情報を取得
   async getTags(accessToken: string, companyId: number): Promise<FreeeTag[]> {
-    const url = `${this.config.baseUrl}/api/1/tags?company_id=${companyId}`;
+    // freee APIのタグは最大3000件まで取得可能
+    const url = `${this.config.baseUrl}/api/1/tags?company_id=${companyId}&limit=3000`;
     console.log('=== freee Tags API ===');
     console.log('URL:', url);
     

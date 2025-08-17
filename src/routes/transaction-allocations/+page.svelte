@@ -100,12 +100,76 @@
   $: sortField = sortFields.length > 0 ? sortFields[0].field : 'grantName';
   $: sortDirection = sortFields.length > 0 ? sortFields[0].direction : 'asc';
   
-  // フィルター状態
+  // フィルター状態（廃止予定）
   let filterStatus = DEFAULT_TRANSACTION_STATUS;
-  let filterGrant = ''; // 助成金フィルター
-  let searchQuery = '';
-  let startDate = '';
-  let endDate = '';
+  let filterGrant = ''; // 助成金フィルター（廃止予定）
+  let searchQuery = ''; // 検索（廃止予定）
+  let startDate = ''; // 開始日（廃止予定）
+  let endDate = ''; // 終了日（廃止予定）
+  
+  // ヘッダーフィルター状態（初期値は後で設定）
+  let headerFilters = {
+    primaryGrantName: '',
+    primaryBudgetItemName: '',
+    account: '',
+    department: '',
+    supplier: '',
+    item: '',
+    description: '',
+    detailDescription: '',
+    memo: '',
+    tags: '',
+    minAmount: '',
+    maxAmount: '',
+    startDate: '',
+    endDate: ''
+  };
+  
+  // チェックボックス式フィルター状態
+  let checkboxFilters = {
+    allocationStatus: new Set(['unallocated', 'partial', 'full']),
+    account: new Set(),
+    department: new Set(),
+    supplier: new Set(),
+    item: new Set(),
+    primaryGrantName: new Set(),
+    primaryBudgetItemName: new Set()
+  };
+  
+  // チェックボックスフィルターの表示状態
+  let showCheckboxFilter = {
+    allocationStatus: false,
+    account: false,
+    department: false,
+    supplier: false,
+    item: false,
+    primaryGrantName: false,
+    primaryBudgetItemName: false
+  };
+  
+  // 検索とヒントの表示状態
+  let showSearch = false;
+  let showHints = false;
+  
+  // フィルターの一意な値を取得
+  $: uniqueValues = {
+    account: [...new Set(transactionData.map(t => t.account).filter(v => v))],
+    department: [...new Set(transactionData.map(t => t.department).filter(v => v))],
+    supplier: [...new Set(transactionData.map(t => t.supplier).filter(v => v))],
+    item: [...new Set(transactionData.map(t => t.item).filter(v => v))],
+    primaryGrantName: [...new Set(transactionData.map(t => t.primaryGrantName).filter(v => v))],
+    primaryBudgetItemName: [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))]
+  };
+  
+  // 初期化時にチェックボックスフィルターを設定
+  $: if (uniqueValues.account.length > 0 && checkboxFilters.account.size === 0) {
+    checkboxFilters.account = new Set(uniqueValues.account);
+    checkboxFilters.department = new Set(uniqueValues.department);
+    checkboxFilters.supplier = new Set(uniqueValues.supplier);
+    checkboxFilters.item = new Set(uniqueValues.item);
+    checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
+    checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
+  }
   
   // モーダル状態
   let showAllocationModal = false;
@@ -358,6 +422,29 @@
     };
   });
   
+  // 金額と日付の範囲を計算して初期値を設定
+  $: if (transactionData.length > 0) {
+    // 金額の初期値設定
+    if (!headerFilters.minAmount && !headerFilters.maxAmount) {
+      const amounts = transactionData.map(t => t.amount).filter(a => a != null && !isNaN(a));
+      if (amounts.length > 0) {
+        headerFilters.minAmount = Math.min(...amounts).toString();
+        headerFilters.maxAmount = Math.max(...amounts).toString();
+      }
+    }
+    
+    // 日付の初期値設定
+    if (!headerFilters.startDate && !headerFilters.endDate) {
+      const dates = transactionData.map(t => t.dateObj).filter(d => d instanceof Date && !isNaN(d.getTime()));
+      if (dates.length > 0) {
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        headerFilters.startDate = minDate.toISOString().split('T')[0];
+        headerFilters.endDate = maxDate.toISOString().split('T')[0];
+      }
+    }
+  }
+  
   // データ更新時の処理（invalidateAll等による更新時のみ）
   let prevTransactions = data.transactions;
   $: if (data.transactions && data.transactions !== prevTransactions) {
@@ -412,21 +499,18 @@
   $: startDateObj = startDate ? new Date(startDate) : null;
   $: endDateObj = endDate ? new Date(endDate) : null;
   
-  // フィルタリング処理（シンプル分離）
+  // フィルタリング処理（ヘッダーフィルター対応）
   $: filteredTransactionData = transactionData.filter(row => {
-    // 割当状況フィルター
+    // 既存のフィルター
     if (filterStatus === 'allocated' && row.allocationStatus !== 'full') return false;
     if (filterStatus === 'unallocated' && row.allocationStatus !== 'unallocated') return false;
     if (filterStatus === 'partial' && row.allocationStatus !== 'partial') return false;
     
-    // 助成金フィルター
     if (filterGrant && !row.allocations.some(alloc => alloc.budgetItem.grantId.toString() === filterGrant)) return false;
     
-    // 期間フィルター
     if (startDateObj && row.dateObj < startDateObj) return false;
     if (endDateObj && row.dateObj > endDateObj) return false;
     
-    // 検索クエリフィルター
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const searchText = (
@@ -436,8 +520,36 @@
         row.journalNumber + ' ' +
         row.account.toLowerCase()
       );
-      return searchText.includes(query);
+      if (!searchText.includes(query)) return false;
     }
+    
+    // ヘッダーフィルター（テキスト）
+    if (headerFilters.primaryGrantName && !row.primaryGrantName.toLowerCase().includes(headerFilters.primaryGrantName.toLowerCase())) return false;
+    if (headerFilters.primaryBudgetItemName && !row.primaryBudgetItemName.toLowerCase().includes(headerFilters.primaryBudgetItemName.toLowerCase())) return false;
+    if (headerFilters.account && !row.account.toLowerCase().includes(headerFilters.account.toLowerCase())) return false;
+    if (headerFilters.department && !row.department.toLowerCase().includes(headerFilters.department.toLowerCase())) return false;
+    if (headerFilters.supplier && !row.supplier.toLowerCase().includes(headerFilters.supplier.toLowerCase())) return false;
+    if (headerFilters.item && !row.item.toLowerCase().includes(headerFilters.item.toLowerCase())) return false;
+    if (headerFilters.description && !row.description.toLowerCase().includes(headerFilters.description.toLowerCase())) return false;
+    if (headerFilters.detailDescription && !row.detailDescription.toLowerCase().includes(headerFilters.detailDescription.toLowerCase())) return false;
+    if (headerFilters.tags && !row.tags.toLowerCase().includes(headerFilters.tags.toLowerCase())) return false;
+    
+    // ヘッダーフィルター（金額範囲）
+    if (headerFilters.minAmount && row.amount < parseFloat(headerFilters.minAmount)) return false;
+    if (headerFilters.maxAmount && row.amount > parseFloat(headerFilters.maxAmount)) return false;
+    
+    // ヘッダーフィルター（日付範囲）
+    if (headerFilters.startDate && row.dateObj < new Date(headerFilters.startDate)) return false;
+    if (headerFilters.endDate && row.dateObj > new Date(headerFilters.endDate)) return false;
+    
+    // チェックボックスフィルター
+    if (!checkboxFilters.allocationStatus.has(row.allocationStatus)) return false;
+    if (row.account && !checkboxFilters.account.has(row.account)) return false;
+    if (row.department && !checkboxFilters.department.has(row.department)) return false;
+    if (row.supplier && !checkboxFilters.supplier.has(row.supplier)) return false;
+    if (row.item && !checkboxFilters.item.has(row.item)) return false;
+    if (row.primaryGrantName && !checkboxFilters.primaryGrantName.has(row.primaryGrantName)) return false;
+    if (row.primaryBudgetItemName && !checkboxFilters.primaryBudgetItemName.has(row.primaryBudgetItemName)) return false;
     
     return true;
   });
@@ -787,6 +899,156 @@
     };
   }
   
+  // ヘッダーフィルター管理機能
+  function clearAllHeaderFilters() {
+    // 金額範囲をデータから再計算
+    let minAmount = '';
+    let maxAmount = '';
+    let startDate = '';
+    let endDate = '';
+    
+    if (transactionData.length > 0) {
+      // 金額の範囲
+      const amounts = transactionData.map(t => t.amount).filter(a => a != null && !isNaN(a));
+      if (amounts.length > 0) {
+        minAmount = Math.min(...amounts).toString();
+        maxAmount = Math.max(...amounts).toString();
+      }
+      
+      // 日付の範囲
+      const dates = transactionData.map(t => t.dateObj).filter(d => d instanceof Date && !isNaN(d.getTime()));
+      if (dates.length > 0) {
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        startDate = minDate.toISOString().split('T')[0];
+        endDate = maxDate.toISOString().split('T')[0];
+      }
+    }
+    
+    headerFilters = {
+      primaryGrantName: '',
+      primaryBudgetItemName: '',
+      account: '',
+      department: '',
+      supplier: '',
+      item: '',
+      description: '',
+      detailDescription: '',
+      memo: '',
+      tags: '',
+      minAmount: minAmount,  // データの最小値
+      maxAmount: maxAmount,  // データの最大値
+      startDate: startDate,  // データの開始日
+      endDate: endDate       // データの終了日
+    };
+    
+    // チェックボックスフィルターもリセット
+    checkboxFilters.allocationStatus = new Set(['unallocated', 'partial', 'full']);
+    checkboxFilters.account = new Set(uniqueValues.account);
+    checkboxFilters.department = new Set(uniqueValues.department);
+    checkboxFilters.supplier = new Set(uniqueValues.supplier);
+    checkboxFilters.item = new Set(uniqueValues.item);
+    checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
+    checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
+  }
+  
+  function toggleAllCheckboxes(field: string, selectAll: boolean) {
+    if (selectAll) {
+      checkboxFilters[field] = new Set(uniqueValues[field] || ['unallocated', 'partial', 'full']);
+    } else {
+      checkboxFilters[field] = new Set();
+    }
+    checkboxFilters = checkboxFilters; // リアクティブ更新
+  }
+  
+  function toggleCheckboxValue(field: string, value: string) {
+    if (checkboxFilters[field].has(value)) {
+      checkboxFilters[field].delete(value);
+    } else {
+      checkboxFilters[field].add(value);
+    }
+    checkboxFilters = checkboxFilters; // リアクティブ更新
+  }
+  
+  // フィルター状態のローカルストレージ保存
+  function saveFilterState() {
+    if (browser) {
+      const filterState = {
+        headerFilters,
+        checkboxFilters: {
+          allocationStatus: Array.from(checkboxFilters.allocationStatus),
+          account: Array.from(checkboxFilters.account),
+          department: Array.from(checkboxFilters.department),
+          supplier: Array.from(checkboxFilters.supplier),
+          item: Array.from(checkboxFilters.item),
+          primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
+          primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
+        }
+      };
+      localStorage.setItem('transaction-allocation-filters', JSON.stringify(filterState));
+    }
+  }
+  
+  // フィルター状態のローカルストレージ復元
+  function loadFilterState() {
+    if (browser) {
+      const saved = localStorage.getItem('transaction-allocation-filters');
+      if (saved) {
+        try {
+          const filterState = JSON.parse(saved);
+          // 保存された状態を復元（金額範囲も含む）
+          headerFilters = { ...headerFilters, ...filterState.headerFilters };
+          if (filterState.checkboxFilters) {
+            checkboxFilters.allocationStatus = new Set(filterState.checkboxFilters.allocationStatus);
+            checkboxFilters.account = new Set(filterState.checkboxFilters.account);
+            checkboxFilters.department = new Set(filterState.checkboxFilters.department);
+            checkboxFilters.supplier = new Set(filterState.checkboxFilters.supplier);
+            checkboxFilters.item = new Set(filterState.checkboxFilters.item);
+            checkboxFilters.primaryGrantName = new Set(filterState.checkboxFilters.primaryGrantName);
+            checkboxFilters.primaryBudgetItemName = new Set(filterState.checkboxFilters.primaryBudgetItemName);
+          }
+        } catch (e) {
+          console.warn('フィルター状態の復元に失敗しました:', e);
+        }
+      }
+    }
+  }
+  
+  // データから金額の範囲を計算（プレースホルダー用）
+  $: amountRange = (() => {
+    if (transactionData.length > 0) {
+      const amounts = transactionData.map(t => t.amount).filter(a => a != null && !isNaN(a));
+      if (amounts.length > 0) {
+        return {
+          min: Math.min(...amounts),
+          max: Math.max(...amounts)
+        };
+      }
+    }
+    return { min: 0, max: 0 };
+  })();
+  
+  // データから日付の範囲を計算（プレースホルダー用）
+  $: dateRange = (() => {
+    if (transactionData.length > 0) {
+      const dates = transactionData.map(t => t.dateObj).filter(d => d instanceof Date && !isNaN(d.getTime()));
+      if (dates.length > 0) {
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        return {
+          start: minDate.toISOString().split('T')[0],
+          end: maxDate.toISOString().split('T')[0]
+        };
+      }
+    }
+    return { start: '', end: '' };
+  })();
+  
+  // フィルター状態が変更されたときに保存
+  $: if (browser && (headerFilters || checkboxFilters)) {
+    saveFilterState();
+  }
+
   // フィルター結果をすべて選択
   function selectAllFiltered() {
     sortedTransactionData.forEach(row => {
@@ -894,6 +1156,28 @@
     }, 50);
   }
   
+  // チェックボックスフィルターのドロップダウンを閉じる
+  function closeAllCheckboxDropdowns() {
+    showCheckboxFilter = {
+      allocationStatus: false,
+      account: false,
+      department: false,
+      supplier: false,
+      item: false,
+      primaryGrantName: false,
+      primaryBudgetItemName: false
+    };
+  }
+  
+  // ドキュメントクリックでドロップダウンを閉じる
+  function handleDocumentClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    // ドロップダウン内のクリックでない場合は閉じる
+    if (!target.closest('.relative')) {
+      closeAllCheckboxDropdowns();
+    }
+  }
+
   // キーボードイベントハンドラー
   function handleKeyDown(e: KeyboardEvent) {
     // 入力フィールドにフォーカスがある場合は無効
@@ -990,12 +1274,15 @@
   onMount(() => {
     if (browser) {
       window.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('click', handleDocumentClick);
+      loadFilterState(); // フィルター状態を復元
     }
   });
   
   onDestroy(() => {
     if (browser) {
       window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('click', handleDocumentClick);
     }
   });
   
@@ -1328,47 +1615,27 @@
           ☰
         </button>
         
-        <!-- 検索 -->
-        <input
-          type="text"
-          placeholder="検索（摘要、取引先、仕訳番号、勘定科目）"
-          class="input input-sm input-bordered w-64"
-          bind:value={searchQuery}
-        />
-        
-        <!-- 期間フィルター -->
-        <div class="flex items-center gap-1">
-          <label class="text-sm text-gray-600">期間:</label>
-          <input
-            type="date"
-            class="input input-sm input-bordered w-36"
-            bind:value={startDate}
-          />
-          <span class="text-sm text-gray-600">〜</span>
-          <input
-            type="date"
-            class="input input-sm input-bordered w-36"
-            bind:value={endDate}
-          />
-        </div>
-        
-        <!-- 割当状況フィルター -->
-        <select class="select select-sm select-bordered" bind:value={filterStatus}>
-          <option value="all">すべて</option>
-          <option value="unallocated">未割当</option>
-          <option value="partial">部分割当</option>
-          <option value="allocated">完全割当</option>
-        </select>
-        
-        <!-- 助成金フィルター -->
-        <select class="select select-sm select-bordered" bind:value={filterGrant}>
-          <option value="">助成金選択</option>
-          {#each data.grants as grant}
-            <option value={grant.id.toString()}>{grant.name}</option>
-          {/each}
-        </select>
-        
         <div class="flex-1"></div>
+        
+        <!-- 検索ボタン -->
+        <button 
+          class="btn btn-sm btn-outline gap-1"
+          class:btn-active={showSearch}
+          on:click={() => showSearch = !showSearch}
+          title="検索機能を表示/非表示"
+        >
+          🔍 検索
+        </button>
+        
+        <!-- ヒントボタン -->
+        <button 
+          class="btn btn-sm btn-outline gap-1"
+          class:btn-active={showHints}
+          on:click={() => showHints = !showHints}
+          title="操作ヒントを表示/非表示"
+        >
+          💡 ヒント
+        </button>
         
         <!-- 一括選択ボタン -->
         <div class="flex items-center gap-2">
@@ -1436,90 +1703,53 @@
         <div class="text-sm text-gray-600">
           フィルター: {sortedTransactionData.length}件 / {formatCurrency(filteredTotal)}
         </div>
-      </div>
-      
-      <!-- 操作ヒント -->
-      <div class="px-4 py-1 bg-yellow-50 border-t text-xs text-gray-600 flex items-center gap-4">
-        <span>💡 ヒント:</span>
-        <span>ダブルクリック または Enter: 詳細表示</span>
-        <span>Space: 選択/解除</span>
-        <span>↑↓: 移動</span>
-        <span>Esc: パネルを閉じる</span>
-      </div>
-      
-      <!-- ページネーションコントロール -->
-      <div class="flex items-center justify-between gap-4 px-4 py-2 bg-gray-50 border-t">
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-600">表示件数:</label>
-          <select 
-            class="select select-sm select-bordered w-20"
-            bind:value={itemsPerPage}
-            on:change={handleItemsPerPageChange}
-          >
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-            <option value={500}>500</option>
-          </select>
-          <span class="text-sm text-gray-600 ml-2">
-            {startIndex + 1}-{endIndex}件 / 全{sortedTransactionData.length}件
-          </span>
-        </div>
         
-        <div class="flex items-center gap-1">
-          <button 
-            class="btn btn-sm btn-outline"
-            on:click={goToFirstPage}
-            disabled={currentPage === 1}
-            title="最初のページ"
-          >
-            ≪
-          </button>
-          <button 
-            class="btn btn-sm btn-outline"
-            on:click={goToPreviousPage}
-            disabled={currentPage === 1}
-            title="前のページ"
-          >
-            ＜
-          </button>
-          
-          <div class="flex items-center gap-1 mx-2">
-            <span class="text-sm text-gray-600">ページ</span>
-            <input 
-              type="number" 
-              class="input input-sm input-bordered w-16 text-center"
-              bind:value={pageInputValue}
-              on:blur={handlePageInput}
-              on:keydown={(e) => e.key === 'Enter' && handlePageInput()}
-              min="1"
-              max={totalPages}
+        <!-- フィルタークリアボタン -->
+        <button 
+          class="btn btn-sm btn-outline btn-warning gap-1"
+          on:click={clearAllHeaderFilters}
+          title="すべてのヘッダーフィルターをクリア"
+        >
+          🗑 フィルタークリア
+        </button>
+      </div>
+      
+      <!-- 検索バー（条件付き表示） -->
+      {#if showSearch}
+        <div class="px-4 py-2 bg-blue-50 border-t">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold">🔍 クイック検索:</span>
+            <input
+              type="text"
+              placeholder="取引内容、摘要、取引先、仕訳番号、勘定科目などで検索..."
+              class="input input-sm input-bordered flex-1"
+              bind:value={searchQuery}
             />
-            <span class="text-sm text-gray-600">/ {totalPages}</span>
+            {#if searchQuery}
+              <button 
+                class="btn btn-sm btn-ghost"
+                on:click={() => searchQuery = ''}
+                title="検索をクリア"
+              >
+                ✕
+              </button>
+            {/if}
           </div>
-          
-          <button 
-            class="btn btn-sm btn-outline"
-            on:click={goToNextPage}
-            disabled={currentPage === totalPages}
-            title="次のページ"
-          >
-            ＞
-          </button>
-          <button 
-            class="btn btn-sm btn-outline"
-            on:click={goToLastPage}
-            disabled={currentPage === totalPages}
-            title="最後のページ"
-          >
-            ≫
-          </button>
         </div>
-        
-        <div class="text-sm text-gray-600">
-          全{totalPages}ページ
+      {/if}
+      
+      <!-- 操作ヒント（条件付き表示） -->
+      {#if showHints}
+        <div class="px-4 py-1 bg-yellow-50 border-t text-xs text-gray-600 flex items-center gap-4">
+          <span>💡 ヒント:</span>
+          <span>ダブルクリック または Enter: 詳細表示</span>
+          <span>Space: 選択/解除</span>
+          <span>↑↓: 移動</span>
+          <span>Esc: パネルを閉じる</span>
+          <span>Shift+クリック: 範囲選択</span>
         </div>
-      </div>
+      {/if}
+      
     </div>
     
     <!-- データグリッド表示エリア -->
@@ -1527,6 +1757,7 @@
       <div class="min-w-max">
         <table class="table table-compact w-full relative">
           <thead class="sticky top-0 bg-gray-100 border-b-2 border-gray-300 z-30">
+          <!-- ヘッダー行 -->
           <tr>
             <th class="w-8 bg-gray-100 sticky left-0 z-40 border-r">
               <input 
@@ -1707,9 +1938,335 @@
               </div>
             </th>
             <th class="bg-gray-100 text-[11px] font-semibold text-gray-700">取引内容</th>
-            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">メモ・タグ</th>
-            <th class="w-16 bg-gray-100 text-[11px] font-semibold text-gray-700 text-center">📎</th>
-            <th class="w-16 bg-gray-100 text-[11px] font-semibold text-gray-700 text-center">操作</th>
+            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">メモタグ</th>
+          </tr>
+          
+          <!-- フィルター行 -->
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <td class="w-8 bg-gray-50 sticky left-0 z-40 border-r p-1">
+              <button
+                class="btn btn-xs btn-ghost tooltip tooltip-right"
+                data-tip="フィルタークリア"
+                on:click={clearAllHeaderFilters}
+              >
+                🗑
+              </button>
+            </td>
+            
+            <!-- 割当助成金フィルター (チェックボックス式) -->
+            <td class="w-24 bg-gray-50 sticky left-8 z-40 border-r p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.primaryGrantName = !showCheckboxFilter.primaryGrantName}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.primaryGrantName.size === uniqueValues.primaryGrantName.length ? '全て' : 
+                     checkboxFilters.primaryGrantName.size === 0 ? 'なし' : 
+                     `${checkboxFilters.primaryGrantName.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.primaryGrantName}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-48 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('primaryGrantName', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('primaryGrantName', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.primaryGrantName as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.primaryGrantName.has(value)}
+                            on:change={() => toggleCheckboxValue('primaryGrantName', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 予算項目フィルター (チェックボックス式) -->
+            <td class="w-24 bg-gray-50 sticky left-32 z-40 border-r p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.primaryBudgetItemName = !showCheckboxFilter.primaryBudgetItemName}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.primaryBudgetItemName.size === uniqueValues.primaryBudgetItemName.length ? '全て' : 
+                     checkboxFilters.primaryBudgetItemName.size === 0 ? 'なし' : 
+                     `${checkboxFilters.primaryBudgetItemName.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.primaryBudgetItemName}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-48 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('primaryBudgetItemName', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('primaryBudgetItemName', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.primaryBudgetItemName as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.primaryBudgetItemName.has(value)}
+                            on:change={() => toggleCheckboxValue('primaryBudgetItemName', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 割当額フィルター (範囲) -->
+            <td class="w-24 bg-gray-50 sticky left-56 z-40 border-r p-1">
+              <!-- 割当額は複雑なので通常フィルターに委ねる -->
+              <span class="text-xs text-gray-400">-</span>
+            </td>
+            
+            <!-- 発生日フィルター (範囲) -->
+            <td class="w-20 bg-gray-50 sticky left-80 z-40 border-r p-1">
+              <div class="flex flex-col gap-1">
+                <input
+                  type="date"
+                  class="input input-sm w-full text-xs"
+                  bind:value={headerFilters.startDate}
+                  min={dateRange.start}
+                  max={dateRange.end}
+                  title={`開始日 (${dateRange.start || '未設定'})`}
+                />
+                <input
+                  type="date"
+                  class="input input-sm w-full text-xs"
+                  bind:value={headerFilters.endDate}
+                  min={dateRange.start}
+                  max={dateRange.end}
+                  title={`終了日 (${dateRange.end || '未設定'})`}
+                />
+              </div>
+            </td>
+            
+            <!-- 金額フィルター (範囲) -->
+            <td class="w-24 bg-gray-50 sticky z-40 border-r-2 border-gray-300 p-1" style="left: 25rem">
+              <div class="flex flex-col gap-1">
+                <input
+                  type="number"
+                  class="input input-sm w-full text-xs"
+                  bind:value={headerFilters.minAmount}
+                  placeholder={amountRange.min ? `最小: ${amountRange.min.toLocaleString()}` : '最小'}
+                />
+                <input
+                  type="number"
+                  class="input input-sm w-full text-xs"
+                  bind:value={headerFilters.maxAmount}
+                  placeholder={amountRange.max ? `最大: ${amountRange.max.toLocaleString()}` : '最大'}
+                />
+              </div>
+            </td>
+            
+            <!-- 勘定科目フィルター (チェックボックス式) -->
+            <td class="w-28 bg-gray-50 p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.account = !showCheckboxFilter.account}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.account.size === uniqueValues.account.length ? '全て' : 
+                     checkboxFilters.account.size === 0 ? 'なし' : 
+                     `${checkboxFilters.account.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.account}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-48 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('account', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('account', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.account as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.account.has(value)}
+                            on:change={() => toggleCheckboxValue('account', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 部門フィルター (チェックボックス式) -->
+            <td class="w-20 bg-gray-50 p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.department = !showCheckboxFilter.department}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.department.size === uniqueValues.department.length ? '全て' : 
+                     checkboxFilters.department.size === 0 ? 'なし' : 
+                     `${checkboxFilters.department.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.department}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-40 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('department', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('department', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.department as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.department.has(value)}
+                            on:change={() => toggleCheckboxValue('department', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 取引先フィルター (チェックボックス式) -->
+            <td class="w-28 bg-gray-50 p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.supplier = !showCheckboxFilter.supplier}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.supplier.size === uniqueValues.supplier.length ? '全て' : 
+                     checkboxFilters.supplier.size === 0 ? 'なし' : 
+                     `${checkboxFilters.supplier.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.supplier}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-48 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('supplier', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('supplier', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.supplier as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.supplier.has(value)}
+                            on:change={() => toggleCheckboxValue('supplier', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 品目フィルター (チェックボックス式) -->
+            <td class="w-24 bg-gray-50 p-1">
+              <div class="relative">
+                <button
+                  class="btn btn-sm btn-outline w-full text-left justify-between text-xs"
+                  on:click={() => showCheckboxFilter.item = !showCheckboxFilter.item}
+                >
+                  <span class="truncate">
+                    {checkboxFilters.item.size === uniqueValues.item.length ? '全て' : 
+                     checkboxFilters.item.size === 0 ? 'なし' : 
+                     `${checkboxFilters.item.size}個選択`}
+                  </span>
+                  <span class="ml-1">▼</span>
+                </button>
+                
+                {#if showCheckboxFilter.item}
+                  <div class="absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg min-w-40 max-h-48 overflow-y-auto">
+                    <div class="p-2 border-b">
+                      <div class="flex gap-1">
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('item', true)}>全選択</button>
+                        <button class="btn btn-xs btn-outline flex-1 text-xs" on:click={() => toggleAllCheckboxes('item', false)}>全解除</button>
+                      </div>
+                    </div>
+                    <div class="p-1">
+                      {#each uniqueValues.item as value}
+                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-xs"
+                            checked={checkboxFilters.item.has(value)}
+                            on:change={() => toggleCheckboxValue('item', value)}
+                          />
+                          <span class="text-xs truncate">{value}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </td>
+            
+            <!-- 取引内容フィルター (テキスト) -->
+            <td class="bg-gray-50 p-1">
+              <input
+                type="text"
+                class="input input-sm w-full text-xs"
+                bind:value={headerFilters.detailDescription}
+                placeholder="取引内容で検索"
+              />
+            </td>
+            
+            <!-- メモタグフィルター (テキスト) -->
+            <td class="w-32 bg-gray-50 p-1">
+              <div class="flex flex-col gap-1">
+                <input
+                  type="text"
+                  class="input input-sm w-full text-xs"
+                  bind:value={headerFilters.tags}
+                  placeholder="メモタグ"
+                />
+              </div>
+            </td>
+            
           </tr>
         </thead>
         <tbody>
@@ -1822,47 +2379,93 @@
                 {row.detailDescription}
               </td>
               
-              <!-- メモ・タグ -->
+              <!-- メモタグ -->
               <td class="text-xs p-2 text-gray-600 max-w-32 truncate">
-                {#if row.memo || row.tags}
-                  <div class="space-y-1">
-                    {#if row.memo}
-                      <div title={row.memo}>{row.memo}</div>
-                    {/if}
-                    {#if row.tags}
-                      <div class="text-blue-600" title={row.tags}>{row.tags}</div>
-                    {/if}
-                  </div>
+                {#if row.tags}
+                  <div class="text-blue-600" title={row.tags}>{row.tags}</div>
                 {:else}
                   <span class="text-gray-400">-</span>
                 {/if}
               </td>
               
-              <!-- 添付ファイル -->
-              <td class="p-2 text-center">
-                {#if row.receiptIds && row.receiptIds.length > 0}
-                  <span class="text-gray-500" title="{row.receiptIds.length}件の添付ファイル">
-                    📎 {row.receiptIds.length}
-                  </span>
-                {:else}
-                  <span class="text-gray-300">-</span>
-                {/if}
-              </td>
-              
-              <!-- 操作 -->
-              <td class="p-2 text-center">
-                <button 
-                  class="btn btn-xs btn-primary transition-all duration-200 hover:shadow-md"
-                  on:click|stopPropagation={() => openAllocationModal(row)}
-                  title="割当を追加"
-                >
-                  +
-                </button>
-              </td>
             </tr>
           {/each}
         </tbody>
       </table>
+      </div>
+    </div>
+    
+    <!-- ページネーションコントロール（フッター） -->
+    <div class="flex items-center justify-between gap-4 px-4 py-2 bg-gray-50 border-t">
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-600">表示件数:</label>
+        <select 
+          class="select select-sm select-bordered w-20"
+          bind:value={itemsPerPage}
+          on:change={handleItemsPerPageChange}
+        >
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+          <option value={200}>200</option>
+          <option value={500}>500</option>
+        </select>
+        <span class="text-sm text-gray-600 ml-2">
+          {startIndex + 1}-{endIndex}件 / 全{sortedTransactionData.length}件
+        </span>
+      </div>
+      
+      <div class="flex items-center gap-1">
+        <button 
+          class="btn btn-sm btn-outline"
+          on:click={goToFirstPage}
+          disabled={currentPage === 1}
+          title="最初のページ"
+        >
+          ≪
+        </button>
+        <button 
+          class="btn btn-sm btn-outline"
+          on:click={goToPreviousPage}
+          disabled={currentPage === 1}
+          title="前のページ"
+        >
+          ＜
+        </button>
+        
+        <div class="flex items-center gap-1 mx-2">
+          <span class="text-sm text-gray-600">ページ</span>
+          <input 
+            type="number" 
+            class="input input-sm input-bordered w-16 text-center"
+            bind:value={pageInputValue}
+            on:blur={handlePageInput}
+            on:keydown={(e) => e.key === 'Enter' && handlePageInput()}
+            min="1"
+            max={totalPages}
+          />
+          <span class="text-sm text-gray-600">/ {totalPages}</span>
+        </div>
+        
+        <button 
+          class="btn btn-sm btn-outline"
+          on:click={goToNextPage}
+          disabled={currentPage === totalPages}
+          title="次のページ"
+        >
+          ＞
+        </button>
+        <button 
+          class="btn btn-sm btn-outline"
+          on:click={goToLastPage}
+          disabled={currentPage === totalPages}
+          title="最後のページ"
+        >
+          ≫
+        </button>
+      </div>
+      
+      <div class="text-sm text-gray-600">
+        全{totalPages}ページ
       </div>
     </div>
   </div>

@@ -240,19 +240,22 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     let partners = [];
     let sections = [];
     let items = [];
+    let tags = [];
     
     try {
-      [accountItems, partners, sections, items] = await Promise.all([
+      [accountItems, partners, sections, items, tags] = await Promise.all([
         client.getAccountItems(accessToken, selectedCompanyId),
         client.getPartners(accessToken, selectedCompanyId),
         client.getSections(accessToken, selectedCompanyId),
-        client.getItems(accessToken, selectedCompanyId)
+        client.getItems(accessToken, selectedCompanyId),
+        client.getTags(accessToken, selectedCompanyId)
       ]);
       
       console.log(`勘定科目: ${accountItems.length}件`);
       console.log(`取引先: ${partners.length}件`);
       console.log(`部門: ${sections.length}件`);
       console.log(`品目: ${items.length}件`);
+      console.log(`タグ: ${tags.length}件`);
     } catch (masterError) {
       console.error('マスタデータ取得エラー:', masterError);
       // エラーがあっても処理を継続
@@ -263,6 +266,8 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     const partnerMap = new Map(partners.map(partner => [partner.id, partner.name]));
     const sectionMap = new Map(sections.map(section => [section.id, section.name]));
     const itemMap = new Map(items.map(item => [item.id, item.name]));
+    // タグマップは文字列キーで作成（freee APIのtag_idsは数値だが、文字列として扱う）
+    const tagMap = new Map(tags.map(tag => [String(tag.id), tag.name]));
     
     console.log(`${deals.length}件の取引データを取得`);
     
@@ -312,6 +317,13 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
             section_id: detail.section_id,
             item_id: detail.item_id,
             tag_ids: detail.tag_ids,
+            // tag_idsからtag_namesへの変換（明細レベル）
+            tag_names: detail.tag_ids && Array.isArray(detail.tag_ids) && detail.tag_ids.length > 0
+              ? detail.tag_ids
+                  .map(tagId => tagMap.get(String(tagId)))
+                  .filter(tagName => tagName !== undefined)
+                  .join(', ')
+              : null,
             tax_code: detail.tax_code,
             
             // 取引情報
@@ -321,6 +333,15 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
             due_amount: deal.due_amount,
             ref_number: deal.ref_number,
             deal_origin_name: deal.deal_origin_name,
+            
+            // 取引レベルのタグ情報も保持（取引レベルにタグがある場合）
+            deal_tag_ids: deal.tag_ids,
+            deal_tag_names: deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0
+              ? deal.tag_ids
+                  .map(tagId => tagMap.get(String(tagId)))
+                  .filter(tagName => tagName !== undefined)
+                  .join(', ')
+              : null,
             
             // 振替情報
             transfer_id: deal.transfer_id || null,
