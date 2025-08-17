@@ -82,28 +82,23 @@ export async function processSingleDeal(
   deal: any,
   existingTransaction: Transaction | undefined,
   tx: any,
-  tagMap?: Map<number, string>
+  tagMap?: Map<number, string>,
+  receiptsMap?: Map<number, number[]>
 ): Promise<ProcessResult> {
   try {
-    const newTransactionData = createTransactionData(deal, tagMap);
+    const newTransactionData = createTransactionData(deal, tagMap, receiptsMap);
     const freeDealId = deal.id.toString();
 
     if (existingTransaction) {
-      // 既存データと比較して更新が必要かチェック
-      if (hasTransactionChanged(existingTransaction, newTransactionData)) {
-        // 更新処理
-        await tx.transaction.update({
-          where: { id: existingTransaction.id },
-          data: {
-            ...newTransactionData,
-            updatedAt: new Date()
-          }
-        });
-        return { type: 'updated', freeDealId };
-      } else {
-        // 変更なし
-        return { type: 'skipped', freeDealId };
-      }
+      // 常に更新（変更チェックなし）
+      await tx.transaction.update({
+        where: { id: existingTransaction.id },
+        data: {
+          ...newTransactionData,
+          updatedAt: new Date()
+        }
+      });
+      return { type: 'updated', freeDealId };
     } else {
       // 新規作成
       const transactionData = {
@@ -168,20 +163,64 @@ export async function executeSync(
   const timer = new PerformanceTimer(`同期処理 ${deals.length}件`);
   
   try {
-    // タグマップを取得（同期処理の前に一度だけ取得）
+    // タグマップとレシートマップを取得（同期処理の前に一度だけ取得）
     let tagMap: Map<number, string> | undefined;
+    let receiptsMap: Map<number, number[]> | undefined;
+    
     try {
       const credentials = await getFreeeCredentials();
       if (credentials) {
         const client = new FreeeAPIClient(getFreeeConfig());
+        
+        // タグマップ取得
         const tags = await client.getTags(credentials.accessToken, credentials.companyId);
-        tagMap = new Map(tags.map(tag => [String(tag.id), tag.name]));
+        tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
         logger.info(`タグマップ取得: ${tagMap.size}件`);
+        
+        // 各取引のgetDealDetailを呼び出してreceipt_idsを取得
+        logger.info(`=== receipt_ids取得開始: ${deals.length}件の取引 ===`);
+        let totalReceiptIds = 0;
+        
+        for (let i = 0; i < deals.length; i++) {
+          const deal = deals[i];
+          try {
+            logger.info(`[${i+1}/${deals.length}] Deal ${deal.id} の詳細取得中...`);
+            const dealDetail = await client.getDealDetail(
+              credentials.accessToken,
+              credentials.companyId,
+              deal.id
+            );
+            
+            // freee APIはreceipt_idsではなくreceipts配列を返す
+            if (dealDetail && dealDetail.receipts && Array.isArray(dealDetail.receipts) && dealDetail.receipts.length > 0) {
+              // receipts配列からIDを抽出
+              const receiptIds = dealDetail.receipts.map((r: any) => r.id);
+              deals[i].receipt_ids = receiptIds;
+              totalReceiptIds += receiptIds.length;
+              logger.info(`✓ Deal ${deal.id}: ${receiptIds.length}件のレシートID取得 => ${JSON.stringify(receiptIds)}`);
+            } else {
+              logger.info(`- Deal ${deal.id}: レシートなし`);
+            }
+            
+            // APIレート制限を考慮して少し待機
+            if ((i + 1) % 100 === 0) {
+              logger.info(`API制限回避のため1秒待機...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else if ((i + 1) % 10 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          } catch (error) {
+            logger.error(`Deal ${deal.id} の詳細取得エラー:`, error);
+            // エラーがあっても処理を続行
+          }
+        }
+        
+        logger.info(`=== receipt_ids取得完了: 合計${totalReceiptIds}件のレシートID ===`);
       } else {
         logger.warn('freee認証情報が取得できないため、タグマップなしで処理を続行');
       }
     } catch (error) {
-      logger.error('タグマップ取得エラー:', error);
+      logger.error('マップ取得エラー:', error);
       logger.warn('タグマップなしで処理を続行');
     }
     
@@ -228,7 +267,7 @@ export async function executeSync(
         
         logger.syncDetail(`処理中: freeDealId ${dealIdStr}`);
         
-        const result = await processSingleDeal(deal, existingTransaction, tx, tagMap);
+        const result = await processSingleDeal(deal, existingTransaction, tx, tagMap, receiptsMap);
         
         switch (result.type) {
           case 'created':

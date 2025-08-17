@@ -51,6 +51,8 @@
     dateObj: Date;
     primaryGrantName: string;
     primaryBudgetItemName: string;
+    detailId: string | null;
+    freeDealId: string | null;
   }
   
   interface SortField {
@@ -412,13 +414,25 @@
       supplier: transaction.supplier || '',
       department: transaction.department || '',
       account: transaction.account || '',
-      memo: transaction.memo || '',
       tags: transaction.tags || '',
       item: transaction.item || '',
-      receiptIds: transaction.receiptIds || [],
+      receiptIds: (() => {
+        if (!transaction.receiptIds) return [];
+        if (typeof transaction.receiptIds === 'string') {
+          try {
+            return JSON.parse(transaction.receiptIds);
+          } catch (e) {
+            console.warn('Failed to parse receiptIds:', transaction.receiptIds);
+            return [];
+          }
+        }
+        return Array.isArray(transaction.receiptIds) ? transaction.receiptIds : [];
+      })(),
       dateObj: new Date(transaction.date),
       primaryGrantName: primaryGrantName,
-      primaryBudgetItemName: primaryBudgetItemName
+      primaryBudgetItemName: primaryBudgetItemName,
+      detailId: transaction.detailId || null,
+      freeDealId: transaction.freeDealId || null
     };
   });
   
@@ -476,13 +490,25 @@
         supplier: transaction.supplier || '',
         department: transaction.department || '',
         account: transaction.account || '',
-        memo: transaction.memo || '',
         tags: transaction.tags || '',
         item: transaction.item || '',
-        receiptIds: transaction.receiptIds || [],
+        receiptIds: (() => {
+          if (!transaction.receiptIds) return [];
+          if (typeof transaction.receiptIds === 'string') {
+            try {
+              return JSON.parse(transaction.receiptIds);
+            } catch (e) {
+              console.warn('Failed to parse receiptIds:', transaction.receiptIds);
+              return [];
+            }
+          }
+          return Array.isArray(transaction.receiptIds) ? transaction.receiptIds : [];
+        })(),
         dateObj: new Date(transaction.date),
         primaryGrantName: primaryGrantName,
-        primaryBudgetItemName: primaryBudgetItemName
+        primaryBudgetItemName: primaryBudgetItemName,
+        detailId: transaction.detailId || null,
+        freeDealId: transaction.freeDealId || null
       };
     });
   }
@@ -1080,6 +1106,10 @@
       selectedTransaction = paginatedTransactionData[selectedRowIndex];
       showRightPane = true;
       scrollToSelectedRow();
+      // freeeファイルボックスから画像を取得
+      if (selectedTransaction?.freeDealId) {
+        loadFreeeReceipts(selectedTransaction.freeDealId);
+      }
     }
   }
   
@@ -1089,6 +1119,10 @@
       selectedTransaction = paginatedTransactionData[0];
       showRightPane = true;
       scrollToSelectedRow();
+      // freeeファイルボックスから画像を取得
+      if (selectedTransaction?.freeDealId) {
+        loadFreeeReceipts(selectedTransaction.freeDealId);
+      }
     }
   }
   
@@ -1098,6 +1132,10 @@
       selectedTransaction = paginatedTransactionData[selectedRowIndex];
       showRightPane = true;
       scrollToSelectedRow();
+      // freeeファイルボックスから画像を取得
+      if (selectedTransaction?.freeDealId) {
+        loadFreeeReceipts(selectedTransaction.freeDealId);
+      }
     }
   }
   
@@ -1131,6 +1169,123 @@
         selectedTransaction = paginatedTransactionData[selectedRowIndex];
       }
       showRightPane = !showRightPane;
+      
+      // 右ペインが開いたら、freeeファイルボックスから画像を取得
+      if (showRightPane && selectedTransaction?.freeDealId) {
+        loadFreeeReceipts(selectedTransaction.freeDealId);
+      }
+    }
+  }
+  
+  // 現在読み込み中のdealIdを記録（重複読み込み防止）
+  let loadingDealId: string | null = null;
+  // 現在表示中のdealIdを記録
+  let displayedDealId: string | null = null;
+  
+  // freeeファイルボックスから画像を取得
+  async function loadFreeeReceipts(dealId: string) {
+    // 既に同じdealIdが表示されているなら何もしない
+    if (displayedDealId === dealId) return;
+    // 現在読み込み中の場合は、同じIDでなければキャンセル
+    if (loadingDealId !== null && loadingDealId !== dealId) {
+      // 別の取引の読み込み中なので、新しい読み込みを開始
+    }
+    
+    // コンテナが存在するまで待つ（最大1秒）
+    let container = document.getElementById('receipts-container');
+    let retries = 0;
+    while (!container && retries < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      container = document.getElementById('receipts-container');
+      retries++;
+    }
+    if (!container) return;
+    
+    loadingDealId = dealId;
+    
+    try {
+      container.innerHTML = '<div class="text-sm text-gray-500">読み込み中...</div>';
+      
+      // freee Deal APIから取引詳細とreceipts配列を取得
+      const response = await fetch(`/budget2/api/freee/receipts?dealId=${dealId}`);
+      const data = await response.json();
+      
+      if (data.success && data.receipts && data.receipts.length > 0) {
+        container.innerHTML = '';
+        
+        // 各レシートを表示
+        data.receipts.forEach((receipt: any) => {
+          const receiptDiv = document.createElement('div');
+          receiptDiv.className = 'bg-gray-50 rounded-lg p-3 mb-3';
+          
+          // ファイル情報
+          const info = document.createElement('div');
+          info.className = 'mb-2';
+          info.innerHTML = `
+            <p class="text-sm font-medium">
+              ${receipt.receipt_metadatum?.partner_name || receipt.description || 'ファイル'}
+            </p>
+            <p class="text-xs text-gray-500">
+              ${receipt.issue_date || ''} ${receipt.receipt_metadatum?.amount ? '¥' + receipt.receipt_metadatum.amount.toLocaleString() : ''}
+            </p>
+          `;
+          receiptDiv.appendChild(info);
+          
+          // 画像の直接表示（プロキシ経由）
+          if (receipt.mime_type && receipt.mime_type.startsWith('image/') && receipt.file_src) {
+            const img = document.createElement('img');
+            // プロキシエンドポイントを使用
+            img.src = `/budget2/api/freee/receipt-image/${receipt.id}`;
+            img.alt = receipt.description || 'レシート画像';
+            img.className = 'max-w-full h-auto max-h-96 rounded cursor-pointer';
+            // クリック時はfreeeの画面を開く
+            img.onclick = () => window.open(`https://secure.freee.co.jp/receipts/${receipt.id}`, '_blank');
+            img.onerror = () => {
+              img.style.display = 'none';
+              // エラー時はfreeeリンクボタンを表示
+              const link = document.createElement('a');
+              link.href = `https://secure.freee.co.jp/receipts/${receipt.id}`;
+              link.target = '_blank';
+              link.className = 'inline-block px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600';
+              link.textContent = 'freeeで表示';
+              receiptDiv.appendChild(link);
+            };
+            receiptDiv.appendChild(img);
+          } else if (receipt.file_src) {
+            // 画像以外のファイル（PDFなど）もプロキシ経由でダウンロード
+            const link = document.createElement('a');
+            link.href = `/budget2/api/freee/receipt-image/${receipt.id}`;
+            link.target = '_blank';
+            link.className = 'inline-block px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600';
+            link.textContent = 'ファイルを開く';
+            receiptDiv.appendChild(link);
+          } else {
+            // file_srcがない場合はfreeeで開くボタン
+            const link = document.createElement('a');
+            link.href = `https://secure.freee.co.jp/receipts/${receipt.id}`;
+            link.target = '_blank';
+            link.className = 'inline-block px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600';
+            link.textContent = 'freeeで表示';
+            receiptDiv.appendChild(link);
+          }
+          
+          container.appendChild(receiptDiv);
+        });
+      } else {
+        container.innerHTML = '<p class="text-sm text-gray-500">領収書ファイルはありません</p>';
+      }
+      // 表示完了したdealIdを記録
+      displayedDealId = dealId;
+    } catch (error) {
+      console.error('領収書の取得エラー:', error);
+      if (container) {
+        container.innerHTML = '<p class="text-sm text-red-500">領収書の取得に失敗しました</p>';
+      }
+    } finally {
+      // 読み込み完了
+      if (loadingDealId === dealId) {
+        loadingDealId = null;
+      }
     }
   }
   
@@ -1139,6 +1294,8 @@
       closeAllocationModal();
     } else if (showRightPane) {
       showRightPane = false;
+      // 右ペインを閉じた時に表示済みIDをリセット
+      displayedDealId = null;
     }
   }
   
@@ -1939,6 +2096,7 @@
             </th>
             <th class="bg-gray-100 text-[11px] font-semibold text-gray-700">取引内容</th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">メモタグ</th>
+            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">レシートIDs</th>
           </tr>
           
           <!-- フィルター行 -->
@@ -2267,6 +2425,11 @@
               </div>
             </td>
             
+            <!-- レシートIDsフィルター -->
+            <td class="w-32 bg-gray-50 p-1">
+              <span class="text-xs text-gray-400">-</span>
+            </td>
+            
           </tr>
         </thead>
         <tbody>
@@ -2288,6 +2451,10 @@
                 selectedTransaction = row;
                 selectedRowIndex = index;
                 showRightPane = true;
+                // freeeファイルボックスから画像を取得
+                if (row.freeDealId) {
+                  loadFreeeReceipts(row.freeDealId);
+                }
               }}
             >
               <!-- チェックボックス -->
@@ -2383,6 +2550,17 @@
               <td class="text-xs p-2 text-gray-600 max-w-32 truncate">
                 {#if row.tags}
                   <div class="text-blue-600" title={row.tags}>{row.tags}</div>
+                {:else}
+                  <span class="text-gray-400">-</span>
+                {/if}
+              </td>
+              
+              <!-- レシートIDs -->
+              <td class="text-xs p-2 text-gray-600 max-w-32">
+                {#if row.receiptIds && row.receiptIds.length > 0}
+                  <div class="text-green-600" title="レシート{row.receiptIds.length}件">
+                    📎 {row.receiptIds.length}件
+                  </div>
                 {:else}
                   <span class="text-gray-400">-</span>
                 {/if}
@@ -2492,85 +2670,125 @@
           <h3 class="text-sm font-semibold">取引明細</h3>
           <button 
             class="btn btn-xs btn-ghost"
-            on:click={() => showRightPane = false}
+            on:click={() => {
+              showRightPane = false;
+              displayedDealId = null;
+            }}
           >
             ✕
           </button>
         </div>
         <div class="flex-1 overflow-auto p-3">
-          <div class="space-y-2 text-sm">
-            <div>
-              <span class="text-gray-600">日付:</span>
-              <span class="ml-2">{selectedTransaction.date}</span>
-            </div>
-            <div>
-              <span class="text-gray-600">仕訳番号:</span>
-              <span class="ml-2">{selectedTransaction.journalNumber}</span>
-            </div>
-            <div>
-              <span class="text-gray-600">勘定科目:</span>
-              <span class="ml-2">{selectedTransaction.account}</span>
-            </div>
-            <div>
-              <span class="text-gray-600">摘要:</span>
-              <span class="ml-2">{selectedTransaction.description}</span>
-            </div>
-            <div>
-              <span class="text-gray-600">取引先:</span>
-              <span class="ml-2">{selectedTransaction.supplier}</span>
-            </div>
-            <div>
-              <span class="text-gray-600">金額:</span>
-              <span class="ml-2">{formatCurrency(selectedTransaction.amount)}</span>
-            </div>
-            
-            <div class="divider"></div>
-            
-            <div class="flex justify-between items-center">
-              <h4 class="font-semibold">割当情報</h4>
-              <button 
-                class="btn btn-xs btn-primary"
-                on:click={() => openAllocationModal(selectedTransaction)}
-                disabled={selectedTransaction.allocationStatus === 'full'}
-              >
-                新規割当
-              </button>
-            </div>
-            
-            {#if selectedTransaction.allocations.length > 0}
-              {#each selectedTransaction.allocations as alloc}
-                <div class="p-2 bg-gray-50 rounded mb-1">
-                  <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                      <div class="font-medium text-sm">{alloc.budgetItem.name}</div>
-                      <div class="text-xs text-gray-600">{alloc.budgetItem.grant.name}</div>
-                      <div class="font-semibold text-sm">{formatCurrency(alloc.amount)}</div>
-                      {#if alloc.note}
-                        <div class="text-xs text-gray-500 mt-1">{alloc.note}</div>
-                      {/if}
-                    </div>
-                    <div class="flex gap-1 ml-2">
-                      <button 
-                        class="btn btn-xs btn-outline"
-                        on:click={() => editAllocation(alloc)}
-                      >
-                        編集
-                      </button>
-                      <button 
-                        class="btn btn-xs btn-error btn-outline"
-                        on:click|stopPropagation={() => deleteAllocation(alloc.id)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              {/each}
-            {:else}
-              <div class="text-center text-gray-500 text-sm py-4">
-                割当がありません
+          <div class="space-y-3 text-sm">
+            <!-- 割当情報セクション -->
+            <div class="pb-3 border-b">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-gray-600 font-semibold">割当情報</span>
+                <button 
+                  class="btn btn-xs btn-primary"
+                  on:click={() => openAllocationModal(selectedTransaction)}
+                  disabled={selectedTransaction.allocationStatus === 'full'}
+                >
+                  新規割当
+                </button>
               </div>
-            {/if}
+              {#if selectedTransaction.allocations.length > 0}
+                <div class="space-y-1">
+                  {#each selectedTransaction.allocations as alloc}
+                    <div class="flex justify-between items-center">
+                      <span class="flex-1">
+                        {alloc.budgetItem.grant.name}・{alloc.budgetItem.name} /{formatCurrency(alloc.amount)}
+                      </span>
+                      <div class="flex gap-1 ml-2">
+                        <button 
+                          class="btn btn-xs btn-outline"
+                          on:click={() => editAllocation(alloc)}
+                        >
+                          編集
+                        </button>
+                        <button 
+                          class="btn btn-xs btn-error btn-outline"
+                          on:click|stopPropagation={() => deleteAllocation(alloc.id)}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="text-gray-400">未割当</div>
+              {/if}
+            </div>
+            
+            <!-- 2行目: 発生日・金額 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-gray-600">発生日:</span>
+                <span class="ml-2">{selectedTransaction.date}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">金額:</span>
+                <span class="ml-2 font-semibold">{formatCurrency(selectedTransaction.amount)}</span>
+              </div>
+            </div>
+            
+            <!-- 3行目: 勘定科目・部門 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-gray-600">勘定科目:</span>
+                <span class="ml-2">{selectedTransaction.account || '-'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">部門:</span>
+                <span class="ml-2">{selectedTransaction.department || '-'}</span>
+              </div>
+            </div>
+            
+            <!-- 4行目: 取引先・取引内容 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-gray-600">取引先:</span>
+                <span class="ml-2">{selectedTransaction.supplier || '-'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">取引内容:</span>
+                <span class="ml-2">{selectedTransaction.detailDescription || '-'}</span>
+              </div>
+            </div>
+            
+            <!-- 5行目: 品目・メモタグ -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-gray-600">品目:</span>
+                <span class="ml-2">{selectedTransaction.item || '-'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">メモタグ:</span>
+                <span class="ml-2 text-blue-600">{selectedTransaction.tags || '-'}</span>
+              </div>
+            </div>
+            
+            <!-- 6行目: 明細ID・取引ID -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-gray-600">明細ID:</span>
+                <span class="ml-2 text-xs text-gray-500">{selectedTransaction.detailId || '-'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">取引ID:</span>
+                <span class="ml-2 text-xs text-gray-500">{selectedTransaction.freeDealId || '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 領収書ファイル表示エリア -->
+          <div class="border-t mt-4 pt-4">
+            <h4 class="font-semibold text-sm mb-2">領収書ファイル</h4>
+            <div id="receipts-container" class="space-y-4">
+              <!-- freeeファイルボックスから画像を読み込み中... -->
+              <div class="text-sm text-gray-500">読み込み中...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2593,10 +2811,14 @@
       <!-- 取引詳細 -->
       <div class="bg-gray-50 p-3 rounded mb-4">
         <div class="grid grid-cols-2 gap-2 text-sm">
-          <div><span class="text-gray-600">日付:</span> {selectedTransaction.date}</div>
+          <div><span class="text-gray-600">発生日:</span> {selectedTransaction.date}</div>
           <div><span class="text-gray-600">金額:</span> {formatCurrency(selectedTransaction.amount)}</div>
-          <div><span class="text-gray-600">摘要:</span> {selectedTransaction.description}</div>
-          <div><span class="text-gray-600">取引先:</span> {selectedTransaction.supplier}</div>
+          <div><span class="text-gray-600">勘定科目:</span> {selectedTransaction.account || '-'}</div>
+          <div><span class="text-gray-600">取引先:</span> {selectedTransaction.supplier || '-'}</div>
+          <div><span class="text-gray-600">部門:</span> {selectedTransaction.department || '-'}</div>
+          <div><span class="text-gray-600">品目:</span> {selectedTransaction.item || '-'}</div>
+          <div><span class="text-gray-600">取引内容:</span> {selectedTransaction.detailDescription || '-'}</div>
+          <div><span class="text-gray-600">メモタグ:</span> <span class="text-blue-600">{selectedTransaction.tags || '-'}</span></div>
           <div><span class="text-gray-600">割当済:</span> {formatCurrency(selectedTransaction.allocatedAmount)}</div>
           <div><span class="text-gray-600">未割当:</span> {formatCurrency(selectedTransaction.unallocatedAmount)}</div>
         </div>

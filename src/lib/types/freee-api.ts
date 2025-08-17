@@ -49,6 +49,24 @@ export interface FreeeDeal {
   segment_2_tag_id?: number;
   segment_3_tag_id?: number;
   txn_number?: string;
+  receipt_ids?: number[];
+  receipts?: FreeeReceipt[];
+}
+
+// レシート関連
+export interface FreeeReceipt {
+  id: number;
+  company_id: number;
+  description?: string;
+  receipt_metadatum?: {
+    partner_name?: string;
+    issue_date?: string;
+    amount?: number;
+  };
+  file_src?: string;
+  mime_type?: string;
+  created_at?: string;
+  deal_id?: number;
 }
 
 export interface FreeeDealDetail {
@@ -316,6 +334,10 @@ export interface FreeeWalletTxnsResponse extends FreeeAPIResponse<FreeeWalletTxn
 
 export interface FreeeJournalsResponse extends FreeeAPIResponse<FreeeJournal> {
   journals: FreeeJournal[];
+}
+
+export interface FreeeReceiptsResponse extends FreeeAPIResponse<FreeeReceipt> {
+  receipts: FreeeReceipt[];
 }
 
 // エラー型定義

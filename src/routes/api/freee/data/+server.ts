@@ -187,6 +187,45 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     const deals = allDeals;
     console.log(`=== 最終取得件数: ${deals.length}件 ===`);
     
+    // レシート情報を取得（取引との関連付けのため）
+    console.log('=== レシート情報取得開始 ===');
+    console.log(`取引数: ${deals.length}件のreceipt_ids取得を開始`);
+    
+    // 各取引に対してgetDealDetailを呼び出してreceipt_idsを取得
+    let receiptCount = 0;
+    for (let i = 0; i < deals.length; i++) {
+      const deal = deals[i];
+      try {
+        console.log(`[${i+1}/${deals.length}] Deal ${deal.id} の詳細取得中...`);
+        const dealDetail = await client.getDealDetail(
+          accessToken,
+          selectedCompanyId,
+          deal.id
+        );
+        
+        if (dealDetail && dealDetail.receipt_ids && dealDetail.receipt_ids.length > 0) {
+          deals[i].receipt_ids = dealDetail.receipt_ids;
+          receiptCount += dealDetail.receipt_ids.length;
+          console.log(`✓ Deal ${deal.id}: ${dealDetail.receipt_ids.length}件のレシートID取得 => ${JSON.stringify(dealDetail.receipt_ids)}`);
+        } else {
+          console.log(`- Deal ${deal.id}: レシートなし`);
+        }
+        
+        // APIレート制限を考慮して少し待機（100件ごとに長めの待機）
+        if ((i + 1) % 100 === 0) {
+          console.log(`API制限回避のため1秒待機...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else if ((i + 1) % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`Deal ${deal.id} の詳細取得エラー:`, error);
+        // エラーがあっても処理を継続
+      }
+    }
+    
+    console.log(`=== レシート情報取得完了: 合計${receiptCount}件のレシートID ===`)
+    
     // CSVベースの仕訳帳データ取得（詳細な取引内容とメモタグ用）
     console.log('=== 仕訳帳CSV取得開始（処理開始） ===');
     console.log('journals API呼び出し準備:', { selectedCompanyId, startDate, endDate });
@@ -266,8 +305,8 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     const partnerMap = new Map(partners.map(partner => [partner.id, partner.name]));
     const sectionMap = new Map(sections.map(section => [section.id, section.name]));
     const itemMap = new Map(items.map(item => [item.id, item.name]));
-    // タグマップは文字列キーで作成（freee APIのtag_idsは数値だが、文字列として扱う）
-    const tagMap = new Map(tags.map(tag => [String(tag.id), tag.name]));
+    // タグマップは数値キーで作成（freee APIのtag_idsは数値）
+    const tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
     
     console.log(`${deals.length}件の取引データを取得`);
     
@@ -320,7 +359,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
             // tag_idsからtag_namesへの変換（明細レベル）
             tag_names: detail.tag_ids && Array.isArray(detail.tag_ids) && detail.tag_ids.length > 0
               ? detail.tag_ids
-                  .map(tagId => tagMap.get(String(tagId)))
+                  .map(tagId => tagMap.get(tagId))
                   .filter(tagName => tagName !== undefined)
                   .join(', ')
               : null,
@@ -338,7 +377,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
             deal_tag_ids: deal.tag_ids,
             deal_tag_names: deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0
               ? deal.tag_ids
-                  .map(tagId => tagMap.get(String(tagId)))
+                  .map(tagId => tagMap.get(tagId))
                   .filter(tagName => tagName !== undefined)
                   .join(', ')
               : null,

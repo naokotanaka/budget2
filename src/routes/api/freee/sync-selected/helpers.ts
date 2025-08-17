@@ -76,7 +76,8 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: normalizeString(existing.description),
     account: normalizeString(existing.account),
     supplier: normalizeString(existing.supplier),
-    memo: normalizeString(existing.memo)
+    tags: normalizeString(existing.tags),
+    receiptIds: normalizeString(existing.receiptIds)
   };
   
   // 新データの正規化
@@ -86,7 +87,8 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: normalizeString(newData.description),
     account: normalizeString(newData.account),
     supplier: normalizeString(newData.supplier),
-    memo: normalizeString(newData.memo)
+    tags: normalizeString(newData.tags),
+    receiptIds: normalizeString(newData.receiptIds)
   };
   
   logger.comparison(`比較開始 - freeDealId: ${existing.freeDealId}`);
@@ -100,7 +102,8 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: existingNormalized.description !== newNormalized.description,
     account: existingNormalized.account !== newNormalized.account,
     supplier: existingNormalized.supplier !== newNormalized.supplier,
-    memo: existingNormalized.memo !== newNormalized.memo
+    tags: existingNormalized.tags !== newNormalized.tags,
+    receiptIds: existingNormalized.receiptIds !== newNormalized.receiptIds
   };
 
   const hasChanges = Object.values(changes).some(changed => changed);
@@ -120,7 +123,7 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
 /**
  * freee dealデータからトランザクションデータを生成
  */
-export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
+export function createTransactionData(deal: any, tagMap?: Map<number, string>, receiptsMap?: Map<number, number[]>) {
   // 明細データから金額と勘定科目を取得
   let amount = 0;
   let accountItemId = null;
@@ -152,7 +155,7 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
   // まずdealレベルのタグを確認
   if (deal.tag_ids && Array.isArray(deal.tag_ids) && deal.tag_ids.length > 0 && tagMap) {
     const tagNames = deal.tag_ids
-      .map((tagId: number) => tagMap.get(String(tagId)))
+      .map((tagId: number) => tagMap.get(tagId))
       .filter((tagName: string | undefined) => tagName !== undefined);
     
     if (tagNames.length > 0) {
@@ -165,7 +168,7 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
     const detail = deal.details[0];
     if (detail.tag_ids && Array.isArray(detail.tag_ids) && detail.tag_ids.length > 0 && tagMap) {
       const tagNames = detail.tag_ids
-        .map((tagId: number) => tagMap.get(String(tagId)))
+        .map((tagId: number) => tagMap.get(tagId))
         .filter((tagName: string | undefined) => tagName !== undefined);
       
       if (tagNames.length > 0) {
@@ -174,6 +177,26 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
     }
   }
   
+  // レシートIDsをJSON文字列として保存
+  // receiptsMapからの情報を優先し、なければdeal.receipt_idsを使用
+  let receiptIdsJson: string | null = null;
+  
+  // deal.idを数値に変換してMapを検索
+  const dealIdNumber = typeof deal.id === 'number' ? deal.id : Number(deal.id);
+  
+  // まずdeal.receipt_idsを直接使用（receiptsMapより優先）
+  if (deal.receipt_ids && Array.isArray(deal.receipt_ids) && deal.receipt_ids.length > 0) {
+    receiptIdsJson = JSON.stringify(deal.receipt_ids);
+    logger.syncDetail(`Receipt IDs (from deal.receipt_ids) for deal ${deal.id}: ${receiptIdsJson}`);
+  } else if (receiptsMap && receiptsMap.has(dealIdNumber)) {
+    // フォールバック：receiptsMapを使用
+    const receiptIds = receiptsMap.get(dealIdNumber);
+    if (receiptIds && receiptIds.length > 0) {
+      receiptIdsJson = JSON.stringify(receiptIds);
+      logger.syncDetail(`Receipt IDs (from receiptsMap) for deal ${deal.id}: ${receiptIdsJson}`);
+    }
+  }
+
   return {
     journalNumber: safeBigInt(deal.id),
     journalLineNumber: 1,
@@ -185,7 +208,8 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>) {
     memo: normalizeString(deal.memo),  // memoはdeal.memoから取得
     tags: normalizeString(memoTags),    // tagsカラムにタグ名を保存
     freeDealId: safeBigInt(deal.id),
-    detailId: detailIdValue
+    detailId: detailIdValue,
+    receiptIds: receiptIdsJson
   };
 }
 

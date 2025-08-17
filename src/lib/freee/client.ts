@@ -9,6 +9,7 @@ import type {
   FreeeTag,
   FreeeWalletTxn,
   FreeeJournal,
+  FreeeReceipt,
   FreeeCompaniesResponse,
   FreeeDealsResponse,
   FreeeDealResponse,
@@ -19,6 +20,7 @@ import type {
   FreeeTagsResponse,
   FreeeWalletTxnsResponse,
   FreeeJournalsResponse,
+  FreeeReceiptsResponse,
   FreeeDate,
   FreeeDealStatus,
   FreeeDealType,
@@ -53,20 +55,6 @@ export interface FreeeTransaction extends Omit<FreeeDeal, 'details'> {
   receipts?: FreeeReceipt[];
 }
 
-export interface FreeeReceipt {
-  id: number;
-  company_id: number;
-  description: string;
-  receipt_metadatum?: {
-    partner_name?: string;
-    issue_date?: string;
-    amount?: number;
-  };
-  file_src?: string;
-  mime_type?: string;
-  created_at: string;
-  deal_id?: number;
-}
 
 export interface FreeeTransactionDetail {
   id: number;
@@ -82,6 +70,7 @@ export interface FreeeTransactionDetail {
 
 // Re-export the imported type with backward compatible name
 export type FreeeCompany = FreeeCompanyType;
+export type { FreeeReceipt } from '$lib/types/freee-api';
 
 export class FreeeAPIClient {
   private config: FreeeConfig;
@@ -740,7 +729,7 @@ export class FreeeAPIClient {
       throw new Error(`Get receipts failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data: FreeeReceiptsResponse = await response.json();
     console.log('Receipts Response keys:', Object.keys(data));
     console.log('Receipts count:', Array.isArray(data.receipts) ? data.receipts.length : 'Not array');
     
@@ -811,6 +800,12 @@ export class FreeeAPIClient {
     const data = await response.json();
     console.log('Receipt Detail Response:', data);
     
+    // file_srcが無い場合、ダウンロードURLを構築
+    if (data.receipt && !data.receipt.file_src) {
+      // freee APIの画像ダウンロードエンドポイントを直接設定
+      data.receipt.file_src = `https://api.freee.co.jp/api/1/receipts/${receiptId}/download?company_id=${companyId}`;
+    }
+    
     return data.receipt || null;
   }
 
@@ -844,6 +839,10 @@ export class FreeeAPIClient {
     console.log('Deal Detail Response keys:', Object.keys(data));
     
     if (data.deal) {
+      // dealオブジェクトの全フィールドをログ出力
+      console.log('=== FULL Deal Detail ===');
+      console.log(JSON.stringify(data.deal, null, 2));
+      
       // レシート情報を並行取得
       if (data.deal.receipt_ids && data.deal.receipt_ids.length > 0) {
         console.log('Fetching receipt details for deal:', data.deal.receipt_ids);
@@ -866,5 +865,58 @@ export class FreeeAPIClient {
     }
     
     return null;
+  }
+
+  // Receipt画像をダウンロード
+  async downloadReceiptImage(
+    accessToken: string,
+    companyId: number,
+    receiptId: number
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    try {
+      console.log('=== Downloading Receipt Image ===');
+      console.log('Receipt ID:', receiptId);
+      console.log('Company ID:', companyId);
+
+      // freee APIの画像ダウンロードエンドポイントに直接アクセス
+      const downloadUrl = `${this.config.baseUrl}/api/1/receipts/${receiptId}/download?company_id=${companyId}`;
+      console.log('Download URL:', downloadUrl);
+
+      const response = await fetch(downloadUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'image/*,application/pdf'
+        }
+      });
+
+      console.log('Download response status:', response.status);
+      console.log('Download response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to download receipt image:', response.status, response.statusText, errorText);
+        return null;
+      }
+
+      // ArrayBufferとして取得してBufferに変換
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // Content-Typeを取得
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+      console.log('Receipt image downloaded successfully:', {
+        size: buffer.length,
+        contentType: contentType
+      });
+
+      return {
+        buffer: buffer,
+        contentType: contentType
+      };
+    } catch (error) {
+      console.error('Error downloading receipt image:', error);
+      return null;
+    }
   }
 }
