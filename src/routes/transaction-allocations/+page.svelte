@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { writable } from 'svelte/store';
-
   import { invalidateAll } from '$app/navigation';
   import { enhance } from '$app/forms';
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
+  import SimpleFilterPreset from '$lib/components/SimpleFilterPreset.svelte';
   
   export let data: PageData;
   
@@ -172,6 +172,8 @@
     checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
     checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
   }
+  
+  // プリセット状態
   
   // モーダル状態
   let showAllocationModal = false;
@@ -786,6 +788,13 @@
         
         // ページデータを再読み込み
         await update();
+        await invalidateAll();
+        
+        // データの再取得を強制
+        data = data;
+        
+        // 取引データを再構築
+        transactionRows = createTransactionRows(data.transactions, data.allocations);
         
         // 予算項目の残額を強制的に再計算
         budgetItemsWithGrant = data.budgetItems.map(item => {
@@ -1040,6 +1049,34 @@
     }
   }
   
+  
+  
+  // 現在の状態をプリセット用の形式で取得
+  function getCurrentStateForPreset() {
+    return {
+      headerFilters: { ...headerFilters },
+      checkboxFilters: {
+        allocationStatus: Array.from(checkboxFilters.allocationStatus),
+        account: Array.from(checkboxFilters.account),
+        department: Array.from(checkboxFilters.department),
+        supplier: Array.from(checkboxFilters.supplier),
+        item: Array.from(checkboxFilters.item),
+        primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
+        primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
+      },
+      budgetItemStatusFilter,
+      budgetItemGrantFilter,
+      budgetItemCategoryFilter
+    };
+  }
+  
+  function getCurrentSortsForPreset() {
+    return {
+      budgetItemSortFields: [...sortFields],
+      transactionSortFields: [...transactionSortFields]
+    };
+  }
+  
   // データから金額の範囲を計算（プレースホルダー用）
   $: amountRange = (() => {
     if (transactionData.length > 0) {
@@ -1182,6 +1219,207 @@
   // 現在表示中のdealIdを記録
   let displayedDealId: string | null = null;
   
+  // 領収書画像拡大表示用
+  let enlargedImageUrl: string | null = null;
+  let enlargedImageAlt: string = '';
+  
+  // 画像拡大表示関数
+  function enlargeImage(url: string, alt: string) {
+    enlargedImageUrl = url;
+    enlargedImageAlt = alt;
+  }
+  
+  // 画像拡大を閉じる
+  function closeEnlargedImage() {
+    enlargedImageUrl = null;
+    enlargedImageAlt = '';
+  }
+  
+  // ESCキーで閉じる
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && enlargedImageUrl) {
+      closeEnlargedImage();
+    }
+  }
+  
+  // WAM科目マッピング関数
+  function mapToWamCategory(account: string): string {
+    // 【事】【管】などの接頭辞を除去
+    const cleanAccount = account.replace(/^【[事管]】/, '');
+    
+    // マッピングルール（wam-mapping-reference.mdに基づく）
+    const mappings: Record<string, string> = {
+      // 人件費関連
+      '給与手当': '賃金（職員）',
+      '給料手当': '賃金（職員）',
+      '給料': '賃金（職員）',
+      '賃金': '賃金（職員）',
+      '臨時雇用費': '賃金（アルバイト）',
+      'アルバイト': '賃金（アルバイト）',
+      '雑給': '賃金（アルバイト）',
+      '謝金': '謝金（外部）',
+      '講師謝金': '謝金（外部）',
+      '報酬': '謝金（外部）',
+      
+      // 事業費関連
+      '旅費交通費': '旅費',
+      '旅費': '旅費',
+      '交通費': '旅費',
+      '印刷製本費': '印刷製本費',
+      '印刷費': '印刷製本費',
+      'コピー': '印刷製本費',
+      '通信運搬費': '通信運搬費',
+      '通信費': '通信運搬費',
+      '運搬費': '通信運搬費',
+      '郵送': '通信運搬費',
+      '支払手数料': '雑役務費',
+      '手数料': '雑役務費',
+      
+      // 管理費関連
+      '地代家賃': '家賃',
+      '家賃': '家賃',
+      '賃借料': '借料損料',
+      'リース': '借料損料',
+      'レンタル': '借料損料',
+      '水道光熱費': '光熱水費',
+      '光熱費': '光熱水費',
+      '電気': '光熱水費',
+      '水道': '光熱水費',
+      'ガス': '光熱水費',
+      '消耗品費': '消耗品費',
+      '消耗品': '消耗品費',
+      '事務用品': '消耗品費',
+      '保険料': '保険料',
+      '保険': '保険料',
+      '修繕費': '修繕費',
+      '修理': '修繕費',
+      '保守': '修繕費',
+      
+      // その他（消耗品費として処理）
+      '会議費': '消耗品費',
+      '食材費': '消耗品費',
+      '教養娯楽費': '消耗品費',
+      '交際費': '消耗品費',
+      
+      // 委託費
+      '委託費': '委託費',
+      '外注費': '委託費',
+      '業務委託': '委託費',
+      
+      // 備品
+      '備品': '備品購入費',
+      '什器備品': '備品購入費',
+      '設備': '備品購入費'
+    };
+    
+    // マッピングを探す（部分一致）
+    for (const [key, value] of Object.entries(mappings)) {
+      if (cleanAccount.includes(key)) {
+        return value;
+      }
+    }
+    
+    // マッチしない場合は空欄
+    return '';
+  }
+  
+  // WAM CSV出力関数
+  function exportWamCsv() {
+    // WAM期間フィルタ（2025/4/1～2026/3/31）
+    const startDate = new Date('2025-04-01');
+    const endDate = new Date('2026-03-31');
+    
+    // WAM助成金のみフィルタ
+    const wamGrants = data.grants.filter(g => g.name.includes('WAM'));
+    const wamGrantIds = wamGrants.map(g => g.id);
+    
+    // 該当する予算項目を取得
+    const wamBudgetItems = data.budgetItems.filter(b => wamGrantIds.includes(b.grantId));
+    const wamBudgetItemIds = wamBudgetItems.map(b => b.id);
+    
+    // 該当する割当を持つ取引を取得
+    const wamTransactions = data.transactions.filter(t => {
+      const transDate = new Date(t.date);
+      // 期間内チェック
+      if (transDate < startDate || transDate > endDate) return false;
+      // WAM予算項目への割当があるかチェック
+      const hasWamAllocation = t.allocations?.some(a => wamBudgetItemIds.includes(a.budgetItemId));
+      return hasWamAllocation;
+    });
+    
+    // CSV用データ準備
+    const csvRows: string[][] = [];
+    
+    // ヘッダー行
+    csvRows.push(['支払日', 'WAM科目', '取引先', '摘要', '金額', '管理番号', '勘定科目', '品目']);
+    
+    // データ行
+    wamTransactions.forEach(transaction => {
+      const date = new Date(transaction.date);
+      const formattedDate = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+      
+      const wamCategory = mapToWamCategory(transaction.account || '');
+      const supplier = transaction.supplier || '';
+      
+      // 摘要の生成（取引内容/明細備考）
+      let summary = '';
+      if (transaction.description && transaction.detailDescription) {
+        summary = `${transaction.description}/${transaction.detailDescription}`;
+      } else if (transaction.description) {
+        summary = transaction.description;
+      } else if (transaction.detailDescription) {
+        summary = transaction.detailDescription;
+      } else {
+        summary = '';
+      }
+      
+      const amount = transaction.amount.toString();
+      const managementNumber = transaction.managementNumber || '';
+      const originalAccount = transaction.account || '';
+      const item = transaction.item || '';
+      
+      csvRows.push([
+        formattedDate,
+        wamCategory,
+        supplier,
+        summary,
+        amount,
+        managementNumber,
+        originalAccount,
+        item
+      ]);
+    });
+    
+    // CSV文字列生成（BOM付きUTF-8）
+    const csvContent = csvRows.map(row => 
+      row.map(cell => {
+        // セル内にカンマ、改行、ダブルクォートが含まれる場合はダブルクォートで囲む
+        if (cell.includes(',') || cell.includes('\n') || cell.includes('"')) {
+          return `"${cell.replace(/"/g, '""')}"`;
+        }
+        return cell;
+      }).join(',')
+    ).join('\n');
+    
+    // BOM付きUTF-8でダウンロード
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date();
+    const filename = `WAM報告_${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 件数を通知
+    alert(`WAM CSV出力完了\n対象期間: 2025/4/1～2026/3/31\n出力件数: ${wamTransactions.length}件`);
+  }
+  
   // freeeファイルボックスから画像を取得
   async function loadFreeeReceipts(dealId: string) {
     // 既に同じdealIdが表示されているなら何もしない
@@ -1231,24 +1469,26 @@
           `;
           receiptDiv.appendChild(info);
           
+          // freeeリンクボタン
+          const freeeButton = document.createElement('a');
+          freeeButton.href = `https://secure.freee.co.jp/receipts/${receipt.id}`;
+          freeeButton.target = '_blank';
+          freeeButton.className = 'inline-block px-3 py-1 mb-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600';
+          freeeButton.textContent = 'freeeで表示';
+          receiptDiv.appendChild(freeeButton);
+          
           // 画像の直接表示（プロキシ経由）
           if (receipt.mime_type && receipt.mime_type.startsWith('image/') && receipt.file_src) {
             const img = document.createElement('img');
             // プロキシエンドポイントを使用
             img.src = `/budget2/api/freee/receipt-image/${receipt.id}`;
             img.alt = receipt.description || 'レシート画像';
-            img.className = 'max-w-full h-auto max-h-96 rounded cursor-pointer';
-            // クリック時はfreeeの画面を開く
-            img.onclick = () => window.open(`https://secure.freee.co.jp/receipts/${receipt.id}`, '_blank');
+            img.className = 'w-full h-auto rounded cursor-pointer hover:opacity-80';
+            // クリック時は画像を拡大表示
+            img.onclick = () => enlargeImage(`/budget2/api/freee/receipt-image/${receipt.id}`, receipt.description || 'レシート画像');
             img.onerror = () => {
               img.style.display = 'none';
-              // エラー時はfreeeリンクボタンを表示
-              const link = document.createElement('a');
-              link.href = `https://secure.freee.co.jp/receipts/${receipt.id}`;
-              link.target = '_blank';
-              link.className = 'inline-block px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600';
-              link.textContent = 'freeeで表示';
-              receiptDiv.appendChild(link);
+              // エラー時は既存のfreeeボタンのみ表示（重複を避ける）
             };
             receiptDiv.appendChild(img);
           } else if (receipt.file_src) {
@@ -1272,7 +1512,19 @@
           container.appendChild(receiptDiv);
         });
       } else {
-        container.innerHTML = '<p class="text-sm text-gray-500">領収書ファイルはありません</p>';
+        // レシートがない場合の表示を改善
+        const message = data.message || 'この取引には領収書が登録されていません';
+        container.innerHTML = `
+          <div class="text-center py-8 px-4">
+            <div class="text-gray-400 mb-2">
+              <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+            </div>
+            <p class="text-sm text-gray-500 mb-1">${message}</p>
+            <p class="text-xs text-gray-400">領収書を登録する場合はfreeeで操作してください</p>
+          </div>
+        `;
       }
       // 表示完了したdealIdを記録
       displayedDealId = dealId;
@@ -1431,7 +1683,9 @@
   onMount(() => {
     if (browser) {
       window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleKeydown);
       document.addEventListener('click', handleDocumentClick);
+      
       loadFilterState(); // フィルター状態を復元
     }
   });
@@ -1439,6 +1693,7 @@
   onDestroy(() => {
     if (browser) {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeydown);
       document.removeEventListener('click', handleDocumentClick);
     }
   });
@@ -1776,8 +2031,9 @@
         
         <!-- 検索ボタン -->
         <button 
-          class="btn btn-sm btn-outline gap-1"
-          class:btn-active={showSearch}
+          class="btn btn-sm gap-1 px-4 border border-gray-400 bg-white hover:bg-gray-50"
+          class:bg-gray-100={showSearch}
+          class:border-gray-600={showSearch}
           on:click={() => showSearch = !showSearch}
           title="検索機能を表示/非表示"
         >
@@ -1786,8 +2042,9 @@
         
         <!-- ヒントボタン -->
         <button 
-          class="btn btn-sm btn-outline gap-1"
-          class:btn-active={showHints}
+          class="btn btn-sm gap-1 px-4 border border-gray-400 bg-white hover:bg-gray-50"
+          class:bg-gray-100={showHints}
+          class:border-gray-600={showHints}
           on:click={() => showHints = !showHints}
           title="操作ヒントを表示/非表示"
         >
@@ -1798,7 +2055,7 @@
         <div class="flex items-center gap-2">
           {#if sortedTransactionData.length > 0}
             <button 
-              class="btn btn-xs btn-outline"
+              class="btn btn-xs px-3 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
               on:click={selectAllFiltered}
               title="フィルター結果をすべて選択"
             >
@@ -1827,11 +2084,11 @@
             
             {#if selectedBudgetItem}
               <button 
-                class="btn btn-sm btn-primary gap-1"
+                class="btn btn-sm px-5 bg-green-500 text-white hover:bg-green-600 border-0 gap-1 font-bold shadow-md"
                 on:click={handleBulkAllocation}
                 title="選択した取引を予算項目に一括で割り当てます"
               >
-                <span class="text-base">→</span>
+                <span class="text-lg">✓</span>
                 <span class="font-bold">{selectedBudgetItem.name}</span>
                 <span>に一括割当</span>
               </button>
@@ -1842,7 +2099,7 @@
             {/if}
             
             <button 
-              class="btn btn-sm btn-error btn-outline gap-1"
+              class="btn btn-sm px-3 bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 gap-1 text-xs"
               on:click={() => {
                 if (confirm(`選択した${checkedTransactions.size}件の割当をすべて削除しますか？`)) {
                   // 一括削除処理を実装予定
@@ -1861,13 +2118,61 @@
           フィルター: {sortedTransactionData.length}件 / {formatCurrency(filteredTotal)}
         </div>
         
+        <!-- プリセット管理（シンプル版） -->
+        <SimpleFilterPreset
+          currentFilters={{
+            ...headerFilters,
+            checkboxFilters
+          }}
+          currentSorts={getCurrentSortsForPreset()}
+          budgetItemFilters={{
+            budgetItemStatusFilter,
+            budgetItemGrantFilter,
+            budgetItemCategoryFilter
+          }}
+          on:apply={(event) => {
+            const preset = event.detail;
+            // フィルター適用
+            if (preset.filters) {
+              Object.assign(headerFilters, preset.filters);
+              if (preset.filters.checkboxFilters) {
+                checkboxFilters = preset.filters.checkboxFilters;
+              }
+            }
+            // ソート適用
+            if (preset.sorts) {
+              if (preset.sorts.budgetItemSortFields) {
+                budgetItemSortFields = preset.sorts.budgetItemSortFields;
+              }
+              if (preset.sorts.transactionSortFields) {
+                transactionSortFields = preset.sorts.transactionSortFields;
+              }
+            }
+            // 予算項目フィルター適用
+            if (preset.budgetFilters) {
+              budgetItemStatusFilter = preset.budgetFilters.budgetItemStatusFilter || '';
+              budgetItemGrantFilter = preset.budgetFilters.budgetItemGrantFilter || '';
+              budgetItemCategoryFilter = preset.budgetFilters.budgetItemCategoryFilter || '';
+            }
+          }}
+        />
+        
         <!-- フィルタークリアボタン -->
         <button 
-          class="btn btn-sm btn-outline btn-warning gap-1"
+          class="btn btn-sm px-4 bg-white border border-orange-400 text-orange-600 hover:bg-orange-50 hover:border-orange-600 gap-1"
           on:click={clearAllHeaderFilters}
           title="すべてのヘッダーフィルターをクリア"
         >
           🗑 フィルタークリア
+        </button>
+        
+        <!-- WAM CSV出力ボタン -->
+        <button 
+          class="btn btn-sm px-4 bg-green-500 text-white hover:bg-green-600 border-0 gap-1"
+          on:click={exportWamCsv}
+          title="WAM報告用CSVを出力"
+        >
+          📊 WAM CSV出力
         </button>
       </div>
       
@@ -1912,7 +2217,7 @@
     <!-- データグリッド表示エリア -->
     <div class="flex-1 overflow-x-auto overflow-y-auto bg-white">
       <div class="min-w-max">
-        <table class="table table-compact w-full relative">
+        <table class="table table-xs w-full relative" style="line-height: 1.2;">
           <thead class="sticky top-0 bg-gray-100 border-b-2 border-gray-300 z-30">
           <!-- ヘッダー行 -->
           <tr>
@@ -2095,8 +2400,9 @@
               </div>
             </th>
             <th class="bg-gray-100 text-[11px] font-semibold text-gray-700">取引内容</th>
+            <th class="bg-gray-100 text-[11px] font-semibold text-gray-700">明細備考</th>
             <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">メモタグ</th>
-            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700">レシートIDs</th>
+            <th class="w-32 bg-gray-100 text-[11px] font-semibold text-gray-700 hidden">レシートIDs</th>
           </tr>
           
           <!-- フィルター行 -->
@@ -2408,8 +2714,18 @@
               <input
                 type="text"
                 class="input input-sm w-full text-xs"
-                bind:value={headerFilters.detailDescription}
+                bind:value={headerFilters.description}
                 placeholder="取引内容で検索"
+              />
+            </td>
+            
+            <!-- 明細備考フィルター (テキスト) -->
+            <td class="bg-gray-50 p-1">
+              <input
+                type="text"
+                class="input input-sm w-full text-xs"
+                bind:value={headerFilters.detailDescription}
+                placeholder="明細備考で検索"
               />
             </td>
             
@@ -2425,8 +2741,8 @@
               </div>
             </td>
             
-            <!-- レシートIDsフィルター -->
-            <td class="w-32 bg-gray-50 p-1">
+            <!-- レシートIDsフィルター（非表示） -->
+            <td class="w-32 bg-gray-50 p-1 hidden">
               <span class="text-xs text-gray-400">-</span>
             </td>
             
@@ -2437,6 +2753,7 @@
             {@const isOdd = index % 2 === 1}
             <tr 
               class="hover:bg-blue-50 cursor-pointer transition-colors duration-150 border-b border-gray-100"
+              style="height: 24px; line-height: 1;"
               class:bg-gray-50={isOdd}
               class:bg-blue-100={selectedTransaction?.id === row.id}
               class:ring-2={selectedRowIndex === index}
@@ -2458,7 +2775,7 @@
               }}
             >
               <!-- チェックボックス -->
-              <td class="p-2 sticky left-0 z-20 bg-white border-r">
+              <td class="p-0.5 sticky left-0 z-20 bg-white border-r">
                 <input 
                   type="checkbox" 
                   class="checkbox checkbox-xs"
@@ -2475,7 +2792,7 @@
               </td>
               
               <!-- 割当助成金 -->
-              <td class="text-xs p-2 text-gray-700 max-w-24 sticky left-8 z-20 bg-white border-r">
+              <td class="text-xs p-0.5 text-gray-700 max-w-24 sticky left-8 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="truncate" title={alloc.budgetItem.grant.name}>
@@ -2488,7 +2805,7 @@
               </td>
               
               <!-- 予算項目 -->
-              <td class="text-xs p-2 text-gray-700 max-w-24 sticky left-32 z-20 bg-white border-r">
+              <td class="text-xs p-0.5 text-gray-700 max-w-24 sticky left-32 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="truncate" title={alloc.budgetItem.name}>
@@ -2501,7 +2818,7 @@
               </td>
               
               <!-- 割当額 -->
-              <td class="text-xs p-2 text-right font-medium sticky left-56 z-20 bg-white border-r">
+              <td class="text-xs p-0.5 text-right font-medium sticky left-56 z-20 bg-white border-r">
                 {#if row.allocations.length > 0}
                   {#each row.allocations as alloc}
                     <div class="text-green-700">
@@ -2514,40 +2831,45 @@
               </td>
               
               <!-- 発生日 -->
-              <td class="text-xs p-2 font-medium text-gray-800 sticky left-80 z-20 bg-white border-r">{row.date}</td>
+              <td class="text-xs p-0.5 font-medium text-gray-800 sticky left-80 z-20 bg-white border-r">{row.date}</td>
               
               <!-- 金額 -->
-              <td class="text-sm p-2 text-right font-semibold text-gray-900 sticky z-20 bg-white border-r-2 border-gray-300" style="left: 25rem">
+              <td class="text-sm p-0.5 text-right font-semibold text-gray-900 sticky z-20 bg-white border-r-2 border-gray-300" style="left: 25rem">
                 {formatCurrency(row.amount)}
               </td>
               
               <!-- 勘定科目 -->
-              <td class="text-xs p-2 text-gray-700 max-w-28 truncate" title={row.account}>
+              <td class="text-xs p-0.5 text-gray-700 max-w-28 truncate" title={row.account}>
                 {row.account}
               </td>
               
               <!-- 部門 -->
-              <td class="text-xs p-2 text-gray-600 max-w-20 truncate" title={row.department}>
+              <td class="text-xs p-0.5 text-gray-600 max-w-20 truncate" title={row.department}>
                 {row.department}
               </td>
               
               <!-- 取引先 -->
-              <td class="text-xs p-2 text-gray-700 max-w-28 truncate" title={row.supplier}>
+              <td class="text-xs p-0.5 text-gray-700 max-w-28 truncate" title={row.supplier}>
                 {row.supplier}
               </td>
               
               <!-- 品目 -->
-              <td class="text-xs p-2 text-gray-600 max-w-24 truncate" title={row.item}>
+              <td class="text-xs p-0.5 text-gray-600 max-w-24 truncate" title={row.item}>
                 {row.item || '-'}
               </td>
               
               <!-- 取引内容 -->
-              <td class="text-xs p-2 text-gray-800 max-w-64 truncate" title={row.detailDescription}>
-                {row.detailDescription}
+              <td class="text-xs p-0.5 text-gray-800 max-w-64 truncate" title={row.description}>
+                {row.description || '-'}
+              </td>
+              
+              <!-- 明細備考 -->
+              <td class="text-xs p-0.5 text-gray-600 max-w-64 truncate" title={row.detailDescription}>
+                {row.detailDescription || '-'}
               </td>
               
               <!-- メモタグ -->
-              <td class="text-xs p-2 text-gray-600 max-w-32 truncate">
+              <td class="text-xs p-0.5 text-gray-600 max-w-32 truncate">
                 {#if row.tags}
                   <div class="text-blue-600" title={row.tags}>{row.tags}</div>
                 {:else}
@@ -2555,8 +2877,8 @@
                 {/if}
               </td>
               
-              <!-- レシートIDs -->
-              <td class="text-xs p-2 text-gray-600 max-w-32">
+              <!-- レシートIDs（非表示） -->
+              <td class="text-xs p-0.5 text-gray-600 max-w-32 hidden">
                 {#if row.receiptIds && row.receiptIds.length > 0}
                   <div class="text-green-600" title="レシート{row.receiptIds.length}件">
                     📎 {row.receiptIds.length}件
@@ -2594,7 +2916,7 @@
       
       <div class="flex items-center gap-1">
         <button 
-          class="btn btn-sm btn-outline"
+          class="btn btn-sm px-4 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
           on:click={goToFirstPage}
           disabled={currentPage === 1}
           title="最初のページ"
@@ -2602,7 +2924,7 @@
           ≪
         </button>
         <button 
-          class="btn btn-sm btn-outline"
+          class="btn btn-sm px-4 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
           on:click={goToPreviousPage}
           disabled={currentPage === 1}
           title="前のページ"
@@ -2625,7 +2947,7 @@
         </div>
         
         <button 
-          class="btn btn-sm btn-outline"
+          class="btn btn-sm px-4 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
           on:click={goToNextPage}
           disabled={currentPage === totalPages}
           title="次のページ"
@@ -2633,7 +2955,7 @@
           ＞
         </button>
         <button 
-          class="btn btn-sm btn-outline"
+          class="btn btn-sm px-4 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
           on:click={goToLastPage}
           disabled={currentPage === totalPages}
           title="最後のページ"
@@ -2866,7 +3188,7 @@
             />
             <button 
               type="button"
-              class="btn btn-outline btn-sm"
+              class="btn btn-sm px-3 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
               on:click={setRemainingAmount}
             >
               残額入力
@@ -2921,6 +3243,32 @@
     <input type="hidden" name="transactionIds" value={transactionId} />
   {/each}
 </form>
+
+<!-- 領収書画像拡大表示用ポップアップ -->
+{#if enlargedImageUrl}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center"
+    on:click={closeEnlargedImage}
+  >
+    <div class="relative max-w-7xl max-h-screen p-4">
+      <img 
+        src={enlargedImageUrl} 
+        alt={enlargedImageAlt}
+        class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        on:click|stopPropagation
+      />
+      <button 
+        class="absolute top-2 right-2 btn btn-circle btn-sm bg-white text-black hover:bg-gray-200"
+        on:click={closeEnlargedImage}
+      >
+        ✕
+      </button>
+      <div class="absolute bottom-4 left-4 right-4 text-center text-white bg-black bg-opacity-50 rounded p-2">
+        {enlargedImageAlt}
+      </div>
+    </div>
+  </div>
+{/if}
 </div>
 
 <style>

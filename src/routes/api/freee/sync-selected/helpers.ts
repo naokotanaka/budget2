@@ -76,6 +76,10 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: normalizeString(existing.description),
     account: normalizeString(existing.account),
     supplier: normalizeString(existing.supplier),
+    item: normalizeString(existing.item),
+    department: normalizeString(existing.department),
+    managementNumber: normalizeString(existing.managementNumber),
+    detailDescription: normalizeString(existing.detailDescription),
     tags: normalizeString(existing.tags),
     receiptIds: normalizeString(existing.receiptIds)
   };
@@ -87,6 +91,10 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: normalizeString(newData.description),
     account: normalizeString(newData.account),
     supplier: normalizeString(newData.supplier),
+    item: normalizeString(newData.item),
+    department: normalizeString(newData.department),
+    managementNumber: normalizeString(newData.managementNumber),
+    detailDescription: normalizeString(newData.detailDescription),
     tags: normalizeString(newData.tags),
     receiptIds: normalizeString(newData.receiptIds)
   };
@@ -102,6 +110,10 @@ export function hasTransactionChanged(existing: Transaction, newData: any): bool
     description: existingNormalized.description !== newNormalized.description,
     account: existingNormalized.account !== newNormalized.account,
     supplier: existingNormalized.supplier !== newNormalized.supplier,
+    item: existingNormalized.item !== newNormalized.item,
+    department: existingNormalized.department !== newNormalized.department,
+    managementNumber: existingNormalized.managementNumber !== newNormalized.managementNumber,
+    detailDescription: existingNormalized.detailDescription !== newNormalized.detailDescription,
     tags: existingNormalized.tags !== newNormalized.tags,
     receiptIds: existingNormalized.receiptIds !== newNormalized.receiptIds
   };
@@ -128,14 +140,14 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>, r
   let amount = 0;
   let accountItemId = null;
   let accountItemName = '不明';
-  let description = '';
+  let detailDescription = '';
 
   if (deal.details && deal.details.length > 0) {
     const detail = deal.details[0];
     amount = Math.abs(detail.amount || 0);
     accountItemId = detail.account_item_id || null;
     accountItemName = detail.account_item_name || '不明';
-    description = detail.description || '';
+    detailDescription = detail.description || '';
   } else if (deal.amount) {
     amount = Math.abs(deal.amount);
   }
@@ -148,6 +160,17 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>, r
   // 取引先名と勘定科目名を取得
   const resolvedPartnerName = deal.partner_name || null;
   const resolvedAccountName = accountItemName;
+  
+  // 品目名と部門名を取得（プロジェクト指示に従い、フィールド結合せず個別に取得）
+  const itemName = deal.details && deal.details.length > 0 
+    ? (deal.details[0].item_name || null) 
+    : null;
+  const departmentName = deal.details && deal.details.length > 0 
+    ? (deal.details[0].section_name || null) 
+    : null;
+  
+  // 管理番号を取得
+  const managementNumber = deal.ref_number || null;
   
   // タグIDsからタグ名を取得（メモタグの正しい処理）
   let memoTags: string | null = null;
@@ -201,12 +224,16 @@ export function createTransactionData(deal: any, tagMap?: Map<number, string>, r
     journalNumber: safeBigInt(deal.id),
     journalLineNumber: 1,
     date: new Date(deal.issue_date),
-    description: normalizeString(deal.ref_number || description || ''),
+    description: null,  // プロジェクト指示に従い、deals APIには存在しないためnullを設定
     amount: amount,
     account: normalizeString(resolvedAccountName),
     supplier: normalizeString(resolvedPartnerName),
+    item: normalizeString(itemName),  // 品目名
     memo: normalizeString(deal.memo),  // memoはdeal.memoから取得
+    department: normalizeString(departmentName),  // 部門名
+    managementNumber: normalizeString(managementNumber),  // 管理番号
     tags: normalizeString(memoTags),    // tagsカラムにタグ名を保存
+    detailDescription: normalizeString(detailDescription),  // 明細の備考
     freeDealId: safeBigInt(deal.id),
     detailId: detailIdValue,
     receiptIds: receiptIdsJson

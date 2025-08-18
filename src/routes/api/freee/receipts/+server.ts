@@ -39,7 +39,17 @@ export const GET: RequestHandler = async ({ url }) => {
       select: { receiptIds: true }
     });
     
-    console.log('Transaction receiptIds from DB:', transaction?.receiptIds);
+    if (transaction?.receiptIds) {
+      console.log('Transaction receiptIds from DB:', transaction.receiptIds);
+    } else {
+      console.log(`Transaction ${dealId} has no receiptIds in database`);
+      // データベースにレシートIDがない場合、空の結果を返す前にチェック
+      return json({
+        success: true,
+        receipts: [],
+        message: 'この取引には領収書が登録されていません'
+      });
+    }
 
     // 保存されたトークンを取得
     const tokenRecord = await prisma.freeeToken.findFirst({
@@ -59,21 +69,24 @@ export const GET: RequestHandler = async ({ url }) => {
     const companyId = 1583780;  // NPO法人ながいくの会社ID
     console.log('Company ID:', companyId);
 
-    // receiptIdsがデータベースにある場合は、個別にレシート詳細を取得
-    let receipts = [];
-    
-    if (transaction?.receiptIds) {
-      let receiptIdArray = [];
-      try {
-        // JSON文字列の場合はパース
-        if (typeof transaction.receiptIds === 'string') {
-          receiptIdArray = JSON.parse(transaction.receiptIds);
-        } else {
-          receiptIdArray = transaction.receiptIds;
-        }
-      } catch (e) {
-        console.error('Failed to parse receiptIds:', e);
+    // receiptIdsをパース
+    let receiptIdArray = [];
+    try {
+      // JSON文字列の場合はパース
+      if (typeof transaction.receiptIds === 'string') {
+        receiptIdArray = JSON.parse(transaction.receiptIds);
+      } else {
+        receiptIdArray = transaction.receiptIds;
       }
+    } catch (e) {
+      console.error('Failed to parse receiptIds:', e);
+      return json({
+        success: false,
+        error: 'レシートIDの形式が不正です'
+      }, { status: 500 });
+    }
+    
+    let receipts = [];
       
       console.log('Receipt IDs to fetch:', receiptIdArray);
       
@@ -87,38 +100,44 @@ export const GET: RequestHandler = async ({ url }) => {
             Number(receiptId)
           );
           
+          console.log(`Receipt ${receiptId} raw response:`, JSON.stringify(receipt, null, 2));
+          
           if (receipt) {
             console.log(`Receipt ${receiptId} details:`, {
               id: receipt.id,
               mime_type: receipt.mime_type,
               file_src: receipt.file_src,
-              status: receipt.status
+              status: receipt.status,
+              description: receipt.description,
+              issue_date: receipt.issue_date
             });
             receipts.push(receipt);
+          } else {
+            console.log(`Receipt ${receiptId} returned null`);
           }
         } catch (error) {
           console.error(`Failed to get receipt ${receiptId}:`, error);
+          console.error(`Error details:`, error.message, error.stack);
         }
       }
-    } else {
-      // DBにreceiptIdsがない場合は、Deal APIから取得を試みる
-      const dealDetail = await client.getDealDetail(
-        tokenRecord.accessToken,
-        companyId,
-        Number(dealId)
-      );
-      
-      if (dealDetail) {
-        receipts = dealDetail.receipts || [];
-      }
-    }
     
     console.log(`Total receipts fetched: ${receipts.length}`);
+    console.log('Final receipts array:', JSON.stringify(receipts.map(r => ({
+      id: r?.id,
+      mime_type: r?.mime_type,
+      file_src: r?.file_src,
+      status: r?.status,
+      description: r?.description
+    })), null, 2));
 
-    return json({
+    const response = {
       success: true,
       receipts: receipts
-    });
+    };
+    
+    console.log('Sending response:', JSON.stringify(response, null, 2));
+
+    return json(response);
 
   } catch (error) {
     console.error('取引詳細取得エラー:', error);

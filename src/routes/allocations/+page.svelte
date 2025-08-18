@@ -529,7 +529,7 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <form method="POST" action="?/deleteAllocation" use:enhance class="inline">
                       <input type="hidden" name="allocationId" value={allocation.id}>
-                      <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('この割当を削除しますか？')">
+                      <button type="submit" class="text-red-600 hover:text-red-900" on:click={event => { if (!confirm('この割当を削除しますか？')) event.preventDefault(); }}>
                         削除
                       </button>
                     </form>

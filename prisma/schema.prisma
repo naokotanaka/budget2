@@ -89,7 +89,7 @@ model AllocationSplit {
   updatedAt    DateTime     @updatedAt
   detailId     BigInt?
   budgetItem   BudgetItem   @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
-  transaction  Transaction? @relation(fields: [detailId], references: [detailId], onDelete: SetNull)
+  transaction  Transaction? @relation(fields: [detailId], references: [detailId])
 
   @@map("allocation_splits")
 }

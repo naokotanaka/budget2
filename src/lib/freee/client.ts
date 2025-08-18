@@ -793,12 +793,17 @@ export class FreeeAPIClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Receipt Detail API Error:', errorText);
+      console.error('Receipt Detail API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText
+      });
       return null;
     }
 
     const data = await response.json();
-    console.log('Receipt Detail Response:', data);
+    console.log('Receipt Detail Response (full):', JSON.stringify(data, null, 2));
+    console.log('Receipt Detail data.receipt:', JSON.stringify(data.receipt, null, 2));
     
     // file_srcが無い場合、ダウンロードURLを構築
     if (data.receipt && !data.receipt.file_src) {
