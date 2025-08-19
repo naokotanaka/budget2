@@ -45,7 +45,7 @@ export class LegacyCSVParser {
         parseErrors: this.errors,
         warnings: this.warnings
       };
-    } catch (error) {
+    } catch (error: any) {
       this.addError('general', this.currentLine, `CSVパース中にエラーが発生しました: ${error}`);
       return {
         grants: [],
@@ -216,7 +216,7 @@ export class LegacyCSVParser {
         }
 
         grants.push(grant);
-      } catch (error) {
+      } catch (error: any) {
         this.addError('助成金データ', lineNumber, `行の処理中にエラー: ${error}`);
       }
     });
@@ -271,7 +271,7 @@ export class LegacyCSVParser {
         }
 
         budgetItems.push(budgetItem);
-      } catch (error) {
+      } catch (error: any) {
         this.addError('予算項目データ', lineNumber, `行の処理中にエラー: ${error}`);
       }
     });
@@ -325,7 +325,7 @@ export class LegacyCSVParser {
         }
 
         allocations.push(allocation);
-      } catch (error) {
+      } catch (error: any) {
         this.addError('割当データ', lineNumber, `行の処理中にエラー: ${error}`);
       }
     });

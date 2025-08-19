@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
     
     console.log('リクエストボディ:', requestBody);
     return await processFreeeDataRequest(startDate, endDate, companyId);
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST request error:', error);
     return json({ success: false, error: error.message }, { status: 500 });
   }
@@ -108,7 +108,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
 
         accessToken = newToken.accessToken;
         console.log('トークンリフレッシュ完了');
-      } catch (error) {
+      } catch (error: any) {
         console.error('トークンリフレッシュ失敗:', error);
         return json({ 
           success: false, 
@@ -131,7 +131,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
         }
         selectedCompanyId = companies[0].id; // 最初の会社を使用
         console.log('使用する会社ID:', selectedCompanyId, companies[0].name);
-      } catch (error) {
+      } catch (error: any) {
         console.error('会社情報取得エラー:', error);
         return json({ 
           success: false, 
@@ -218,7 +218,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
         } else if ((i + 1) % 10 === 0) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Deal ${deal.id} の詳細取得エラー:`, error);
         // エラーがあっても処理を継続
       }
@@ -426,7 +426,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
           try {
             const partnerName = await nameResolver.getPartnerName(accessToken, selectedCompanyId, item.partner_id);
             transformedData[i].partner_name = partnerName;
-          } catch (error) {
+          } catch (error: any) {
             console.warn(`取引先名解決失敗 (ID: ${item.partner_id}):`, error.message);
           }
         }
@@ -436,7 +436,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
           try {
             const accountItemName = await nameResolver.getAccountItemName(accessToken, selectedCompanyId, item.account_item_id);
             transformedData[i].account_item_name = accountItemName;
-          } catch (error) {
+          } catch (error: any) {
             console.warn(`勘定科目名解決失敗 (ID: ${item.account_item_id}):`, error.message);
           }
         }
@@ -653,7 +653,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
         }
 
         syncedCount++;
-      } catch (error) {
+      } catch (error: any) {
         errorCount++;
         errors.push(`取引ID ${deal.id}: ${error.message}`);
         console.error(`取引保存エラー (ID: ${deal.id}):`, error);
@@ -678,7 +678,7 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
     
     return json(responseData);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== API エラー発生 ===');
     console.error('Error Type:', error.constructor.name);
     console.error('Error Message:', error.message);

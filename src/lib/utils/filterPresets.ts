@@ -74,7 +74,7 @@ export function getPresets(): FilterPreset[] {
     
     const manager: FilterPresetManager = JSON.parse(stored);
     return manager.presets || [];
-  } catch (error) {
+  } catch (error: any) {
     console.warn('プリセット読み込みエラー:', error);
     return [];
   }
@@ -275,7 +275,7 @@ export function importPresets(jsonData: string): void {
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newManager));
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(`インポートエラー: ${error.message}`);
   }
 }

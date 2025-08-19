@@ -49,7 +49,7 @@ export class FreeeNameResolver {
         cache.partners.set(partnerId, name);
         return name;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('取引先名の取得に失敗:', error);
     }
     
@@ -82,7 +82,7 @@ export class FreeeNameResolver {
           return name;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('勘定科目名の取得に失敗:', error);
     }
     
@@ -142,7 +142,7 @@ export class FreeeNameResolver {
         cache.lastUpdated = new Date();
         console.log('勘定科目キャッシュ更新:', cache.accountItems.size, '件');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('勘定科目一覧の取得に失敗:', error);
     }
   }

@@ -5,12 +5,13 @@
   import { base } from '$app/paths';
   import TransactionDetailPanel from '$lib/components/TransactionDetailPanel.svelte';
   import type { Transaction, AllocationSplit, BudgetItem } from '$lib/types/models.js';
+  import type { SerializedTransaction, SerializedBudgetItem, SerializedGrant } from '$lib/types/serialized';
   import type { PageData } from './$types.js';
 
   // TransactionWithAllocationsの型定義
-  interface TransactionWithAllocations extends Transaction {
+  interface TransactionWithAllocations extends SerializedTransaction {
     allocations: (AllocationSplit & {
-      budgetItem: BudgetItem & {
+      budgetItem: SerializedBudgetItem & {
         grant: { name: string };
       };
     })[];
@@ -30,7 +31,7 @@
   
   // データの型を明示的に定義
   let transactions: TransactionWithAllocations[] = [];
-  let budgetItems: BudgetItem[] = [];
+  let budgetItems: SerializedBudgetItem[] = [];
   
   $: ({ transactions = [], budgetItems = [] } = data);
   
@@ -69,7 +70,7 @@
   }));
 
   // Tabulator用の列定義（最終仕様に更新）
-  const columns = [
+  const columns: any[] = [
     { 
       title: "発生日", 
       field: "date", 
@@ -233,7 +234,7 @@
         columns: columns,
         layout: "fitColumns",
         height: "600px",
-        pagination: "local",
+        pagination: true,
         paginationSize: 20,
         paginationSizeSelector: [10, 20, 50, 100],
         movableColumns: true,

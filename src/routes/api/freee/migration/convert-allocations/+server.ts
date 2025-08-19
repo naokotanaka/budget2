@@ -143,7 +143,7 @@ export const POST: RequestHandler = async ({ request }) => {
       ]
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算データ変換エラー:', error);
     
     return json({

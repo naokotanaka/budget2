@@ -82,7 +82,7 @@ export const GET: RequestHandler = async () => {
       sample: data.items?.slice(0, 10) || []
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Items API test error:', error);
     
     return json({

@@ -137,7 +137,7 @@ export const GET: RequestHandler = async () => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Recent deals test error:', error);
     
     return json({

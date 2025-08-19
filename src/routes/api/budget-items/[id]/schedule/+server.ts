@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ params }) => {
       schedules
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('スケジュール取得エラー:', error);
     
     return json({
@@ -95,7 +95,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       message: 'スケジュールが更新されました'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('スケジュール更新エラー:', error);
     
     return json({

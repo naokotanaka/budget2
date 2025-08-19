@@ -109,7 +109,7 @@ export const GET: RequestHandler = async ({ url }) => {
       rawDeal: deal // デバッグ用
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Deal tags test error:', error);
     
     return json({

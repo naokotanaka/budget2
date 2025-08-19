@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
       received: data,
       timestamp: new Date().toISOString() 
     });
-  } catch (error) {
+  } catch (error: any) {
     return json({ 
       error: 'リクエスト解析エラー',
       details: error instanceof Error ? error.message : String(error)

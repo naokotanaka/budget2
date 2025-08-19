@@ -102,7 +102,7 @@
       } else {
         reader.readAsText(selectedFile, 'UTF-8');
       }
-    } catch (error) {
+    } catch (error: any) {
       errors = [`ファイル読み取りエラー: ${error}`];
     }
   }
@@ -180,7 +180,7 @@
         warnings = result.warnings;
       }
 
-    } catch (error) {
+    } catch (error: any) {
       errors = [`通信エラー: ${error}`];
       dispatch('import-complete', { 
         success: false, 

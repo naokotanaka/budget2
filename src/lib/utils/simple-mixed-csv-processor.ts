@@ -100,7 +100,7 @@ export async function processSimpleMixedCSVFile(
   try {
     const parsedData = await processCSVFile(file);
     return processSimpleMixedCSVData(parsedData, includeDebugInfo);
-  } catch (error) {
+  } catch (error: any) {
     return {
       isValid: false,
       errors: [{

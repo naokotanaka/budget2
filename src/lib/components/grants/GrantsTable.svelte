@@ -242,7 +242,7 @@
       // テーブル初期化完了を通知
       dispatch('table-ready');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ テーブル初期化エラー:', error);
       dispatch('table-error', { error });
     }
@@ -261,7 +261,7 @@
       // データを更新
       table.replaceData(budgetItems);
       console.log('✅ テーブル更新完了');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ テーブル更新エラー:', error);
       dispatch('table-error', { error });
     } finally {

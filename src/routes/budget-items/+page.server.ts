@@ -48,7 +48,7 @@ export const load: PageServerLoad = async () => {
       grants,
       budgetItems
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Budget items loading error:', error)
     return {
       grants: [],

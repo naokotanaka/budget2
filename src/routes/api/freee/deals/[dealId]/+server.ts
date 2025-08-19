@@ -60,7 +60,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         });
 
         accessToken = newToken.accessToken;
-      } catch (error) {
+      } catch (error: any) {
         return json({ 
           success: false, 
           error: 'トークンの更新に失敗しました' 
@@ -100,7 +100,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       deal: dealDetail
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('取引詳細取得エラー:', error);
     
     return json({ 

@@ -68,7 +68,7 @@
       } else {
         step = 'upload';
       }
-    } catch (error) {
+    } catch (error: any) {
       onError(error instanceof Error ? error.message : 'ファイルの処理中にエラーが発生しました');
     } finally {
       isProcessing = false;
@@ -116,7 +116,7 @@
       
       onSuccess(validationResult.data);
       step = 'complete';
-    } catch (error) {
+    } catch (error: any) {
       onError(error instanceof Error ? error.message : 'インポート処理中にエラーが発生しました');
     } finally {
       isProcessing = false;

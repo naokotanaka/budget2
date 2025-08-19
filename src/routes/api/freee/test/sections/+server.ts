@@ -76,7 +76,7 @@ export const GET: RequestHandler = async () => {
       }, {})
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Sections API test error:', error);
     
     return json({

@@ -87,7 +87,7 @@ export const POST: RequestHandler = async ({ request }) => {
               );
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('予算項目インポートエラー:', error);
           errors.push(`予算項目 "${budgetItem.name}": ${error}`);
         }
@@ -103,12 +103,12 @@ export const POST: RequestHandler = async ({ request }) => {
         message: `予算項目 ${imported}/${budgetItems.length} 件をインポートしました`
       });
 
-    } catch (error) {
+    } catch (error: any) {
       await prisma.query('ROLLBACK');
       throw error;
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('レガシー予算項目インポートエラー:', error);
     return json(
       { 

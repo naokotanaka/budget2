@@ -55,7 +55,7 @@ export const load: PageServerLoad = async () => {
         unallocatedTransactions
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Dashboard data loading error:', error)
     return {
       grants: [],

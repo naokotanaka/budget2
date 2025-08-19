@@ -63,7 +63,7 @@ export const GET: RequestHandler = async () => {
       }))
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Companies API test error:', error);
     
     return json({

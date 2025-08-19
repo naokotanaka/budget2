@@ -59,7 +59,7 @@ export const load: PageServerLoad = async () => {
         );
         companyName = nagaikuCompany ? nagaikuCompany.name : companies[0].name;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('会社情報取得に失敗しましたがデフォルト名を使用します:', error);
     }
 
@@ -78,7 +78,7 @@ export const load: PageServerLoad = async () => {
       companyName,
       message: '同期準備完了'
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('同期ページ読み込みエラー:', error);
     return {
       authenticated: false,
@@ -136,7 +136,7 @@ export const actions: Actions = {
 
           accessToken = newToken.accessToken;
           console.log('トークンリフレッシュ完了');
-        } catch (error) {
+        } catch (error: any) {
           console.error('トークンリフレッシュエラー:', error);
           return fail(401, {
             success: false,
@@ -268,7 +268,7 @@ export const actions: Actions = {
           });
 
           syncedCount++;
-        } catch (error) {
+        } catch (error: any) {
           errorCount++;
           errors.push(`取引ID ${deal.id}: ${error.message}`);
           console.error(`新規取引作成エラー (ID: ${deal.id}):`, error);
@@ -311,7 +311,7 @@ export const actions: Actions = {
           });
 
           syncedCount++;
-        } catch (error) {
+        } catch (error: any) {
           errorCount++;
           errors.push(`取引ID ${deal.id}: ${error.message}`);
           console.error(`既存取引更新エラー (ID: ${deal.id}):`, error);
@@ -339,7 +339,7 @@ export const actions: Actions = {
         errors: errors.slice(0, 5) // 最初の5件のエラーのみ返す
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('freee同期エラー:', error);
       
       // エラーログを記録

@@ -67,7 +67,7 @@ export class LegacyCSVConverter {
           warningsCount: this.warnings.length
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       this.addError('general', 0, `データ変換中にエラーが発生しました: ${error}`);
       return {
         grants: [],
@@ -131,7 +131,7 @@ export class LegacyCSVConverter {
         }
 
         return converted;
-      } catch (error) {
+      } catch (error: any) {
         this.addError('grants', index, `助成金データの変換中にエラー: ${error}`);
         // エラーが発生した場合でも基本的なデータを返す
         return {
@@ -185,7 +185,7 @@ export class LegacyCSVConverter {
         }
 
         return converted;
-      } catch (error) {
+      } catch (error: any) {
         this.addError('budget_items', index, `予算項目データの変換中にエラー: ${error}`);
         return {
           name: budgetItem.名称 || `予算項目_${budgetItem.ID}`,
@@ -231,7 +231,7 @@ export class LegacyCSVConverter {
         }
 
         return converted;
-      } catch (error) {
+      } catch (error: any) {
         this.addError('allocations', index, `割当データの変換中にエラー: ${error}`);
         return null;
       }
@@ -297,7 +297,7 @@ export class LegacyCSVConverter {
       }
 
       return null;
-    } catch (error) {
+    } catch (error: any) {
       return null;
     }
   }

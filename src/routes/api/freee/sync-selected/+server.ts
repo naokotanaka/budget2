@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json(bigIntToString(responseData));
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('選択同期エラー:', error);
     const errorResponse = { 
       success: false, 

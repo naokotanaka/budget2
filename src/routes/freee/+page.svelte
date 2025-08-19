@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
   import { onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
+  import type { TabulatorFull, CellComponent, RowComponent, ColumnComponent } from 'tabulator-tables';
 
   export let data;
 
@@ -10,12 +11,12 @@
   let startDate = new Date().toISOString().split('T')[0].slice(0, 7) + '-01';
   let endDate = new Date().toISOString().split('T')[0];
   let isLoading = false;
-  let previewData = [];
-  let tableElement;
-  let table;
-  let selectedCompany = null;
-  let fetchError = null;
-  let Tabulator = null;
+  let previewData: any[] = [];
+  let tableElement: HTMLElement;
+  let table: TabulatorFull | null = null;
+  let selectedCompany: number | null = null;
+  let fetchError: string | null = null;
+  let Tabulator: typeof TabulatorFull | null = null;
 
   onMount(async () => {
     console.log('freee認証ページ表示:', { isConnected, companies: companies?.length, lastSyncAt });
@@ -96,7 +97,7 @@
         fetchError = result.error;
         console.error('APIエラー:', result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       fetchError = `データ取得エラー: ${error.message}`;
       console.error('Preview fetch error:', error);
     } finally {
@@ -153,7 +154,7 @@
         minWidth: 90,
         sorter: "number",
         frozen: true, // 固定列（重要なので固定）
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const val = cell.getValue();
           return val ? `<span class="text-blue-600 font-mono text-xs">${val}</span>` : '-';
         },
@@ -167,7 +168,7 @@
         minWidth: 80,
         sorter: "number",
         frozen: true, // 固定列
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const val = cell.getValue();
           return val ? `<span class="text-gray-600 font-mono text-xs">${val}</span>` : '-';
         },
@@ -178,12 +179,12 @@
         field: "issue_date",
         width: 90,
         minWidth: 80,
-        sorter: function(a, b) {
+        sorter: function(a: any, b: any) {
           const dateA = a ? new Date(a) : new Date(0);
           const dateB = b ? new Date(b) : new Date(0);
           return dateA.getTime() - dateB.getTime();
         },
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const val = cell.getValue();
           if (!val) return '';
           try {
@@ -192,7 +193,7 @@
               month: '2-digit',
               day: '2-digit'
             });
-          } catch (error) {
+          } catch (error: any) {
             return val;
           }
         }
@@ -204,7 +205,7 @@
         minWidth: 70,
         sorter: "number",
         hozAlign: "right",
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const val = cell.getValue();
           return val ? `¥${Math.abs(val).toLocaleString()}` : '';
         }
@@ -222,7 +223,7 @@
         field: "description",
         width: 180,
         minWidth: 120,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           // Wallet Txnsからの詳細説明のみ表示
           if (row.wallet_description) {
@@ -238,14 +239,14 @@
         field: "account_item_name",
         width: 120,
         minWidth: 100,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
             return row.details[0].account_item_name || '(Not Set)';
           }
           return '(Not Set)';
         },
-        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+        sorter: function(a: any, b: any, aRow: RowComponent, bRow: RowComponent, column: ColumnComponent, dir: 'asc' | 'desc', sorterParams: any) {
           const aVal = aRow.getData().details?.[0]?.account_item_name || '';
           const bVal = bRow.getData().details?.[0]?.account_item_name || '';
           return aVal.localeCompare(bVal, 'ja');
@@ -257,14 +258,14 @@
         field: "section_name",
         width: 80,
         minWidth: 60,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
             return row.details[0].section_name || '';
           }
           return '';
         },
-        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+        sorter: function(a: any, b: any, aRow: RowComponent, bRow: RowComponent, column: ColumnComponent, dir: 'asc' | 'desc', sorterParams: any) {
           const aVal = aRow.getData().details?.[0]?.section_name || '';
           const bVal = bRow.getData().details?.[0]?.section_name || '';
           return aVal.localeCompare(bVal, 'ja');
@@ -276,14 +277,14 @@
         field: "item_name",
         width: 80,
         minWidth: 60,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           if (row.details && row.details[0]) {
             return row.details[0].item_name || '';
           }
           return '';
         },
-        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+        sorter: function(a: any, b: any, aRow: RowComponent, bRow: RowComponent, column: ColumnComponent, dir: 'asc' | 'desc', sorterParams: any) {
           const aVal = aRow.getData().details?.[0]?.item_name || '';
           const bVal = bRow.getData().details?.[0]?.item_name || '';
           return aVal.localeCompare(bVal, 'ja');
@@ -295,7 +296,7 @@
         field: "tag_names",
         width: 150,
         minWidth: 100,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           // 取引レベルのタグを優先表示
           if (row.tag_names) {
@@ -307,7 +308,7 @@
           }
           return '<span class="text-gray-400">-</span>';
         },
-        tooltip: function(cell) {
+        tooltip: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           const dealTags = row.tag_names;
           const detailTags = row.details?.[0]?.tag_names;
@@ -321,7 +322,7 @@
           }
           return 'メモタグなし';
         },
-        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+        sorter: function(a: any, b: any, aRow: RowComponent, bRow: RowComponent, column: ColumnComponent, dir: 'asc' | 'desc', sorterParams: any) {
           const aVal = aRow.getData().tag_names || aRow.getData().details?.[0]?.tag_names || '';
           const bVal = bRow.getData().tag_names || bRow.getData().details?.[0]?.tag_names || '';
           return aVal.localeCompare(bVal, 'ja');
@@ -333,7 +334,7 @@
         field: "ref_number",
         width: 100,
         minWidth: 80,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const value = cell.getValue();
           return value ? `<span class="text-blue-600 font-medium">${value}</span>` : '<span class="text-gray-400">-</span>';
         },
@@ -346,7 +347,7 @@
         field: "detail_description",
         width: 140,
         minWidth: 100,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           if (row.details && row.details.length > 0 && row.details[0].description) {
             const desc = row.details[0].description;
@@ -354,14 +355,14 @@
           }
           return '<span class="text-gray-400">-</span>';
         },
-        tooltip: function(cell) {
+        tooltip: function(cell: CellComponent) {
           const row = cell.getRow().getData();
           if (row.details && row.details.length > 0) {
             return row.details[0].description || '明細レベルの備考情報';
           }
           return '明細レベルの備考情報';
         },
-        sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+        sorter: function(a: any, b: any, aRow: RowComponent, bRow: RowComponent, column: ColumnComponent, dir: 'asc' | 'desc', sorterParams: any) {
           const aVal = aRow.getData().details?.[0]?.description || '';
           const bVal = bRow.getData().details?.[0]?.description || '';
           return aVal.localeCompare(bVal, 'ja');
@@ -373,7 +374,7 @@
         field: "walletable_type",
         width: 100,
         minWidth: 80,
-        formatter: function(cell) {
+        formatter: function(cell: CellComponent) {
           const value = cell.getValue();
           const row = cell.getRow().getData();
           if (value) {
@@ -423,7 +424,7 @@
       try {
         table.destroy();
         console.log('既存のテーブルを破棄しました');
-      } catch (error) {
+      } catch (error: any) {
         console.warn('テーブル破棄時にエラー:', error);
       }
       table = null;
@@ -502,7 +503,7 @@
       });
 
       console.log('✅ Tabulatorテーブル初期化成功');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Tabulatorテーブル初期化エラー:', error);
       fetchError = 'テーブル表示エラー: ' + error.message;
     }
@@ -547,7 +548,7 @@
       } else {
         alert(`同期エラー: ${result.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       alert(`同期エラー: ${error.message}`);
     } finally {
       isLoading = false;

@@ -537,7 +537,7 @@
         isTableUpdating = false;
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing Tabulator table:', error);
       isTableInitializing = false;
       isTableUpdating = false;
@@ -564,7 +564,7 @@
         table.setData(tableData);
         table.redraw(true);
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error updating table:', error);
         initializeTable();
       }
@@ -589,7 +589,7 @@
       initializeTableColumns();
       prepareTableData();
       updateTable();
-    } catch (error) {
+    } catch (error: any) {
       console.error('テーブル更新エラー:', error);
     } finally {
       isTableUpdating = false;

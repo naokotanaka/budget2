@@ -171,7 +171,7 @@ export const GET: RequestHandler = async ({ url }) => {
       journals_count: journalData.length
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Journal-Deal mapping error:', error);
     
     return json({

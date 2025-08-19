@@ -39,7 +39,7 @@ export const load: PageServerLoad = async () => {
         const client = new FreeeAPIClient(getFreeeConfig());
         companies = await client.getCompanies(tokenRecord.accessToken);
         console.log(`${companies.length}個の会社を取得:`, companies.map(c => c.name));
-      } catch (error) {
+      } catch (error: any) {
         console.warn('会社情報取得失敗:', error);
         connectionError = 'freee接続に問題があります';
       }
@@ -56,7 +56,7 @@ export const load: PageServerLoad = async () => {
     console.log('Result:', JSON.stringify(result, null, 2));
     
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== +page.server.ts エラー発生 ===');
     console.error('Error Type:', error.constructor.name);
     console.error('Error Message:', error.message);

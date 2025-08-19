@@ -50,7 +50,7 @@ export const GET: RequestHandler = async () => {
         });
 
         accessToken = newToken.accessToken;
-      } catch (error) {
+      } catch (error: any) {
         return json({ 
           success: false, 
           error: 'トークンの更新に失敗しました。' 
@@ -162,7 +162,7 @@ export const GET: RequestHandler = async () => {
       mappingResults
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('マッピングテストエラー:', error);
     return json({ 
       success: false, 

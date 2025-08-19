@@ -34,7 +34,7 @@ export const load: PageServerLoad = async () => {
       transactions,
       budgetItems
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Transactions loading error:', error)
     return {
       transactions: [],

@@ -35,7 +35,7 @@ try {
     )
   `);
   console.log('Grantsテーブル初期化完了');
-} catch (error) {
+} catch (error: any) {
   console.error('データベース初期化エラー:', error);
   throw error;
 }
@@ -154,7 +154,7 @@ export const POST: RequestHandler = async ({ request }) => {
         insertGrant.run(name, grantCode, totalAmount, startDate, endDate, status);
         imported++;
         
-      } catch (error) {
+      } catch (error: any) {
         errors.push(`行 ${i + 1}: ${error}`);
       }
     }
@@ -166,7 +166,7 @@ export const POST: RequestHandler = async ({ request }) => {
       errors: errors.length > 0 ? errors : undefined
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('助成金インポートエラー:', error);
     return json({ 
       error: 'インポート処理でエラーが発生しました',

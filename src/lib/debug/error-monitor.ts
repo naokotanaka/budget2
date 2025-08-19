@@ -155,7 +155,7 @@ export async function safeFetch(url: string, options?: RequestInit) {
     }
     
     return response;
-  } catch (error) {
+  } catch (error: any) {
     errorMonitor.captureError('network', error, {
       url,
       options

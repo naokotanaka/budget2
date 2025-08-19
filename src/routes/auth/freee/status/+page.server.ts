@@ -25,7 +25,7 @@ export const load: PageServerLoad = async () => {
       expiresAt: token.expiresAt,
       message: isExpired ? 'トークンの有効期限が切れています' : 'freee連携が有効です'
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('freee認証状態確認エラー:', error);
     return {
       authenticated: false,

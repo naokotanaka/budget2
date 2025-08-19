@@ -145,7 +145,7 @@ export async function processMixedCSVFile(file: File): Promise<MixedCSVValidatio
   try {
     const parsedData = await processCSVFile(file);
     return processMixedCSVData(parsedData);
-  } catch (error) {
+  } catch (error: any) {
     return {
       isValid: false,
       errors: [{

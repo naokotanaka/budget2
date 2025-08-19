@@ -53,7 +53,7 @@ export const GET: RequestHandler = async ({ params }) => {
       count: budgetItemsWithStats.length
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目一覧取得エラー:', error);
     
     return json({
@@ -127,7 +127,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目作成エラー:', error);
     
     return json({

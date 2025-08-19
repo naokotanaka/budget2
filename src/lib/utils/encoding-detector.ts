@@ -47,7 +47,7 @@ export class EncodingDetector {
             confidence: 1.0,
             content
           };
-        } catch (error) {
+        } catch (error: any) {
           // ヒントエンコーディングで失敗した場合は自動検出に移る
           console.warn(`指定されたエンコーディング ${hintEncoding} でのデコードに失敗:`, error);
         }
@@ -55,7 +55,7 @@ export class EncodingDetector {
 
       // 自動検出
       return await this.autoDetect(bytes);
-    } catch (error) {
+    } catch (error: any) {
       const encodingError: EncodingError = new Error(`エンコーディング検出に失敗: ${error}`) as EncodingError;
       encodingError.code = 'DETECTION_FAILED';
       throw encodingError;
@@ -115,7 +115,7 @@ export class EncodingDetector {
         const content = this.decodeWithEncoding(bytes, encoding);
         const confidence = this.calculateConfidence(content, encoding);
         results.push({ encoding, confidence, content });
-      } catch (error) {
+      } catch (error: any) {
         results.push({ encoding, confidence: 0, content: '', error: true });
       }
     }

@@ -31,7 +31,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     // }
     
     return response;
-  } catch (error) {
+  } catch (error: any) {
     // 500エラーを監視（一時的に無効化）
     // handleHttpError(event, 500, error?.message || 'Internal Server Error');
     console.error('Server error:', error);

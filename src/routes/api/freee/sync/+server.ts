@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ request }) => {
         });
 
         accessToken = newToken.accessToken;
-      } catch (error) {
+      } catch (error: any) {
         return json({ 
           success: false, 
           error: 'トークンの更新に失敗しました。再認証が必要です。' 
@@ -395,7 +395,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
 
         syncedCount++;
-      } catch (error) {
+      } catch (error: any) {
         errorCount++;
         errors.push(`取引ID ${deal.id}: ${error.message}`);
         console.error(`取引同期エラー (ID: ${deal.id}):`, error);
@@ -426,7 +426,7 @@ export const POST: RequestHandler = async ({ request }) => {
       errors: errors.slice(0, 10) // 最初の10件のエラーのみ返す
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('freee同期エラー:', error);
     
     // エラーログを記録

@@ -132,7 +132,7 @@ export const GET: RequestHandler = async ({ params }) => {
       message: '取引詳細を取得しました'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Deal詳細取得エラー:', error);
     
     return json({
@@ -162,7 +162,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       todo: 'freee API PUT /api/1/deals/{id} の実装'
     }, { status: 501 });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Deal更新エラー:', error);
     
     return json({

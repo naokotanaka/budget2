@@ -96,7 +96,7 @@ export const load: PageServerLoad = async () => {
       budgetItems,
       allAllocations: serializedAllocations
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Allocations loading error:', error)
     return {
       transactions: [],
@@ -149,7 +149,7 @@ export const actions: Actions = {
       })
 
       return { success: true }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save allocation error:', error)
       return fail(500, { error: 'Failed to save allocation' })
     }
@@ -169,7 +169,7 @@ export const actions: Actions = {
       })
 
       return { success: true }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete allocation error:', error)
       return fail(500, { error: 'Failed to delete allocation' })
     }

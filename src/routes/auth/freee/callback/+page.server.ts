@@ -73,7 +73,7 @@ export const load: PageServerLoad = async ({ url }) => {
       tokenExpiresAt: token.expiresAt
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('freee認証エラー:', error);
     return {
       error: `認証処理でエラーが発生しました: ${error.message}`,

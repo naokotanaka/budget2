@@ -82,7 +82,7 @@ export const GET: RequestHandler = async () => {
       firstThree: walletables.slice(0, 3)
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Walletables API test error:', error);
     
     return json({

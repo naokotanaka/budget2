@@ -132,7 +132,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json(response);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('レガシーCSVインポートエラー:', error);
     
     return json({
@@ -177,7 +177,7 @@ async function performDatabaseImport(conversionResult: any) {
         grantIdMap.set(grantData.legacyId, grant.id);
         results.grants.imported++;
 
-      } catch (error) {
+      } catch (error: any) {
         results.grants.errors.push(`助成金 "${grantData.name}": ${error instanceof Error ? error.message : String(error)}`);
       }
     }
@@ -206,7 +206,7 @@ async function performDatabaseImport(conversionResult: any) {
         budgetItemIdMap.set(budgetItemData.legacyId, budgetItem.id);
         results.budgetItems.imported++;
 
-      } catch (error) {
+      } catch (error: any) {
         results.budgetItems.errors.push(`予算項目 "${budgetItemData.name}": ${error instanceof Error ? error.message : String(error)}`);
       }
     }
@@ -232,7 +232,7 @@ async function performDatabaseImport(conversionResult: any) {
 
         results.allocations.imported++;
 
-      } catch (error) {
+      } catch (error: any) {
         results.allocations.errors.push(`割当 "${allocationData.legacyId}": ${error instanceof Error ? error.message : String(error)}`);
       }
     }

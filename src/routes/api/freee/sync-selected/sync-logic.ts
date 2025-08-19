@@ -44,7 +44,7 @@ async function getFreeeCredentials(): Promise<{ companyId: number; accessToken: 
       companyId: companies[0].id,
       accessToken: tokenRecord.accessToken
     };
-  } catch (error) {
+  } catch (error: any) {
     logger.error('freee認証情報取得エラー:', error);
     return null;
   }
@@ -111,7 +111,7 @@ export async function processSingleDeal(
       });
       return { type: 'created', freeDealId };
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       type: 'error',
       freeDealId: deal.id.toString(),
@@ -142,7 +142,7 @@ export async function processDeletedTransactions(
         where: { id: transaction.id }
       });
       deletedCount++;
-    } catch (error) {
+    } catch (error: any) {
       errors.push({
         freeDealId: transaction.freeDealId?.toString() || 'unknown',
         error: `削除エラー: ${(error as Error).message}`
@@ -209,7 +209,7 @@ export async function executeSync(
             } else if ((i + 1) % 10 === 0) {
               await new Promise(resolve => setTimeout(resolve, 100));
             }
-          } catch (error) {
+          } catch (error: any) {
             logger.error(`Deal ${deal.id} の詳細取得エラー:`, error);
             // エラーがあっても処理を続行
           }
@@ -219,7 +219,7 @@ export async function executeSync(
       } else {
         logger.warn('freee認証情報が取得できないため、タグマップなしで処理を続行');
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('マップ取得エラー:', error);
       logger.warn('タグマップなしで処理を続行');
     }

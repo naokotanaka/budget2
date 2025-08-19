@@ -29,7 +29,7 @@
           status: response.status,
           data: result
         };
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error testing ${endpoint.name}:`, error);
         testResults[endpoint.name] = {
           success: false,

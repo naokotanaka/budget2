@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
   console.log('📍 Script block started');
   import { onMount } from "svelte";
   import CSVImporter from '$lib/components/CSVImporter.svelte';
+  import Tabulator from 'tabulator-tables';
   
   export let data;
   console.log('📍 data received:', data);
@@ -23,32 +24,61 @@
     activeMonths: item.activeMonths,
     note: item.note || '',
     status: item.grant.status,
-    utilizationRate: item.budgetedAmount > 0 
-      ? Math.round((item.totalAllocated / item.budgetedAmount) * 100)
+    utilizationRate: (item.budgetedAmount || 0) > 0 
+      ? Math.round((item.totalAllocated / (item.budgetedAmount || 1)) * 100)
       : 0
   }));
   $: console.log('⭐ formattedBudgetItems.length:', formattedBudgetItems?.length || 0);
 
   // グリッド設定変数
-  let gridApi;
+  let gridApi: any;
   let isEditing = false;
-  let selectedRows = [];
+  let selectedRows: any[] = [];
   let showCSVImporter = false;
   let showMonthlyData = true;
+  let tableElement: HTMLElement;
+  let tabulator: any;
+
+  // 月データ表示設定
+  let monthDisplaySettings = {
+    budget: true,      // 予算
+    used: false,       // 使用額
+    remaining: false,  // 残額
+    utilization: false // 使用率
+  };
+
+  // 設定変更時の行の高さ計算
+  $: activeSettingsCount = Object.values(monthDisplaySettings).filter(Boolean).length;
+  $: dynamicRowHeight = Math.max(40, 30 + (activeSettingsCount * 15)); // 基本30px + 設定項目数 * 15px
+  
+  // デバッグ用ログ
+  $: {
+    console.log('💫 月データ表示設定:', monthDisplaySettings);
+    console.log('💫 アクティブ設定数:', activeSettingsCount);
+    console.log('💫 動的行の高さ:', dynamicRowHeight);
+  }
 
   // 金額フォーマット関数
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number | null | undefined): string => {
     if (!value || value === 0) return '-';
     return `¥${Math.abs(value).toLocaleString()}`;
   };
 
   // 使用率の色分けクラス取得
-  const getUtilizationClass = (rate) => {
-    if (rate > 90) return 'text-red-600 font-bold';
-    if (rate > 70) return 'text-orange-600 font-semibold';
-    if (rate > 0) return 'text-blue-600';
-    return 'text-gray-500';
+  const getUtilizationClass = (rate: number): string => {
+    if (rate >= 100) return 'text-red-600 font-bold';
+    if (rate >= 80) return 'text-orange-600 font-semibold';
+    if (rate >= 60) return 'text-yellow-600';
+    return 'text-green-600';
   };
+
+  // レスポンシブ検知
+  let innerWidth = 0;
+  $: isMobile = innerWidth < 768;
+  $: isTablet = innerWidth >= 768 && innerWidth < 1024;
+
+  // 月別列の生成
+  const monthColumns = Array.from({ length: 12 }, (_, i) => i + 1);
 
   // レスポンシブ列定義関数
   const createResponsiveColumns = () => {
@@ -71,7 +101,287 @@
           sort: true,
           editable: true,
           cellClass: "font-mono text-xs",
-          template: (value) => `<div class="text-right text-xs">${formatCurrency(value)}</div>
+          template: (value: any) => `<div class="text-right text-xs">${formatCurrency(value)}</div>`
+        },
+        { 
+          id: "utilizationRate", 
+          header: "使用率", 
+          width: 80,
+          align: "center",
+          sort: true,
+          cellClass: "text-xs",
+          template: (value: any) => {
+            const colorClass = getUtilizationClass(value);
+            return `<span class="text-xs ${colorClass}">${value}%</span>`;
+          }
+        },
+        {
+          id: "actions",
+          header: "操作",
+          width: 60,
+          sortable: false,
+          cellClass: "text-center",
+          template: (value: any, row: any) => `
+            <button 
+              class="p-2 text-blue-600 hover:bg-blue-50 rounded"
+              onclick="editBudgetItem(${row.id})"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          `
+        }
+      ];
+    }
+    
+    // タブレット用の中程度簡略列定義
+    if (isTablet) {
+      return [
+        { 
+          id: "grantName", 
+          header: "助成金", 
+          width: 140,
+          fixed: "left",
+          sort: true,
+          filter: true,
+          cellClass: "font-medium bg-gray-50 text-sm"
+        },
+        { 
+          id: "name", 
+          header: "項目名", 
+          width: 180,
+          fixed: "left",
+          sort: true,
+          editable: true,
+          cellClass: "font-medium bg-gray-50 text-sm"
+        },
+        { 
+          id: "budgetedAmount", 
+          header: "予算額", 
+          width: 110,
+          align: "right",
+          sort: true,
+          editable: true,
+          cellClass: "font-mono text-sm",
+          template: (value) => `<div class="text-right text-sm">${formatCurrency(value)}</div>`
+        },
+        { 
+          id: "totalAllocated", 
+          header: "使用額", 
+          width: 110,
+          align: "right",
+          sort: true,
+          cellClass: "font-mono text-sm",
+          template: (value) => `<div class="text-right text-sm text-orange-700">${formatCurrency(value)}</div>`
+        },
+        { 
+          id: "utilizationRate", 
+          header: "使用率", 
+          width: 90,
+          align: "center",
+          sort: true,
+          template: (value) => {
+            const colorClass = getUtilizationClass(value);
+            return `<span class="text-sm ${colorClass}">${value}%</span>`;
+          }
+        },
+        {
+          id: "actions",
+          header: "操作",
+          width: 80,
+          sortable: false,
+          cellClass: "text-center",
+          template: (value: any, row: any) => `
+            <div class="flex justify-center">
+              <button 
+                class="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                onclick="editBudgetItem(${row.id})"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+          `
+        }
+      ];
+    }
+    
+    // デスクトップ用のフル列定義
+    return [
+      // 固定列（助成金名・項目名）
+      { 
+        id: "grantName", 
+        header: "助成金名", 
+        width: 180,
+        fixed: "left",
+        sort: true,
+        filter: true,
+        cellClass: "font-medium bg-gray-50"
+      },
+      { 
+        id: "name", 
+        header: "項目名", 
+        width: 220,
+        fixed: "left",
+        sort: true,
+        editable: true,
+        cellClass: "font-medium bg-gray-50"
+      },
+      // 数値データ列
+      { 
+        id: "budgetedAmount", 
+        header: "予算額", 
+        width: 120,
+        align: "right",
+        sort: true,
+        editable: true,
+        cellClass: "font-mono",
+        template: (value: any) => `<div class="text-right">${formatCurrency(value)}</div>`
+      },
+      { 
+        id: "totalAllocated", 
+        header: "使用額", 
+        width: 120,
+        align: "right",
+        sort: true,
+        cellClass: "font-mono",
+        template: (value) => `<div class="text-right text-orange-700">${formatCurrency(value)}</div>`
+      },
+      { 
+        id: "remainingAmount", 
+        header: "残額", 
+        width: 120,
+        align: "right",
+        sort: true,
+        cellClass: "font-mono",
+        template: (value: any) => {
+          const colorClass = value < 0 ? 'text-red-600' : 'text-green-600';
+          return `<div class="text-right ${colorClass}">${formatCurrency(value)}</div>`;
+        }
+      },
+      { 
+        id: "utilizationRate", 
+        header: "使用率", 
+        width: 100,
+        align: "center",
+        sort: true,
+        template: (value: any) => {
+          const colorClass = getUtilizationClass(value);
+          return `
+            <div class="flex items-center justify-center">
+              <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                <div class="utilization-bar bg-blue-600 h-2 rounded-full" style="width: ${Math.min(value, 100)}%"></div>
+              </div>
+              <span class="text-sm ${colorClass} font-medium">${value}%</span>
+            </div>
+          `;
+        }
+      },
+      // 月別データ列（動的に生成）
+      ...monthColumns.map(month => ({
+        id: `month_${month}`,
+        header: `${month}月`,
+        width: 120,
+        align: "center",
+        cellClass: "text-xs",
+        template: (value: any, row: any) => {
+          const monthData = getMonthData(row, month);
+          const activeSettings = Object.entries(monthDisplaySettings).filter(([_, active]) => active);
+          
+          if (activeSettings.length === 0) return '<div class="text-gray-400">-</div>';
+          
+          return `
+            <div class="space-y-1">
+              ${activeSettings.map(([key, _]) => {
+                switch(key) {
+                  case 'budget':
+                    return `<div class="text-blue-600">予算: ${formatCurrency(monthData.budget || 0)}</div>`;
+                  case 'used':
+                    return `<div class="text-orange-600">使用: ${formatCurrency(monthData.used || 0)}</div>`;
+                  case 'remaining':
+                    const remaining = (monthData.budget || 0) - (monthData.used || 0);
+                    const remainingClass = remaining < 0 ? 'text-red-600' : 'text-green-600';
+                    return `<div class="${remainingClass}">残額: ${formatCurrency(remaining)}</div>`;
+                  case 'utilization':
+                    const rate = monthData.budget > 0 ? Math.round((monthData.used / monthData.budget) * 100) : 0;
+                    const rateClass = getUtilizationClass(rate);
+                    return `<div class="${rateClass}">率: ${rate}%</div>`;
+                  default:
+                    return '';
+                }
+              }).join('')}
+            </div>
+          `;
+        }
+      })),
+      // 操作列
+      {
+        id: "actions",
+        header: "操作",
+        width: 80,
+        sortable: false,
+        cellClass: "text-center",
+        template: (value, row) => `
+          <div class="flex justify-center space-x-1">
+            <button 
+              class="p-2 text-blue-600 hover:bg-blue-50 rounded"
+              onclick="editBudgetItem(${row.id})"
+              title="編集"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          </div>
+        `
+      }
+    ];
+  };
+
+  // 月別データ取得関数
+  function getMonthData(row: any, month: number) {
+    return {
+      budget: (row.budgetedAmount || 0) / 12,
+      used: row.monthlyData?.[month] || 0,
+    };
+  }
+
+  // 統計データの計算
+  $: stats = {
+    totalBudget: budgetItems.reduce((sum, item) => sum + (item.budgetedAmount || 0), 0),
+    totalAllocated: budgetItems.reduce((sum, item) => sum + (item.totalAllocated || 0), 0),
+    totalRemaining: budgetItems.reduce((sum, item) => {
+      const remaining = (item.budgetedAmount || 0) - (item.totalAllocated || 0);
+      return sum + remaining;
+    }, 0),
+    totalItems: budgetItems.length,
+    activeGrants: Array.from(new Set(budgetItems.map(item => item.grant.id))).length,
+    overBudgetItems: budgetItems.filter(item => (item.totalAllocated || 0) > (item.budgetedAmount || 0)).length
+  };
+
+  $: overallUtilization = stats.totalBudget > 0 
+    ? Math.round((stats.totalAllocated / stats.totalBudget) * 100)
+    : 0;
+
+  // 不足している変数の追加
+  let updateMessage = '';
+  let updateError = '';
+  let isUpdating = false;
+  let monthlyStats: any = null;
+  $: displayData = budgetItems;
+
+  // バルク操作の関数
+  function handleBulkDelete() {
+    // バルク削除の実装
+    console.log('バルク削除:', selectedRows);
+  }
+
+  function handleBulkExport() {
+    // バルク出力の実装
+    console.log('バルク出力:', selectedRows);
+  }</script>
 
 <style>
   /* wx-svelte-gridのカスタムスタイル */
@@ -189,795 +499,7 @@
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
-</style>`
-        },
-        { 
-          id: "utilizationRate", 
-          header: "使用率", 
-          width: 80,
-          align: "center",
-          sort: true,
-          cellClass: "text-xs",
-          template: (value) => {
-            const colorClass = getUtilizationClass(value);
-            return `<span class="text-xs ${colorClass}">${value}%</span>`;
-          }
-        },
-        {
-          id: "actions",
-          header: "操作",
-          width: 60,
-          sortable: false,
-          cellClass: "text-center",
-          template: (value, row) => `
-            <button 
-              class="p-2 text-blue-600 hover:bg-blue-50 rounded"
-              onclick="editBudgetItem(${row.id})"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-          `
-        }
-      ];
-    }
-    
-    // タブレット用の中程度簡略列定義
-    if (isTablet) {
-      return [
-        { 
-          id: "grantName", 
-          header: "助成金", 
-          width: 140,
-          fixed: "left",
-          sort: true,
-          filter: true,
-          cellClass: "font-medium bg-gray-50 text-sm"
-        },
-        { 
-          id: "name", 
-          header: "項目名", 
-          width: 180,
-          fixed: "left",
-          sort: true,
-          editable: true,
-          cellClass: "font-medium bg-gray-50 text-sm"
-        },
-        { 
-          id: "budgetedAmount", 
-          header: "予算額", 
-          width: 110,
-          align: "right",
-          sort: true,
-          editable: true,
-          cellClass: "font-mono text-sm",
-          template: (value) => `<div class="text-right text-sm">${formatCurrency(value)}</div>`
-        },
-        { 
-          id: "totalAllocated", 
-          header: "使用額", 
-          width: 110,
-          align: "right",
-          sort: true,
-          cellClass: "font-mono text-sm",
-          template: (value) => `<div class="text-right text-sm text-orange-700">${formatCurrency(value)}</div>`
-        },
-        { 
-          id: "utilizationRate", 
-          header: "使用率", 
-          width: 90,
-          align: "center",
-          sort: true,
-          template: (value) => {
-            const colorClass = getUtilizationClass(value);
-            return `<span class="text-sm ${colorClass}">${value}%</span>`;
-          }
-        },
-        {
-          id: "actions",
-          header: "操作",
-          width: 80,
-          sortable: false,
-          cellClass: "text-center",
-          template: (value, row) => `
-            <div class="flex justify-center">
-              <button 
-                class="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                onclick="editBudgetItem(${row.id})"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            </div>
-          `
-        }
-      ];
-    }
-    
-    // デスクトップ用のフル列定義
-    return [
-      // 固定列（助成金名・項目名）
-    // 固定列（助成金名・項目名）
-    { 
-      id: "grantName", 
-      header: "助成金名", 
-      width: 180,
-      minWidth: 120,
-      maxWidth: 220,
-      fixed: "left", // 左固定
-      sort: true,
-      filter: true,
-      resizable: true,
-      cellClass: "font-medium bg-gray-50 border-r-2 border-gray-200",
-      headerClass: "font-semibold bg-blue-50 border-r-2 border-blue-200"
-    },
-    { 
-      id: "name", 
-      header: "予算項目名", 
-      width: 220,
-      minWidth: 150,
-      maxWidth: 300,
-      fixed: "left", // 左固定
-      sort: true,
-      filter: true,
-      resizable: true,
-      editable: true, // 編集可能
-      cellClass: "font-medium bg-gray-50 border-r-2 border-gray-200",
-      headerClass: "font-semibold bg-blue-50 border-r-2 border-blue-200"
-    },
-    // 基本情報列
-    { 
-      id: "grantCode", 
-      header: "助成金コード", 
-      width: 130,
-      sort: true,
-      filter: true,
-      resizable: true,
-      cellClass: "text-xs font-mono"
-    },
-    { 
-      id: "category", 
-      header: "カテゴリ", 
-      width: 120,
-      sort: true,
-      filter: true,
-      resizable: true,
-      editable: true
-    },
-    // 金額列（右寄せ、特別なフォーマット）
-    { 
-      id: "budgetedAmount", 
-      header: "予算額", 
-      width: 130,
-      sort: true,
-      align: "right",
-      resizable: true,
-      editable: true,
-      cellClass: "font-mono text-sm",
-      headerClass: "bg-blue-50",
-      template: (value, row) => {
-        const amount = formatCurrency(value);
-        return `<div class="text-right font-mono text-sm">${amount}</div>`;
-      },
-      // 編集用のカスタムエディタ
-      editor: "number"
-    },
-    { 
-      id: "totalAllocated", 
-      header: "使用額", 
-      width: 130,
-      sort: true,
-      align: "right",
-      resizable: true,
-      cellClass: "font-mono text-sm",
-      headerClass: "bg-orange-50",
-      template: (value, row) => {
-        const amount = formatCurrency(value);
-        return `<div class="text-right font-mono text-sm text-orange-700">${amount}</div>`;
-      }
-    },
-    { 
-      id: "remaining", 
-      header: "残額", 
-      width: 130,
-      sort: true,
-      align: "right",
-      resizable: true,
-      cellClass: "font-mono text-sm",
-      headerClass: "bg-green-50",
-      template: (value, row) => {
-        const amount = formatCurrency(value);
-        let colorClass = "text-gray-500";
-        if (value > 0) colorClass = "text-green-600 font-medium";
-        else if (value < 0) colorClass = "text-red-600 font-bold";
-        
-        return `<div class="text-right font-mono text-sm ${colorClass}">${amount}</div>`;
-      }
-    },
-    // 使用率列（特別な表示）
-    { 
-      id: "utilizationRate", 
-      header: "使用率", 
-      width: 100,
-      sort: true,
-      align: "center",
-      resizable: true,
-      cellClass: "text-center",
-      headerClass: "bg-purple-50",
-      template: (value, row) => {
-        const colorClass = getUtilizationClass(value);
-        const barWidth = Math.min(value, 100);
-        let barColor = "bg-blue-400";
-        if (value > 90) barColor = "bg-red-500";
-        else if (value > 70) barColor = "bg-orange-500";
-        
-        return `
-          <div class="flex flex-col items-center space-y-1">
-            <span class="text-xs font-medium ${colorClass}">${value}%</span>
-            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full ${barColor} transition-all duration-300" style="width: ${barWidth}%"></div>
-            </div>
-          </div>
-        `;
-      }
-    },
-    // 統計列
-    { 
-      id: "allocationCount", 
-      header: "割当件数", 
-      width: 100,
-      sort: true,
-      align: "center",
-      resizable: true,
-      cellClass: "text-center font-medium"
-    },
-    { 
-      id: "activeMonths", 
-      header: "有効月数", 
-      width: 100,
-      sort: true,
-      align: "center",
-      resizable: true,
-      cellClass: "text-center font-medium"
-    },
-    // ステータス列
-    { 
-      id: "status", 
-      header: "状態", 
-      width: 100,
-      sort: true,
-      filter: true,
-      resizable: true,
-      cellClass: "text-center",
-      template: (value, row) => {
-        const statusConfig = {
-          'active': { class: 'bg-green-100 text-green-800', text: '進行中' },
-          'completed': { class: 'bg-gray-100 text-gray-800', text: '完了' },
-          'pending': { class: 'bg-yellow-100 text-yellow-800', text: '保留中' },
-          'cancelled': { class: 'bg-red-100 text-red-800', text: '中止' }
-        };
-        const config = statusConfig[value] || { class: 'bg-gray-100 text-gray-800', text: value };
-        
-        return `
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.class}">
-            ${config.text}
-          </span>
-        `;
-      }
-    },
-    // 操作列（アクションボタン）
-    {
-      id: "actions",
-      header: "操作",
-      width: 120,
-      sortable: false,
-      resizable: false,
-      cellClass: "text-center",
-      template: (value, row) => `
-        <div class="flex justify-center space-x-1">
-          <button 
-            class="inline-flex items-center p-1 border border-transparent rounded text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            onclick="editBudgetItem(${row.id})"
-            title="編集"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button 
-            class="inline-flex items-center p-1 border border-transparent rounded text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 focus:outline-none focus:ring-1 focus:ring-green-500"
-            onclick="viewDetails(${row.id})"
-            title="詳細"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      `
-    }
-      ];
-  };
-  
-  // レスポンシブ列定義
-  $: columns = createResponsiveColumns();
-
-  // レスポンシブデザイン用の状態管理
-  let innerWidth = 0;
-  let isMobile = false;
-  let isTablet = false;
-  let isDesktop = false;
-  
-  // ブレークポイントによるデバイス種別の判定
-  $: {
-    isMobile = innerWidth < 768;
-    isTablet = innerWidth >= 768 && innerWidth < 1024;
-    isDesktop = innerWidth >= 1024;
-  }
-  
-  // レスポンシブグリッド設定
-  $: gridConfig = {
-    // 基本設定（デバイスに応じて調整）
-    height: isMobile ? 500 : isTablet ? 550 : 600,
-    theme: isMobile ? "compact" : "material", // モバイルはコンパクトテーマ
-    // 固定列設定（モバイルでは無効）
-    leftCols: isMobile ? 0 : 2, // モバイルでは固定列を無効化
-    // 選択設定
-    selection: {
-      mode: isMobile ? "single" : "multi", // モバイルは単一選択
-      checkboxes: !isMobile // モバイルではチェックボックスを非表示
-    },
-    // ソート設定
-    sort: {
-      multiColumn: !isMobile // モバイルでは単一ソートのみ
-    },
-    // フィルター設定
-    filter: {
-      enabled: true,
-      mode: isMobile ? "external" : "header" // モバイルでは外部フィルター
-    },
-    // ページネーション設定
-    pagination: {
-      enabled: true,
-      size: isMobile ? 20 : isTablet ? 30 : 50, // デバイスに応じてページサイズを調整
-      sizeOptions: isMobile ? [10, 20, 50] : [25, 50, 100, 200]
-    },
-    // リサイズ設定
-    resize: {
-      enabled: !isMobile, // モバイルではリサイズ無効
-      mode: "column"
-    },
-    // 編集設定
-    edit: {
-      enabled: true,
-      mode: "cell",
-      trigger: isMobile ? "click" : "dblclick" // モバイルはシングルクリック
-    },
-    // エクスポート設定
-    export: {
-      enabled: !isMobile, // モバイルではエクスポート無効
-      formats: ["csv", "excel"]
-    },
-    // パフォーマンス設定
-    virtual: {
-      enabled: displayData.length > 100, // 100件以上で仮想スクロールを有効化
-      itemHeight: isMobile ? 60 : 40, // モバイルでは行高を大きく
-      bufferSize: isMobile ? 5 : 10 // モバイルではバッファサイズを小さく
-    },
-    // モバイル用の追加設定
-    touch: {
-      enabled: isMobile,
-      swipeToSelect: true,
-      longPressToEdit: true
-    }
-  };
-
-  // 編集関連の状態管理
-  let isUpdating = false;
-  let updateMessage = '';
-  let updateError = '';
-
-  // セル編集ハンドラー（高度な実装）
-  const handleCellEdit = async (event) => {
-    const { rowIndex, colId, value, oldValue, row } = event.detail;
-    
-    // 変更がない場合は何もしない
-    if (value === oldValue) return;
-    
-    console.log('Cell edited:', { rowIndex, colId, value, oldValue, budgetItemId: row.id });
-    
-    // 更新中フラグを設定
-    isUpdating = true;
-    updateError = '';
-    
-    try {
-      // 更新データの準備
-      const updateData = {};
-      
-      // フィールド別のバリデーションと変換
-      switch (colId) {
-        case 'name':
-          if (value.trim().length === 0) {
-            throw new Error('予算項目名は必須です');
-          }
-          updateData.name = value.trim();
-          break;
-          
-        case 'category':
-          updateData.category = value.trim() || null;
-          break;
-          
-        case 'budgetedAmount':
-          const amount = parseFloat(value);
-          if (isNaN(amount) || amount < 0) {
-            throw new Error('予算額は0以上の数値で入力してください');
-          }
-          updateData.budgetedAmount = amount;
-          break;
-          
-        case 'note':
-          updateData.note = value.trim() || null;
-          break;
-          
-        default:
-          console.warn('Unsupported column for editing:', colId);
-          return;
-      }
-      
-      // APIリクエストを送信
-      const response = await fetch(`/api/budget-items/${row.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: 更新に失敗しました`);
-      }
-      
-      const updatedItem = await response.json();
-      
-      // ローカルデータを更新（リアクティブ更新）
-      budgetItems = budgetItems.map(item => 
-        item.id === row.id ? { ...item, ...updatedItem } : item
-      );
-      
-      // 成功メッセージを表示
-      updateMessage = `${row.name} の ${getFieldDisplayName(colId)} を更新しました`;
-      setTimeout(() => { updateMessage = ''; }, 3000);
-      
-    } catch (error) {
-      console.error('Update failed:', error);
-      updateError = error.message;
-      
-      // エラー時は元の値に戻す（グリッドのAPIを使用）
-      if (gridApi) {
-        gridApi.updateCell(rowIndex, colId, oldValue);
-      }
-      
-      // エラーメッセージを一定時間後にクリア
-      setTimeout(() => { updateError = ''; }, 5000);
-      
-    } finally {
-      isUpdating = false;
-    }
-  };
-  
-  // フィールド名の表示名を取得
-  const getFieldDisplayName = (colId) => {
-    const fieldNames = {
-      'name': '項目名',
-      'category': 'カテゴリ',
-      'budgetedAmount': '予算額',
-      'note': '備考'
-    };
-    return fieldNames[colId] || colId;
-  };
-
-  const handleRowSelect = (event) => {
-    selectedRows = event.detail.selectedRows;
-    console.log('Selected rows:', selectedRows);
-  };
-
-  const handleSort = (event) => {
-    console.log('Sort changed:', event.detail);
-  };
-
-  const handleFilter = (event) => {
-    console.log('Filter changed:', event.detail);
-  };
-
-  // 一括操作関数
-  const handleBulkDelete = async () => {
-    if (selectedRows.length === 0) return;
-    
-    if (!confirm(`選択した${selectedRows.length}件の予算項目を削除しますか？`)) {
-      return;
-    }
-    
-    isUpdating = true;
-    updateError = '';
-    
-    try {
-      const deletePromises = selectedRows.map(row => 
-        fetch(`/api/budget-items/${row.id}`, { method: 'DELETE' })
-      );
-      
-      const responses = await Promise.all(deletePromises);
-      const failedDeletes = responses.filter(response => !response.ok);
-      
-      if (failedDeletes.length > 0) {
-        throw new Error(`${failedDeletes.length}件の削除に失敗しました`);
-      }
-      
-      // ローカルデータから削除
-      const deletedIds = selectedRows.map(row => row.id);
-      budgetItems = budgetItems.filter(item => !deletedIds.includes(item.id));
-      selectedRows = [];
-      
-      updateMessage = `${selectedRows.length}件の予算項目を削除しました`;
-      setTimeout(() => { updateMessage = ''; }, 3000);
-      
-    } catch (error) {
-      console.error('Bulk delete failed:', error);
-      updateError = error.message;
-      setTimeout(() => { updateError = ''; }, 5000);
-    } finally {
-      isUpdating = false;
-    }
-  };
-  
-  const handleBulkExport = () => {
-    if (selectedRows.length === 0) return;
-    
-    // 選択されたデータをCSV形式でエクスポート
-    const csvData = [
-      // CSVヘッダー
-      [
-        '助成金名', '予算項目名', 'カテゴリ', '予算額', '使用額', '残額', '使用率', '状態'
-      ],
-      // 選択されたデータ
-      ...selectedRows.map(row => [
-        row.grantName,
-        row.name,
-        row.category || '',
-        row.budgetedAmount || 0,
-        row.totalAllocated,
-        row.remaining,
-        `${row.utilizationRate}%`,
-        row.status === 'active' ? '進行中' : row.status
-      ])
-    ];
-    
-    // CSVファイルとしてダウンロード
-    const csvContent = csvData.map(row => 
-      row.map(field => `"${field}"`).join(',')
-    ).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `予算項目_選択分_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
-
-  // アクション関数（グローバルスコープで定義）
-  if (typeof window !== 'undefined') {
-    window.editBudgetItem = (id) => {
-      console.log('Edit budget item:', id);
-      // TODO: 編集モーダルを開く
-      // 簡易実装: グリッドの編集モードを有効化
-      if (gridApi) {
-        gridApi.startEditMode(id, 'name'); // 名前フィールドを編集モードに
-      }
-    };
-
-    window.viewDetails = (id) => {
-      console.log('View details:', id);
-      // TODO: 詳細ビューを開く
-      // 簡易実装: 該当行をハイライト
-      if (gridApi) {
-        gridApi.selectRow(id);
-        gridApi.scrollToRow(id);
-      }
-    };
-  }
-
-  // 月別データを生成・処理する関数
-  const getMonthlyData = (budgetItem) => {
-    console.log('⚡⚡⚡ getMonthlyData called for:', budgetItem.name, 'budgetedAmount:', budgetItem.budgetedAmount);
-    // 実際の実装では、budgetItem.allocations から月別データを集計
-    const monthlyData = {};
-    const currentYear = new Date().getFullYear();
-    
-    // 初期化（全月を0で）
-    for (let month = 1; month <= 12; month++) {
-      monthlyData[month] = 0;
-    }
-    
-    // 実際のallocationデータがある場合の処理例
-    if (budgetItem.allocations) {
-      budgetItem.allocations.forEach(allocation => {
-        const allocDate = new Date(allocation.date || allocation.createdAt);
-        if (allocDate.getFullYear() === currentYear) {
-          const month = allocDate.getMonth() + 1;
-          monthlyData[month] = (monthlyData[month] || 0) + allocation.amount;
-        }
-      });
-    } else {
-      // サンプルデータ生成（実際の実装では削除）
-      const totalAmount = budgetItem.budgetedAmount;
-      if (totalAmount > 0) {
-        // 使用額を12ヶ月に分散（変動あり）
-        let remainingAmount = totalAmount;
-        for (let month = 1; month <= 11; month++) {
-          const monthlyAmount = Math.floor((remainingAmount / (13 - month)) * (0.5 + Math.random()));
-          monthlyData[month] = monthlyAmount;
-          remainingAmount -= monthlyAmount;
-        }
-        monthlyData[12] = remainingAmount; // 残りを12月に
-      }
-    }
-    
-    return monthlyData;
-  };
-  
-  // 月別データを含む拡張データを作成
-  $: extendedBudgetItems = formattedBudgetItems.map(item => {
-    console.log('🔥🔥🔥 Creating extendedBudgetItems for:', item.name);
-    const monthlyData = getMonthlyData(item);
-    return {
-      ...item,
-      monthlyData
-    };
-  });
-
-  // 月別データ表示用のレスポンシブ列定義
-  const createMonthlyColumns = () => {
-    // モバイルでは月別表示を簡略化
-    if (isMobile) {
-      return [
-        {
-          id: "name", 
-          header: "項目名", 
-          width: 150,
-          sort: true,
-          cellClass: "font-medium text-sm"
-        },
-        // 現在の月と前月のみ表示
-        ...Array.from({length: 2}, (_, i) => {
-          const currentMonth = new Date().getMonth() + 1;
-          const monthIndex = currentMonth - i - 1;
-          const displayMonth = monthIndex <= 0 ? 12 + monthIndex : monthIndex;
-          
-          return {
-            id: `month_${displayMonth}`,
-            header: `${displayMonth}月`,
-            width: 80,
-            align: "right",
-            cellClass: "font-mono text-xs",
-            template: (value, row) => {
-              const monthlyAmount = row.monthlyData?.[displayMonth] || 0;
-              return `<div class="text-right text-xs">${formatCurrency(monthlyAmount)}</div>`;
-            }
-          };
-        })
-      ];
-    }
-    const monthNames = [
-      '1月', '2月', '3月', '4月', '5月', '6月',
-      '7月', '8月', '9月', '10月', '11月', '12月'
-    ];
-    
-    return [
-      // 固定列（助成金名、項目名）
-      ...columns.slice(0, 2),
-      // 予算額列（月別表示でも表示）
-      columns.find(col => col.id === 'budgetedAmount'),
-      // 月別列を動的に追加
-      ...monthNames.map((monthName, i) => ({
-        id: `month_${i + 1}`,
-        header: monthName,
-        width: 90,
-        minWidth: 70,
-        maxWidth: 120,
-        align: "right",
-        sort: true,
-        resizable: true,
-        cellClass: "font-mono text-xs",
-        headerClass: "bg-indigo-50 text-xs",
-        template: (value, row) => {
-          const monthlyAmount = row.monthlyData?.[i + 1] || 0;
-          if (monthlyAmount === 0) {
-            return '<div class="text-right text-gray-400 font-mono text-xs">-</div>';
-          }
-          
-          // 予算の月割り額を計算（参考値）
-          const monthlyBudget = (row.budgetedAmount || 0) / 12;
-          let colorClass = 'text-blue-600';
-          if (monthlyAmount > monthlyBudget * 1.2) {
-            colorClass = 'text-red-600 font-medium';
-          } else if (monthlyAmount > monthlyBudget) {
-            colorClass = 'text-orange-600';
-          }
-          
-          return `<div class="text-right font-mono text-xs ${colorClass}">${formatCurrency(monthlyAmount)}</div>`;
-        }
-      })),
-      // 年間合計列
-      {
-        id: "yearlyTotal",
-        header: "年間計",
-        width: 110,
-        align: "right",
-        sort: true,
-        cellClass: "font-mono text-sm font-medium bg-gray-50",
-        headerClass: "bg-gray-100 font-semibold",
-        template: (value, row) => {
-          const yearlyTotal = Object.values(row.monthlyData || {}).reduce((sum, amount) => sum + amount, 0);
-          return `<div class="text-right font-mono text-sm font-medium">${formatCurrency(yearlyTotal)}</div>`;
-        }
-      },
-      // ステータス、操作列
-      ...columns.slice(-2)
-    ];
-  };
-  
-  $: monthlyColumns = createMonthlyColumns();
-
-  // 表示データと列の切り替え
-  $: displayData = showMonthlyData ? extendedBudgetItems : formattedBudgetItems;
-  $: displayColumns = showMonthlyData ? monthlyColumns : columns;
-  
-  // 強制的にextendedBudgetItemsを初期化
-  $: {
-    console.log('💪 formattedBudgetItems.length:', formattedBudgetItems.length);
-    if (formattedBudgetItems.length > 0) {
-      console.log('💪 Forcing extendedBudgetItems calculation');
-      extendedBudgetItems;  // 参照して計算を強制実行
-    }
-  }
-  
-  // 月別集計データ（統計用）
-  $: monthlyStats = showMonthlyData ? {
-    monthlyTotals: Array.from({length: 12}, (_, i) => {
-      return extendedBudgetItems.reduce((sum, item) => {
-        return sum + (item.monthlyData?.[i + 1] || 0);
-      }, 0);
-    }),
-    peakMonth: (() => {
-      const monthlyTotals = Array.from({length: 12}, (_, i) => {
-        return extendedBudgetItems.reduce((sum, item) => {
-          return sum + (item.monthlyData?.[i + 1] || 0);
-        }, 0);
-      });
-      const maxAmount = Math.max(...monthlyTotals);
-      const peakMonthIndex = monthlyTotals.indexOf(maxAmount);
-      return { month: peakMonthIndex + 1, amount: maxAmount };
-    })()
-  } : null;
-
-  // 統計情報を計算
-  $: stats = {
-    totalItems: budgetItems.length,
-    totalBudget: budgetItems.reduce((sum, item) => sum + (item.budgetedAmount || 0), 0),
-    totalAllocated: budgetItems.reduce((sum, item) => sum + item.totalAllocated, 0),
-    activeGrants: grants.filter(g => g.status === 'active').length,
-    overBudgetItems: budgetItems.filter(item => 
-      item.budgetedAmount > 0 && item.totalAllocated > item.budgetedAmount
-    ).length
-  };
-
-  $: overallUtilization = stats.totalBudget > 0 
-    ? Math.round((stats.totalAllocated / stats.totalBudget) * 100)
-    : 0;
-</script>
+</style>
 
 <svelte:window bind:innerWidth />
 
@@ -1180,6 +702,86 @@
             >
               {showMonthlyData ? '基本表示' : '月別表示'}
             </button>
+          {/if}
+
+          <!-- 月データ表示設定（月別表示時のみ） -->
+          {#if showMonthlyData && !isMobile}
+            <div class="flex items-center space-x-3 bg-gray-50 rounded-lg px-3 py-2">
+              <span class="text-sm font-medium text-gray-700">表示項目:</span>
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  bind:checked={monthDisplaySettings.budget}
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span class="ml-2 text-sm text-gray-700">予算</span>
+              </label>
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  bind:checked={monthDisplaySettings.used}
+                  class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                />
+                <span class="ml-2 text-sm text-gray-700">使用額</span>
+              </label>
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  bind:checked={monthDisplaySettings.remaining}
+                  class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <span class="ml-2 text-sm text-gray-700">残額</span>
+              </label>
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  bind:checked={monthDisplaySettings.utilization}
+                  class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <span class="ml-2 text-sm text-gray-700">使用率</span>
+              </label>
+            </div>
+          {/if}
+          
+          <!-- モバイル用月データ表示設定 -->
+          {#if showMonthlyData && isMobile}
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="text-sm font-medium text-gray-700 mb-2">表示項目:</div>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={monthDisplaySettings.budget}
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">予算</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={monthDisplaySettings.used}
+                    class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">使用額</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={monthDisplaySettings.remaining}
+                    class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">残額</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={monthDisplaySettings.utilization}
+                    class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">使用率</span>
+                </label>
+              </div>
+            </div>
           {/if}
           
           {#if selectedRows.length > 0}

@@ -94,7 +94,7 @@ export const GET: RequestHandler = async () => {
       raw_deal: deal
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Transaction number test error:', error);
     
     return json({

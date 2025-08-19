@@ -82,7 +82,7 @@ export const GET: RequestHandler = async () => {
       firstThree: journals.slice(0, 3)
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Journals API test error:', error);
     
     return json({

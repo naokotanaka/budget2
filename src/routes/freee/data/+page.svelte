@@ -86,7 +86,7 @@
           errorMessage += ' 管理者による設定が必要です。';
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       errorMessage = `データ取得中にエラーが発生しました: ${error.message}`;
     } finally {
       loading = false;

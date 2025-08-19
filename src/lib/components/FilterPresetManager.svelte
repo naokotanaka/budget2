@@ -142,7 +142,7 @@
       
       clearMessage('save');
       setTimeout(() => closeSaveDialog(), 1000);
-    } catch (error) {
+    } catch (error: any) {
       saveMessage = error.message;
       saveMessageType = 'error';
       clearMessage('save');
@@ -183,7 +183,7 @@
       editingName = '';
       
       clearMessage('manage');
-    } catch (error) {
+    } catch (error: any) {
       manageMessage = error.message;
       manageMessageType = 'error';
       clearMessage('manage');
@@ -208,7 +208,7 @@
       }
       
       clearMessage('manage');
-    } catch (error) {
+    } catch (error: any) {
       manageMessage = error.message;
       manageMessageType = 'error';
       clearMessage('manage');
@@ -228,7 +228,7 @@
       manageMessageType = 'success';
       loadPresets();
       clearMessage('manage');
-    } catch (error) {
+    } catch (error: any) {
       manageMessage = error.message;
       manageMessageType = 'error';
       clearMessage('manage');
@@ -249,7 +249,7 @@
       manageMessage = 'プリセットをエクスポートしました';
       manageMessageType = 'success';
       clearMessage('manage');
-    } catch (error) {
+    } catch (error: any) {
       manageMessage = `エクスポートエラー: ${error.message}`;
       manageMessageType = 'error';
       clearMessage('manage');
@@ -273,7 +273,7 @@
       loadPresets();
       clearMessage('import');
       setTimeout(() => closeImportDialog(), 1000);
-    } catch (error) {
+    } catch (error: any) {
       importMessage = error.message;
       importMessageType = 'error';
       clearMessage('import');

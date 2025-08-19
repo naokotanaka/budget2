@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ request }) => {
               );
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('助成金インポートエラー:', error);
           errors.push(`助成金 "${grant.name}": ${error}`);
         }
@@ -79,12 +79,12 @@ export const POST: RequestHandler = async ({ request }) => {
         message: `助成金 ${imported}/${grants.length} 件をインポートしました`
       });
 
-    } catch (error) {
+    } catch (error: any) {
       await prisma.query('ROLLBACK');
       throw error;
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('レガシー助成金インポートエラー:', error);
     return json(
       { 

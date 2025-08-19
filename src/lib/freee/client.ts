@@ -860,7 +860,7 @@ export class FreeeAPIClient {
           const receipts = await Promise.all(receiptPromises);
           data.deal.receipts = receipts.filter(Boolean); // null要素を除去
           console.log('Loaded receipts for deal:', data.deal.receipts.length);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to load receipt details:', error);
           data.deal.receipts = [];
         }
@@ -919,7 +919,7 @@ export class FreeeAPIClient {
         buffer: buffer,
         contentType: contentType
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading receipt image:', error);
       return null;
     }

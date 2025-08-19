@@ -81,7 +81,7 @@ export async function decodeText(buffer: ArrayBuffer): Promise<string> {
     const decoder = new TextDecoder(encoding);
     const text = decoder.decode(buffer);
     return removeBOM(text);
-  } catch (error) {
+  } catch (error: any) {
     // フォールバック: UTF-8で再試行
     console.warn(`Failed to decode with ${encoding}, falling back to UTF-8`);
     const decoder = new TextDecoder('utf-8');
@@ -186,7 +186,7 @@ export async function processCSVFile(
     const buffer = await file.arrayBuffer();
     const text = await decodeText(buffer);
     return parseCSV(text, options);
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(`CSVファイルの処理に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

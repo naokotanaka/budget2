@@ -37,7 +37,7 @@ export async function parseCSVFile<T = GrantCSVData | BudgetItemCSVData>(file: F
         const text = event.target?.result as string;
         const result = parseCSVText<T>(text, type);
         resolve(result);
-      } catch (error) {
+      } catch (error: any) {
         resolve({
           success: false,
           data: [],
@@ -116,7 +116,7 @@ export function parseCSVText<T = GrantCSVData | BudgetItemCSVData>(text: string,
         data.push(parsedData as T);
       }
       
-    } catch (error) {
+    } catch (error: any) {
       errors.push(`行${lineNumber}: ${error instanceof Error ? error.message : '解析エラー'}`);
     }
   }

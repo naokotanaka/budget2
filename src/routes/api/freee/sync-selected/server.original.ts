@@ -165,7 +165,7 @@ export const POST: RequestHandler = async ({ request }) => {
             }
           }
 
-        } catch (error) {
+        } catch (error: any) {
           if (enableDebug) {
             console.error(`エラー (freee ID ${deal.id}):`, error);
           }
@@ -200,7 +200,7 @@ export const POST: RequestHandler = async ({ request }) => {
           if (enableDebug) {
             console.log(`削除: freee ID ${transaction.freeDealId} - ${transaction.description}`);
           }
-        } catch (error) {
+        } catch (error: any) {
           if (enableDebug) {
             console.error(`削除エラー (freee ID ${transaction.freeDealId}):`, error);
           }
@@ -245,7 +245,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json(bigIntToString(responseData));
 
-  } catch (error) {
+  } catch (error: any) {
     const enableDebug = isDebugEnabled();
     if (enableDebug) {
       console.error('選択同期エラー:', error);

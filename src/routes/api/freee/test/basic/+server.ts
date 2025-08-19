@@ -52,7 +52,7 @@ export const GET: RequestHandler = async () => {
     
     return json(result);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== Basic Test Error ===');
     console.error('Error:', error);
     

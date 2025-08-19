@@ -172,7 +172,7 @@ export const actions: Actions = {
       }
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('割当保存エラー:', error);
       return fail(500, { message: '割当の保存に失敗しました' });
     }
@@ -192,7 +192,7 @@ export const actions: Actions = {
       });
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('割当削除エラー:', error);
       return fail(500, { message: '割当の削除に失敗しました' });
     }
@@ -240,7 +240,7 @@ export const actions: Actions = {
       }
 
       return { success: true, allocatedCount: allocations.length };
-    } catch (error) {
+    } catch (error: any) {
       console.error('一括割当エラー:', error);
       return fail(500, { message: '一括割当の保存に失敗しました' });
     }

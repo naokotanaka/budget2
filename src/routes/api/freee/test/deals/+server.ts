@@ -120,7 +120,7 @@ export const GET: RequestHandler = async () => {
       error: 'No deals found'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Test error:', error);
     return json({
       success: false,

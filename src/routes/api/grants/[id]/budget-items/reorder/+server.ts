@@ -46,7 +46,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       message: '並び替えが完了しました'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目並び替えエラー:', error);
     
     return json({

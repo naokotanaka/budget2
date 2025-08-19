@@ -79,7 +79,7 @@ export const GET: RequestHandler = async () => {
       firstJournalKeys: data.journals?.[0] ? Object.keys(data.journals[0]) : []
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Journal Reports API test error:', error);
     
     return json({

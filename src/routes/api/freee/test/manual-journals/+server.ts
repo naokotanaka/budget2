@@ -74,7 +74,7 @@ export const GET: RequestHandler = async () => {
       allFields: data.manual_journals?.[0] ? Object.keys(data.manual_journals[0]) : []
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Manual Journals API test error:', error);
     
     return json({

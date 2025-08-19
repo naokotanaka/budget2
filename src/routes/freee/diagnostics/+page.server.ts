@@ -23,7 +23,7 @@ export const load: PageServerLoad = async () => {
         updatedAt: tokenRecord.updatedAt.toISOString()
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('診断情報取得エラー:', error);
     
     return {

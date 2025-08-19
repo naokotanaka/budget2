@@ -52,7 +52,7 @@ export const POST: RequestHandler = async ({ request }) => {
         });
 
         accessToken = newToken.accessToken;
-      } catch (error) {
+      } catch (error: any) {
         return json({ 
           success: false, 
           error: 'トークンの更新に失敗しました。再認証が必要です。' 
@@ -388,7 +388,7 @@ export const POST: RequestHandler = async ({ request }) => {
       totalCount: dealsWithIndex.length
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('freeeプレビューエラー:', error);
     return json({ 
       success: false, 

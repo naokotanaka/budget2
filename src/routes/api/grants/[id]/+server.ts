@@ -70,7 +70,7 @@ export const GET: RequestHandler = async ({ params }) => {
       budgetItems
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('助成金詳細取得エラー:', error);
     
     return json({
@@ -133,7 +133,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('助成金更新エラー:', error);
     
     return json({
@@ -207,7 +207,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('助成金削除エラー:', error);
     
     return json({

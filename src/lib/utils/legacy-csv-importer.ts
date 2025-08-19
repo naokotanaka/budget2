@@ -130,7 +130,7 @@ export class LegacyCSVImporter {
       };
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       this.reportProgress('error', 0, 100, `エラーが発生しました: ${error}`);
       
       return {
@@ -213,7 +213,7 @@ export class LegacyCSVImporter {
         budgetItems: importedBudgetItems,
         allocations: importedAllocations
       };
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`データベースインポート中にエラー: ${error}`);
     }
   }
@@ -253,7 +253,7 @@ export class LegacyCSVImporter {
       }
 
       return imported;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`助成金データのインポートに失敗: ${error}`);
     }
   }
@@ -292,7 +292,7 @@ export class LegacyCSVImporter {
       }
 
       return imported;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`予算項目データのインポートに失敗: ${error}`);
     }
   }
@@ -331,7 +331,7 @@ export class LegacyCSVImporter {
       }
 
       return imported;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`割当データのインポートに失敗: ${error}`);
     }
   }

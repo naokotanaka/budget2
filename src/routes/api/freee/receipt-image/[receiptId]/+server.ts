@@ -61,7 +61,7 @@ export const GET: RequestHandler = async ({ params }) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Receipt image proxy error:', error);
     return new Response('Failed to fetch receipt image', { status: 500 });
   }

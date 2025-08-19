@@ -75,7 +75,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         accessToken = newToken.accessToken;
         console.log('トークンリフレッシュ完了');
-      } catch (error) {
+      } catch (error: any) {
         console.error('トークンリフレッシュ失敗:', error);
         return json({ 
           success: false, 
@@ -103,7 +103,7 @@ export const POST: RequestHandler = async ({ request }) => {
       }
       
       console.log('使用する会社ID:', selectedCompanyId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('会社情報取得エラー:', error);
       return json({ 
         success: false, 
@@ -156,7 +156,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Deals API エラー:', error);
       debugData.errors.push({
         api: 'deals',
@@ -186,7 +186,7 @@ export const POST: RequestHandler = async ({ request }) => {
         console.log('Wallet Txn sample:', JSON.stringify(walletTxns[0], null, 2));
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Wallet Txns API エラー:', error);
       debugData.errors.push({
         api: 'wallet_txns',
@@ -216,7 +216,7 @@ export const POST: RequestHandler = async ({ request }) => {
         console.log('Walletable sample:', JSON.stringify(walletables[0], null, 2));
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Walletables API エラー:', error);
       debugData.errors.push({
         api: 'walletables',
@@ -242,7 +242,7 @@ export const POST: RequestHandler = async ({ request }) => {
       message: `freee API生データを取得しました（Deals: ${debugData.deals.length}件, Wallet: ${debugData.walletTxns.length}件, エラー: ${debugData.errors.length}件）`
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== Debug API エラー発生 ===');
     console.error('Error Type:', error.constructor.name);
     console.error('Error Message:', error.message);

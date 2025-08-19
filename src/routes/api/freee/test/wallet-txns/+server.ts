@@ -82,7 +82,7 @@ export const GET: RequestHandler = async () => {
       firstThree: walletTxns.slice(0, 3)
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Wallet Txns API test error:', error);
     
     return json({

@@ -107,7 +107,7 @@ export const GET: RequestHandler = async () => {
       matchedSample: walletableMatchedWithDetails[0] || null
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Relationship test error:', error);
     
     return json({

@@ -79,7 +79,7 @@ export const logger = {
 export function safeStringify(obj: any): string {
   try {
     return JSON.stringify(obj, null, 2);
-  } catch (error) {
+  } catch (error: any) {
     return `[Stringify Error: ${String(obj)}]`;
   }
 }

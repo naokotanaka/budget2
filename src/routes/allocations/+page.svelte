@@ -276,7 +276,7 @@
       } else {
         console.error('Failed to save allocation');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save error:', error);
     } finally {
       saving = false;

@@ -80,7 +80,7 @@
       processedData = rows;
       progress = 100;
       currentStep = 2;
-    } catch (error) {
+    } catch (error: any) {
       errors = [`ファイル処理エラー: ${error}`];
       progress = 0;
     } finally {
@@ -116,7 +116,7 @@
       
       dispatch('success', { count: result.imported || processedData.length });
       closeModal();
-    } catch (error) {
+    } catch (error: any) {
       dispatch('error', { message: `インポートエラー: ${error}` });
       errors = [`インポートエラー: ${error}`];
     } finally {
@@ -169,7 +169,7 @@
 {#if isOpen}
   <!-- モーダルオーバーレイ -->
   <div class="modal-overlay" on:click={closeModal} on:keydown={(e) => e.key === 'Escape' && closeModal()} role="button" tabindex="0" aria-label="モーダルを閉じる">
-    <div class="modal-container" on:click|stopPropagation>
+    <div class="modal-container" on:click|stopPropagation on:keydown|stopPropagation>
       <!-- ヘッダー -->
       <div class="modal-header">
         <div class="header-icon">

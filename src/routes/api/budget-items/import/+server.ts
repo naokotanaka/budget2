@@ -100,7 +100,7 @@ export const POST: RequestHandler = async ({ request }) => {
         insertBudgetItem.run(name, category, budgetedAmount, usedAmount, note, grantId);
         imported++;
         
-      } catch (error) {
+      } catch (error: any) {
         errors.push(`行 ${i + 1}: ${error}`);
       }
     }
@@ -112,7 +112,7 @@ export const POST: RequestHandler = async ({ request }) => {
       errors: errors.length > 0 ? errors : undefined
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目インポートエラー:', error);
     return json({ 
       error: 'インポート処理でエラーが発生しました',

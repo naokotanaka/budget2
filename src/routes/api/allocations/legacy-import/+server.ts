@@ -96,7 +96,7 @@ export const POST: RequestHandler = async ({ request }) => {
               );
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('割当インポートエラー:', error);
           errors.push(`割当ID ${allocation.legacyId}: ${error}`);
         }
@@ -112,12 +112,12 @@ export const POST: RequestHandler = async ({ request }) => {
         message: `割当 ${imported}/${allocations.length} 件をインポートしました`
       });
 
-    } catch (error) {
+    } catch (error: any) {
       await prisma.query('ROLLBACK');
       throw error;
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('レガシー割当インポートエラー:', error);
     return json(
       { 

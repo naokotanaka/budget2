@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
       sampleTransaction: data.transactions?.[0]
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Data structure test error:', error);
     
     return json({

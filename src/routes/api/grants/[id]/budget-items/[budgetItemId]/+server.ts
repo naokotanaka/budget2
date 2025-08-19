@@ -74,7 +74,7 @@ export const GET: RequestHandler = async ({ params }) => {
       }))
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目詳細取得エラー:', error);
     
     return json({
@@ -138,7 +138,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目更新エラー:', error);
     
     return json({
@@ -211,7 +211,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('予算項目削除エラー:', error);
     
     return json({

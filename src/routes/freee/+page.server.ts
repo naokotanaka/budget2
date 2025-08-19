@@ -82,7 +82,7 @@ export const load: PageServerLoad = async () => {
           companies = [];
         }
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('Token refresh failed:', error);
         connectionError = 'freee認証の有効期限が切れています。再認証が必要です。';
         isConnected = false;
@@ -99,7 +99,7 @@ export const load: PageServerLoad = async () => {
         
         companies = await Promise.race([companiesPromise, timeoutPromise]);
         console.log(`${companies.length}個の会社を取得:`, companies.map(c => c.display_name || c.name));
-      } catch (error) {
+      } catch (error: any) {
         console.warn('会社情報取得失敗:', error);
         connectionError = 'freee接続に問題があります';
         companies = [];
@@ -117,7 +117,7 @@ export const load: PageServerLoad = async () => {
     console.log('Result:', JSON.stringify(result, null, 2));
     
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== freee/+page.server.ts エラー発生 ===');
     console.error('Error Type:', error.constructor.name);
     console.error('Error Message:', error.message);

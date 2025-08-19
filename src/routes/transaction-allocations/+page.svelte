@@ -6,6 +6,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
+  import type { SerializedGrant, SerializedBudgetItem, SerializedTransaction } from '$lib/types/serialized';
   import SimpleFilterPreset from '$lib/components/SimpleFilterPreset.svelte';
   
   export let data: PageData;
@@ -16,8 +17,8 @@
   const DEFAULT_TRANSACTION_STATUS = 'all';
   
   // 型定義
-  interface BudgetItemWithGrant extends BudgetItem {
-    grant?: Grant;
+  interface BudgetItemWithGrant extends SerializedBudgetItem {
+    grant?: SerializedGrant;
     grantName: string;
     grantStatus: string;
     grantStartDate: string;
@@ -39,7 +40,7 @@
     allocationStatus: 'unallocated' | 'partial' | 'full';
     allocationCount: number;
     allocations: Array<AllocationSplit & { 
-      budgetItem: BudgetItem & { grant: Grant } 
+      budgetItem: SerializedBudgetItem & { grant: SerializedGrant } 
     }>;
     supplier: string;
     department: string;
@@ -183,7 +184,7 @@
     note: ''
   };
   let editingAllocation: (AllocationSplit & { 
-    budgetItem: BudgetItem & { grant: Grant } 
+    budgetItem: SerializedBudgetItem & { grant: SerializedGrant } 
   }) | null = null;
   
   // ユーティリティ関数
@@ -1528,7 +1529,7 @@
       }
       // 表示完了したdealIdを記録
       displayedDealId = dealId;
-    } catch (error) {
+    } catch (error: any) {
       console.error('領収書の取得エラー:', error);
       if (container) {
         container.innerHTML = '<p class="text-sm text-red-500">領収書の取得に失敗しました</p>';

@@ -115,7 +115,7 @@ export const GET: RequestHandler = async ({ url }) => {
           } else {
             console.log(`Receipt ${receiptId} returned null`);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Failed to get receipt ${receiptId}:`, error);
           console.error(`Error details:`, error.message, error.stack);
         }
@@ -139,7 +139,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     return json(response);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('取引詳細取得エラー:', error);
     return json({ 
       success: false, 
@@ -188,7 +188,7 @@ export const POST: RequestHandler = async ({ request }) => {
         if (receipt) {
           receipts.push(receipt);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`領収書 ${receiptId} の取得に失敗:`, error);
       }
     }
@@ -198,7 +198,7 @@ export const POST: RequestHandler = async ({ request }) => {
       receipts
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('領収書取得エラー:', error);
     return json({ 
       success: false, 
