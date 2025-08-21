@@ -851,10 +851,6 @@
       // 月別予算
       const scheduleInfo = budgetItemSchedules.get(item.id);
       if (scheduleInfo) {
-        // 最初のアイテムだけデバッグ
-        if (item.id === budgetItems[0]?.id) {
-          console.log('📊 scheduleInfo.months:', scheduleInfo.months);
-        }
         
         scheduleInfo.months.forEach(monthKey => {
           // monthKeyの形式を確認して適切に処理
@@ -1238,17 +1234,8 @@
     });
     
     categoryTableData = generateCategoryData();
-    console.log('📊 生成されたカテゴリデータ:', categoryTableData);
     
-    const viewportHeight = window.innerHeight;
-    let tableHeight = "400px";
-    if (viewportHeight > 1000) {
-      tableHeight = "500px";
-    } else if (viewportHeight > 768) {
-      tableHeight = "400px";
-    } else {
-      tableHeight = "300px";
-    }
+    const tableHeight = calculateCategoryTableHeight();
     
     // 予算項目テーブルと同じ設定を使用
     categoryTable = new Tabulator(categoryTableElement, {
@@ -1264,6 +1251,18 @@
       },
       placeholder: "カテゴリデータがありません"
     });
+  }
+
+  function calculateCategoryTableHeight(): string {
+    const viewportHeight = window.innerHeight;
+    
+    if (viewportHeight > TABLE_CONSTANTS.VIEWPORT_BREAKPOINT_LARGE) {
+      return "500px";
+    } else if (viewportHeight > TABLE_CONSTANTS.VIEWPORT_BREAKPOINT_MEDIUM) {
+      return "400px";
+    } else {
+      return "300px";
+    }
   }
 
   // カテゴリテーブルの更新
