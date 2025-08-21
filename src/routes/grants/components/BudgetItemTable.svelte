@@ -1256,9 +1256,9 @@
   function calculateCategoryTableHeight(): string {
     const viewportHeight = window.innerHeight;
     
-    if (viewportHeight > TABLE_CONSTANTS.VIEWPORT_BREAKPOINT_LARGE) {
+    if (viewportHeight > 900) {
       return "500px";
-    } else if (viewportHeight > TABLE_CONSTANTS.VIEWPORT_BREAKPOINT_MEDIUM) {
+    } else if (viewportHeight > 700) {
       return "400px";
     } else {
       return "300px";
