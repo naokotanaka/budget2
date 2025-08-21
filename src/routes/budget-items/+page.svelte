@@ -2,7 +2,7 @@
   console.log('📍 Script block started');
   import { onMount } from "svelte";
   import CSVImporter from '$lib/components/CSVImporter.svelte';
-  import Tabulator from 'tabulator-tables';
+  // Tabulatorは動的インポートで読み込み（SSR対応）
   
   export let data;
   console.log('📍 data received:', data);
@@ -381,10 +381,265 @@
   function handleBulkExport() {
     // バルク出力の実装
     console.log('バルク出力:', selectedRows);
+  }
+
+  // Tabulatorの初期化と管理
+  onMount(() => {
+    console.log('📍 onMount started - initializing Tabulator');
+    initializeTabulator();
+  });
+
+  // Tabulatorの初期化関数
+  async function initializeTabulator() {
+    if (!tableElement || !formattedBudgetItems?.length) {
+      console.log('⏰ Delaying Tabulator initialization - missing element or data');
+      setTimeout(initializeTabulator, 100);
+      return;
+    }
+
+    try {
+      console.log('🚀 Loading Tabulator dynamically...');
+      
+      // TabulatorのCSSを動的に読み込み
+      if (typeof window !== 'undefined' && !document.querySelector('link[href*="tabulator"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css';
+        document.head.appendChild(link);
+      }
+      
+      const { TabulatorFull: Tabulator } = await import('tabulator-tables');
+      
+      console.log('🚀 Creating Tabulator with', formattedBudgetItems.length, 'items');
+      
+      const columns = createResponsiveColumns();
+      
+      tabulator = new Tabulator(tableElement, {
+        data: formattedBudgetItems,
+        columns: columns.map(col => ({
+          title: col.header,
+          field: col.id,
+          width: col.width,
+          sorter: col.sort ? "alphanum" : false,
+          formatter: col.template ? "html" : undefined,
+          formatterParams: col.template ? {
+            html: (cell: any) => col.template(cell.getValue(), cell.getRow().getData())
+          } : undefined,
+          headerFilter: col.filter ? "input" : false,
+          frozen: col.fixed === "left",
+          hozAlign: col.align || "left",
+          cssClass: col.cellClass || "",
+          editor: col.editable ? "input" : false
+        })),
+        layout: "fitDataStretch",
+        responsiveLayout: "hide",
+        height: "auto",
+        maxHeight: "600px",
+        selectable: true,
+        selectableCheck: () => true,
+        rowHeight: dynamicRowHeight,
+        pagination: true,
+        paginationSize: 50,
+        paginationSizeSelector: [25, 50, 100, 200],
+        movableColumns: !isMobile,
+        resizableColumns: !isMobile,
+        tooltips: true,
+        addRowPos: "top",
+        history: true,
+        clipboard: true,
+        clipboardCopyStyled: false,
+        printAsHtml: true,
+        printStyled: true,
+        printRowRange: "all",
+        downloadEncoder: function(fileContents: any, mimeType: any) {
+          return new Blob([fileContents], {type: mimeType});
+        },
+        rowSelectionChanged: function(data: any, rows: any) {
+          selectedRows = data;
+          console.log('🔄 Row selection changed:', data.length, 'rows selected');
+        },
+        cellEdited: function(cell: any) {
+          console.log('📝 Cell edited:', cell.getField(), '=', cell.getValue());
+          // セル編集後の処理をここに実装
+        },
+        tableBuilt: function() {
+          console.log('✅ Tabulator table built successfully');
+        }
+      });
+
+      // gridApiとの互換性のため
+      gridApi = {
+        exportToCsv: () => tabulator?.download("csv", "budget-items.csv"),
+        refresh: () => tabulator?.redraw(true),
+        setData: (data: any) => tabulator?.setData(data)
+      };
+
+    } catch (error) {
+      console.error('❌ Tabulator initialization failed:', error);
+      updateError = 'テーブルの初期化に失敗しました: ' + error.message;
+    }
+  }
+
+  // データ変更時のテーブル更新
+  $: if (tabulator && formattedBudgetItems) {
+    console.log('🔄 Updating Tabulator data:', formattedBudgetItems.length, 'items');
+    tabulator.setData(formattedBudgetItems);
+  }
+
+  // 行の高さ変更時の再描画
+  $: if (tabulator && dynamicRowHeight) {
+    console.log('📏 Updating row height:', dynamicRowHeight, 'px');
+    tabulator.setHeight(dynamicRowHeight);
+    tabulator.redraw(true);
+  }
+
+  // レスポンシブ変更時の列再構築
+  $: if (tabulator && (isMobile || isTablet)) {
+    console.log('📱 Responsive layout changed, rebuilding columns');
+    const newColumns = createResponsiveColumns();
+    tabulator.setColumns(newColumns.map(col => ({
+      title: col.header,
+      field: col.id,
+      width: col.width,
+      sorter: col.sort ? "alphanum" : false,
+      formatter: col.template ? "html" : undefined,
+      formatterParams: col.template ? {
+        html: (cell: any) => col.template(cell.getValue(), cell.getRow().getData())
+      } : undefined,
+      headerFilter: col.filter ? "input" : false,
+      frozen: col.fixed === "left",
+      hozAlign: col.align || "left",
+      cssClass: col.cellClass || "",
+      editor: col.editable ? "input" : false
+    })));
+  }
+
+  // グローバル関数（templateから呼び出される）
+  if (typeof window !== 'undefined') {
+    (window as any).editBudgetItem = (id: number) => {
+      console.log('✏️ Edit budget item:', id);
+      // 編集モーダルを開く処理をここに実装
+    };
   }</script>
 
 <style>
-  /* wx-svelte-gridのカスタムスタイル */
+  /* Tabulatorのカスタムスタイル */
+  :global(.tabulator) {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    border: none;
+  }
+
+  :global(.tabulator .tabulator-header) {
+    background-color: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  :global(.tabulator .tabulator-header .tabulator-col) {
+    background-color: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+    padding: 8px 12px;
+  }
+
+  :global(.tabulator .tabulator-header .tabulator-col.tabulator-frozen.tabulator-frozen-left) {
+    background-color: #f3f4f6;
+    font-weight: 600;
+    border-right: 2px solid #d1d5db;
+  }
+
+  :global(.tabulator .tabulator-row) {
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  :global(.tabulator .tabulator-row:hover) {
+    background-color: #f9fafb;
+  }
+
+  :global(.tabulator .tabulator-row.tabulator-selected) {
+    background-color: #eff6ff;
+  }
+
+  :global(.tabulator .tabulator-cell) {
+    padding: 8px 12px;
+    border-right: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+
+  :global(.tabulator .tabulator-cell.tabulator-frozen.tabulator-frozen-left) {
+    background-color: #f9fafb;
+    border-right: 2px solid #e5e7eb;
+    font-weight: 500;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+  }
+
+  :global(.tabulator .tabulator-cell.tabulator-editing) {
+    background-color: #eff6ff;
+    border: 2px solid #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+  }
+
+  /* モバイル用の調整 */
+  @media (max-width: 767px) {
+    :global(.tabulator) {
+      font-size: 12px;
+    }
+    
+    :global(.tabulator .tabulator-cell) {
+      padding: 6px 8px;
+    }
+    
+    :global(.tabulator .tabulator-header .tabulator-col) {
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  }
+
+  /* タブレット用の調整 */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    :global(.tabulator .tabulator-cell) {
+      padding: 8px 10px;
+    }
+  }
+
+  /* 使用率バーのアニメーション */
+  :global(.utilization-bar) {
+    transition: width 0.3s ease-in-out;
+  }
+
+  /* ページネーション */
+  :global(.tabulator .tabulator-footer) {
+    background-color: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 8px 12px;
+  }
+
+  :global(.tabulator .tabulator-paginator) {
+    color: #374151;
+  }
+
+  :global(.tabulator .tabulator-page) {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    margin: 0 2px;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+
+  :global(.tabulator .tabulator-page.active) {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  :global(.tabulator .tabulator-page:hover) {
+    background-color: #f3f4f6;
+  }
+
+  /* wx-svelte-gridのカスタムスタイル（互換性のため残す） */
   :global(.wx-grid) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
@@ -897,25 +1152,9 @@
         </div>
       {/if}
 
-      <!-- wx-svelte-grid -->
+      <!-- Tabulator Table -->
       <div class="border border-gray-200 rounded-lg overflow-hidden {isUpdating ? 'opacity-75 pointer-events-none' : ''}">
-        <!-- Grid component temporarily disabled -->
-        <div class="p-8 text-center text-gray-500">
-          <p>グリッド表示は現在開発中です</p>
-          <p class="text-sm mt-2">予算項目: {budgetItems.length}件</p>
-        </div>
-        <!-- 
-        <Grid 
-          bind:api={gridApi}
-          data={displayData} 
-          columns={displayColumns}
-          config={gridConfig}
-          on:cellEdit={handleCellEdit}
-          on:rowSelect={handleRowSelect}
-          on:sort={handleSort}
-          on:filter={handleFilter}
-        />
-        -->
+        <div bind:this={tableElement} class="w-full"></div>
       </div>
       
       <!-- グリッド情報 -->

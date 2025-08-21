@@ -45,8 +45,8 @@
 
   // 月データ表示制御
   let showMonthlyBudget: boolean = true;  // 予算額表示
-  let showMonthlyUsed: boolean = true;    // 使用額表示
-  let showMonthlyRemaining: boolean = true; // 残額表示
+  let showMonthlyUsed: boolean = false;    // 使用額表示
+  let showMonthlyRemaining: boolean = false; // 残額表示
   
   // 削除機能の変数
   let showDeleteConfirm = false;
@@ -161,26 +161,27 @@
   });
   
   // 月データ表示制御をwindowオブジェクトに設定（フォーマッター内からアクセス可能にする）
-  $: {
-    if (typeof window !== 'undefined') {
-      (window as any).monthDisplaySettings = {
-        showMonthlyBudget,
-        showMonthlyUsed,
-        showMonthlyRemaining,
-        monthFilterStartYear,
-        monthFilterStartMonth,
-        monthFilterEndYear,
-        monthFilterEndMonth
-      };
-    }
-  }
+  // コメントアウト: 初期値が正しく反映されない問題のため無効化
+  // $: {
+  //   if (typeof window !== 'undefined') {
+  //     (window as any).monthDisplaySettings = {
+  //       showMonthlyBudget,
+  //       showMonthlyUsed,
+  //       showMonthlyRemaining,
+  //       monthFilterStartYear,
+  //       monthFilterStartMonth,
+  //       monthFilterEndYear,
+  //       monthFilterEndMonth
+  //     };
+  //   }
+  // }
   
   // 月データの合計を計算するヘルパー関数
   function calculateMonthlyTotals(rowData: any) {
     const settings = (window as any).monthDisplaySettings || {
       showMonthlyBudget: true,
-      showMonthlyUsed: true,
-      showMonthlyRemaining: true
+      showMonthlyUsed: false,
+      showMonthlyRemaining: false
     };
     
     // すべての合計額（フィルタリング前）
@@ -406,8 +407,8 @@
   // 月データ表示設定変更処理を関数として定義
   let lastDisplaySettings = { 
     showMonthlyBudget: true, 
-    showMonthlyUsed: true, 
-    showMonthlyRemaining: true,
+    showMonthlyUsed: false, 
+    showMonthlyRemaining: false,
     monthFilterStartYear: new Date().getFullYear(),
     monthFilterStartMonth: 1,
     monthFilterEndYear: new Date().getFullYear(),
@@ -2008,14 +2009,6 @@
             </div>
           {/if}
           
-          {#if budgetItems.length > 0}
-            <div class="text-right">
-              <p class="text-sm text-gray-600">予算合計 ({budgetItems.length}件)</p>
-              <p class="text-lg font-bold text-blue-600">
-                {formatAmount(budgetItems.reduce((sum, item) => sum + (item.budgetedAmount || 0), 0))}
-              </p>
-            </div>
-          {/if}
         </div>
       </div>
     </div>
@@ -2122,36 +2115,6 @@
                 </div>
               </div>
               
-              <!-- 月データ表示設定 -->
-              <div class="border-t pt-3">
-                <h5 class="text-xs font-medium text-gray-600 mb-2">月データ表示設定</h5>
-                <div class="flex gap-4">
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      bind:checked={showMonthlyBudget}
-                      class="mr-1 w-3 h-3"
-                    />
-                    <span class="text-xs">予算</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      bind:checked={showMonthlyUsed}
-                      class="mr-1 w-3 h-3"
-                    />
-                    <span class="text-xs">使用額</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      bind:checked={showMonthlyRemaining}
-                      class="mr-1 w-3 h-3"
-                    />
-                    <span class="text-xs">残額</span>
-                  </label>
-                </div>
-              </div>
             </div>
             
             <div class="budget-table-container">

@@ -15,6 +15,8 @@
   let availableCategories: string[] = [];
   let showCategoryDropdown = false;
   let availableMonths: Array<{year: number, month: number, label: string}> = [];
+  let showDeleteConfirm = false;
+  let deleteLoading = false;
 
   const statusLabels = {
     active: '進行中',
@@ -36,6 +38,11 @@
       updateAvailableMonths();
     }
   });
+
+  // budgetItemsが更新されたらカテゴリも更新
+  $: if (budgetItems) {
+    updateAvailableCategories();
+  }
 
   // 既存の予算項目からカテゴリを取得
   function updateAvailableCategories() {
@@ -179,6 +186,43 @@
       }
     } catch (err) {
       console.error('スケジュール保存エラー:', err);
+    }
+  }
+
+  function openDeleteConfirm() {
+    showDeleteConfirm = true;
+  }
+
+  function closeDeleteConfirm() {
+    showDeleteConfirm = false;
+  }
+
+  async function handleDelete() {
+    if (!budgetItemForm.id) return;
+    
+    deleteLoading = true;
+    error = '';
+    
+    try {
+      const response = await fetch(`${base}/api/budget-items/${budgetItemForm.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        dispatch('delete', { id: budgetItemForm.id });
+        closeDeleteConfirm();
+        closeModal();
+      } else {
+        const data = await response.json();
+        error = data.error || '削除に失敗しました';
+        closeDeleteConfirm();
+      }
+    } catch (err) {
+      error = '削除中にエラーが発生しました';
+      console.error('Delete error:', err);
+      closeDeleteConfirm();
+    } finally {
+      deleteLoading = false;
     }
   }
 
@@ -350,22 +394,73 @@
           </div>
         {/if}
         
-        <div class="flex justify-end space-x-3">
-          <button 
-            type="button"
-            on:click={closeModal}
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-          >
-            キャンセル
-          </button>
-          <button 
-            type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-          >
-            保存
-          </button>
+        <div class="flex justify-between">
+          {#if budgetItemForm.id}
+            <button 
+              type="button"
+              on:click={openDeleteConfirm}
+              class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+            >
+              削除
+            </button>
+          {:else}
+            <div></div>
+          {/if}
+          
+          <div class="flex space-x-3">
+            <button 
+              type="button"
+              on:click={closeModal}
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              キャンセル
+            </button>
+            <button 
+              type="submit"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+            >
+              保存
+            </button>
+          </div>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+<!-- 削除確認ダイアログ -->
+{#if showDeleteConfirm}
+  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">削除確認</h3>
+      
+      <div class="mb-4">
+        <p class="text-sm text-gray-600">
+          予算項目「<span class="font-semibold">{budgetItemForm.name}</span>」を削除しますか？
+        </p>
+        <p class="text-sm text-red-600 mt-2">
+          ※ この操作は取り消せません。関連する割当データも削除されます。
+        </p>
+      </div>
+      
+      <div class="flex justify-end space-x-3">
+        <button 
+          type="button"
+          on:click={closeDeleteConfirm}
+          disabled={deleteLoading}
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50"
+        >
+          キャンセル
+        </button>
+        <button 
+          type="button"
+          on:click={handleDelete}
+          disabled={deleteLoading}
+          class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+        >
+          {deleteLoading ? '削除中...' : '削除実行'}
+        </button>
+      </div>
     </div>
   </div>
 {/if}

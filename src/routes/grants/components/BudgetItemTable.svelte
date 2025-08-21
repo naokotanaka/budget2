@@ -16,8 +16,8 @@
   export let grants: Grant[] = [];
   export let selectedGrant: Grant | null = null;
   export let showMonthlyBudget: boolean = true;
-  export let showMonthlyUsed: boolean = true;
-  export let showMonthlyRemaining: boolean = true;
+  export let showMonthlyUsed: boolean = false;
+  export let showMonthlyRemaining: boolean = false;
   export let monthFilterStartYear: number = 2025;
   export let monthFilterStartMonth: number = 1;
   export let monthFilterEndYear: number = 2025;
@@ -39,13 +39,17 @@
   let isTableUpdating = false;
   let lastDisplaySettings: TableDisplaySettings = {
     showMonthlyBudget: true,
-    showMonthlyUsed: true,
-    showMonthlyRemaining: true,
+    showMonthlyUsed: false,
+    showMonthlyRemaining: false,
     monthFilterStartYear: 2025,
     monthFilterStartMonth: 1,
     monthFilterEndYear: 2025,
     monthFilterEndMonth: 12
   };
+
+  // 動的行高さの計算
+  $: activeItemCount = [showMonthlyBudget, showMonthlyUsed, showMonthlyRemaining].filter(Boolean).length;
+  $: dynamicRowHeight = activeItemCount === 1 ? 30 : activeItemCount === 2 ? 45 : 65;
 
   // Reactive updates
   $: if (budgetItems && grants) {
@@ -110,6 +114,7 @@
       totalRemaining
     };
   }
+
 
   function generateMonthColumns(grantsData: Grant[], selectedGrantData: Grant | null, currentBudgetItems: BudgetItem[]): MonthColumn[] {
     
@@ -245,89 +250,174 @@
         title: "助成金",
         field: "grantName",
         frozen: true,
-        minWidth: 120,
-        width: 180,
-        widthGrow: 1,
-        sorter: "string"
+        minWidth: 100,
+        width: 140,
+        widthGrow: 0.5,
+        sorter: "string",
+        bottomCalc: () => "合計"
       },
       {
         title: "項目名", 
         field: "name",
         frozen: true,
-        width: 220,
-        minWidth: 150,
-        widthGrow: 2,
-        sorter: "string"
+        width: 160,
+        minWidth: 120,
+        widthGrow: 1,
+        sorter: "string",
+        bottomCalc: () => ""
       },
       {
         title: "カテゴリ",
         field: "category",
-        width: 120,
-        minWidth: 100,
-        widthGrow: 0.5,
-        sorter: "string"
+        width: 90,
+        minWidth: 80,
+        widthGrow: 0.3,
+        sorter: "string",
+        bottomCalc: () => ""
       },
       {
-        title: "予算額",
-        field: "budgetedAmount",
+        title: "全体",
+        field: "overall",
         width: 130,
         minWidth: 110,
         widthGrow: 0.8,
-        sorter: "number",
         hozAlign: "right",
-        formatter: (cell) => {
-          const budgetedAmount = cell.getValue();
-          const rowData = cell.getRow().getData();
-          const monthlyTotals = calculateMonthlyTotals(rowData);
+        bottomCalcFormatter: "html",
+        bottomCalc: (values, data, calcParams) => {
+          let totalBudget = 0;
+          let totalUsed = 0;
+          let totalRemaining = 0;
+          
+          data.forEach(row => {
+            totalBudget += row.budgetedAmount || 0;
+            totalUsed += row.usedAmount || 0;
+            totalRemaining += row.remainingAmount || 0;
+          });
+          
+          const items = [];
+          if (showMonthlyBudget) {
+            items.push(`<div style="padding: 1px 3px; font-size: 13px;">${formatAmount(totalBudget)}</div>`);
+          }
+          if (showMonthlyUsed) {
+            items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${formatAmount(totalUsed)}</div>`);
+          }
+          if (showMonthlyRemaining) {
+            const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+            items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${formatAmount(totalRemaining)}</span></div>`);
+          }
+          
+          if (items.length === 0) {
+            return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+          }
           
           return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="margin-bottom: 2px;">${formatAmount(budgetedAmount)}</div>
-              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalBudget, false)}</div>
+            <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+              ${items.join('')}
+            </div>
+          `;
+        },
+        formatter: (cell) => {
+          const rowData = cell.getRow().getData();
+          const budgetedAmount = rowData.budgetedAmount;
+          const usedAmount = rowData.usedAmount;
+          const remainingAmount = rowData.remainingAmount;
+          
+          const items = [];
+          if (showMonthlyBudget) {
+            items.push(`<div style="padding: 1px 3px; font-size: 13px;">${formatAmount(budgetedAmount)}</div>`);
+          }
+          if (showMonthlyUsed) {
+            items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${formatAmount(usedAmount)}</div>`);
+          }
+          if (showMonthlyRemaining) {
+            const color = remainingAmount < 0 ? 'color: red; font-weight: bold;' : '';
+            items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${formatAmount(remainingAmount)}</span></div>`);
+          }
+          
+          if (items.length === 0) {
+            return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+          }
+          
+          return `
+            <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+              ${items.join('')}
             </div>
           `;
         }
       },
       {
-        title: "使用額",
-        field: "usedAmount",
+        title: "月計",
+        field: "monthTotal",
         width: 130,
         minWidth: 110,
         widthGrow: 0.8,
-        sorter: "number",
         hozAlign: "right",
-        formatter: (cell) => {
-          const usedAmount = cell.getValue();
-          const rowData = cell.getRow().getData();
-          const monthlyTotals = calculateMonthlyTotals(rowData);
+        bottomCalcFormatter: "html",
+        bottomCalc: (values, data, calcParams) => {
+          let totalBudget = 0;
+          let totalUsed = 0;
+          let totalRemaining = 0;
+          
+          const filteredMonths = getFilteredMonthColumns();
+          
+          data.forEach(row => {
+            filteredMonths.forEach(monthCol => {
+              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              
+              if (showMonthlyBudget) totalBudget += monthlyBudget;
+              if (showMonthlyUsed) totalUsed += monthlyUsed;
+              if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+            });
+          });
+          
+          const items = [];
+          if (showMonthlyBudget) {
+            items.push(`<div style="padding: 1px 3px; font-size: 13px;">${formatAmount(totalBudget, false)}</div>`);
+          }
+          if (showMonthlyUsed) {
+            items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${formatAmount(totalUsed, false)}</div>`);
+          }
+          if (showMonthlyRemaining) {
+            const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+            items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${formatAmount(totalRemaining, false)}</span></div>`);
+          }
+          
+          if (items.length === 0) {
+            return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+          }
           
           return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="margin-bottom: 2px;">${formatAmount(usedAmount)}</div>
-              <div style="color: #6b7280; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalUsed, false)}</div>
+            <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+              ${items.join('')}
             </div>
           `;
-        }
-      },
-      {
-        title: "残額",
-        field: "remainingAmount",
-        width: 130,
-        minWidth: 110,
-        widthGrow: 0.8,
-        sorter: "number",
-        hozAlign: "right",
+        },
         formatter: (cell) => {
-          const value = cell.getValue();
-          const color = value < 0 ? 'red' : 'green';
           const rowData = cell.getRow().getData();
           const monthlyTotals = calculateMonthlyTotals(rowData);
-          const monthColor = monthlyTotals.totalRemaining < 0 ? 'red' : '#6b7280';
+          
+          const items = [];
+          if (showMonthlyBudget) {
+            items.push(`<div style="padding: 1px 3px; font-size: 13px;">${formatAmount(monthlyTotals.totalBudget, false)}</div>`);
+          }
+          if (showMonthlyUsed) {
+            items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${formatAmount(monthlyTotals.totalUsed, false)}</div>`);
+          }
+          if (showMonthlyRemaining) {
+            const color = monthlyTotals.totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+            items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${formatAmount(monthlyTotals.totalRemaining, false)}</span></div>`);
+          }
+          
+          if (items.length === 0) {
+            return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+          }
           
           return `
-            <div style="font-size: 11px; line-height: 1.3;">
-              <div style="color: ${color}; font-weight: 600; margin-bottom: 2px;">${formatAmount(value)}</div>
-              <div style="color: ${monthColor}; font-size: 10px;">月計: ${formatAmount(monthlyTotals.totalRemaining, false)}</div>
+            <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+              ${items.join('')}
             </div>
           `;
         }
@@ -353,6 +443,45 @@
           minWidth: 80,
           maxWidth: 110,
           hozAlign: "right",
+          bottomCalcFormatter: "html",
+          bottomCalc: (values, data, calcParams) => {
+            let totalBudget = 0;
+            let totalUsed = 0;
+            let totalRemaining = 0;
+            
+            data.forEach(row => {
+              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              
+              totalBudget += monthlyBudget;
+              totalUsed += monthlyUsed;
+              totalRemaining += monthlyRemaining;
+            });
+            
+            const items = [];
+            if (showMonthlyBudget) {
+              items.push(`<div style="padding: 1px 3px; font-size: 13px;">${totalBudget.toLocaleString()}</div>`);
+            }
+            if (showMonthlyUsed) {
+              items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${totalUsed.toLocaleString()}</div>`);
+            }
+            if (showMonthlyRemaining) {
+              const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+              items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${totalRemaining.toLocaleString()}</span></div>`);
+            }
+            
+            if (items.length === 0) {
+              return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+            }
+            
+            return `
+              <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+                ${items.join('')}
+              </div>
+            `;
+          },
           formatter: (cell) => {
             const monthlyBudget = cell.getValue();
             const rowData = cell.getRow().getData();
@@ -397,13 +526,13 @@
             
             const items = [];
             if (showMonthlyBudget) {
-              items.push(`<div style="background-color: #f8fafc; padding: 1px 3px; border-radius: 2px;">${budgetDisplay}</div>`);
+              items.push(`<div style="padding: 1px 3px; font-size: 13px;">${budgetDisplay}</div>`);
             }
             if (showMonthlyUsed) {
-              items.push(`<div style="background-color: #eff6ff; padding: 1px 3px; border-radius: 2px;">${usedDisplay}</div>`);
+              items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${usedDisplay}</div>`);
             }
             if (showMonthlyRemaining) {
-              items.push(`<div style="background-color: #f0fdf4; padding: 1px 3px; border-radius: 2px;">${remainingDisplay}</div>`);
+              items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${remainingDisplay}</div>`);
             }
             
             if (items.length === 0) {
@@ -421,16 +550,17 @@
       });
     }
     
-    // 操作列を追加
+    // 操作列を追加（最初に配置するため、frozenも設定）
     const actionColumn = {
       title: "操作",
       field: "actions",
-      width: 120,
+      width: 80,
+      frozen: true,  // 左側に固定
       hozAlign: "center",
+      bottomCalc: () => "",
       formatter: () => `
-        <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+        <div style="display: flex; justify-content: center; align-items: center;">
           <button data-action="edit" style="color: #2563eb; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">編集</button>
-          <button data-action="delete" style="color: #dc2626; cursor: pointer; padding: 2px 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; font-size: 11px;">削除</button>
         </div>
       `,
       cellClick: (e, cell) => {
@@ -439,18 +569,14 @@
         const rowData = cell.getRow().getData();
         const item = budgetItems.find(i => i.id === rowData.id);
         
-        if (item) {
-          if (action === 'edit') {
-            dispatch('edit', { item });
-          } else if (action === 'delete') {
-            dispatch('delete', { item });
-          }
+        if (item && action === 'edit') {
+          dispatch('edit', { item });
         }
       }
     };
 
-    // 最終的な列定義を構築
-    columns = [...baseColumns, ...monthColumnDefs, actionColumn];
+    // 最終的な列定義を構築（操作列を最初に配置）
+    columns = [actionColumn, ...baseColumns, ...monthColumnDefs];
   }
 
   function prepareTableData() {
@@ -506,13 +632,29 @@
     try {
       const initColumns = baseColumns.length > 0 ? baseColumns : columns;
       
+      // 画面サイズに応じた高さを計算
+      const viewportHeight = window.innerHeight;
+      let tableHeight = "600px";
+      
+      if (viewportHeight > 1000) {
+        // 大画面: 画面の70%
+        tableHeight = `${Math.floor(viewportHeight * 0.7)}px`;
+      } else if (viewportHeight > 768) {
+        // 中画面: 画面の60%
+        tableHeight = `${Math.floor(viewportHeight * 0.6)}px`;
+      } else {
+        // 小画面: 固定400px
+        tableHeight = "400px";
+      }
+      
       table = new Tabulator(tableElement, {
         data: tableData,
         columns: initColumns,
         layout: "fitDataFill",
         responsiveLayout: false,
-        height: "600px", // 固定高さに変更してページ全体でスクロール可能に
-        maxHeight: "800px",
+        rowHeight: dynamicRowHeight, // 動的行高さを設定
+        height: tableHeight, // レスポンシブな高さ設定
+        maxHeight: "90vh", // 最大で画面の90%
         pagination: "local",
         paginationSize: window.innerHeight > 900 ? 150 : 100,
         paginationSizeSelector: [50, 100, 150, 200],
@@ -523,7 +665,8 @@
         scrollToColumnPosition: "left",
         scrollToColumnVisibility: "visible",
         reactiveData: true,
-        virtualDomVert: true
+        virtualDomVert: true,
+        columnCalcs: "both" // テーブル内フッターに計算結果を表示
       });
 
       table.on("tableBuilt", function() {
@@ -617,7 +760,13 @@
       }, 200);
     } else {
       if (table) {
-        table.redraw(true);
+        // 表示設定のみの変更の場合、テーブルを再構築して行高さを適用
+        table.destroy();
+        table = null;
+        isTableUpdating = false;
+        setTimeout(() => {
+          handleTableUpdate();
+        }, 100);
       }
     }
   }
@@ -634,11 +783,51 @@
   });
 </script>
 
-<div bind:this={tableElement} class="budget-item-table"></div>
+<div class="table-wrapper">
+  <div bind:this={tableElement} class="budget-item-table row-height-{activeItemCount}"></div>
+  
+</div>
 
 <style>
   .budget-item-table {
     width: 100%;
     min-height: 400px;
   }
+  
+  /* 動的行高さのスタイル */
+  :global(.row-height-1 .tabulator-row) {
+    height: 30px !important;
+    min-height: 30px !important;
+  }
+  
+  :global(.row-height-2 .tabulator-row) {
+    height: 45px !important;
+    min-height: 45px !important;
+  }
+  
+  :global(.row-height-3 .tabulator-row) {
+    height: 65px !important;
+    min-height: 65px !important;
+  }
+  
+  :global(.row-height-1 .tabulator-cell) {
+    height: 30px !important;
+    line-height: 30px;
+    padding: 0 2px !important;
+  }
+  
+  :global(.row-height-2 .tabulator-cell) {
+    height: 45px !important;
+    line-height: normal;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  
+  :global(.row-height-3 .tabulator-cell) {
+    height: 65px !important;
+    line-height: normal;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
 </style>
