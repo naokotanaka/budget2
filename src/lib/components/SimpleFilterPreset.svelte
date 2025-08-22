@@ -85,6 +85,11 @@
       }
     }
   }
+  
+  // プリセット選択をリセットする関数を公開
+  export function resetSelection() {
+    selectedPresetId = '';
+  }
 </script>
 
 <div class="flex items-center gap-2">

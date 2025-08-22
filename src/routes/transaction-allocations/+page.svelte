@@ -9,6 +9,9 @@
   import type { SerializedGrant, SerializedBudgetItem, SerializedTransaction } from '$lib/types/serialized';
   import SimpleFilterPreset from '$lib/components/SimpleFilterPreset.svelte';
   
+  // プリセットコンポーネントへの参照
+  let presetComponent: SimpleFilterPreset;
+  
   export let data: PageData;
   
   // 定数
@@ -193,14 +196,18 @@
     primaryBudgetItemName: [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))]
   };
   
-  // 初期化時にチェックボックスフィルターを設定
-  $: if (uniqueValues.account.length > 0 && checkboxFilters.account.size === 0) {
+  // 初期化フラグ
+  let isInitialized = false;
+  
+  // 初期化時にチェックボックスフィルターを設定（一度だけ実行）
+  $: if (!isInitialized && uniqueValues.account.length > 0) {
     checkboxFilters.account = new Set(uniqueValues.account);
     checkboxFilters.department = new Set(uniqueValues.department);
     checkboxFilters.supplier = new Set(uniqueValues.supplier);
     checkboxFilters.item = new Set(uniqueValues.item);
     checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
     checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
+    isInitialized = true;
   }
   
   // プリセット状態
@@ -966,6 +973,10 @@
   
   // ヘッダーフィルター管理機能
   function clearAllHeaderFilters() {
+    // プリセット選択をリセット
+    if (presetComponent) {
+      presetComponent.resetSelection();
+    }
     // 金額範囲をデータから再計算
     let minAmount = '';
     let maxAmount = '';
@@ -1019,7 +1030,12 @@
   
   function toggleAllCheckboxes(field: string, selectAll: boolean) {
     if (selectAll) {
-      checkboxFilters[field] = new Set(uniqueValues[field] || ['unallocated', 'partial', 'full']);
+      // allocationStatusは特別扱い
+      if (field === 'allocationStatus') {
+        checkboxFilters[field] = new Set(['unallocated', 'partial', 'full']);
+      } else {
+        checkboxFilters[field] = new Set(uniqueValues[field] || []);
+      }
     } else {
       checkboxFilters[field] = new Set();
     }
@@ -2150,9 +2166,18 @@
         
         <!-- プリセット管理（シンプル版） -->
         <SimpleFilterPreset
+          bind:this={presetComponent}
           currentFilters={{
             ...headerFilters,
-            checkboxFilters
+            checkboxFilters: {
+              allocationStatus: Array.from(checkboxFilters.allocationStatus),
+              account: Array.from(checkboxFilters.account),
+              department: Array.from(checkboxFilters.department),
+              supplier: Array.from(checkboxFilters.supplier),
+              item: Array.from(checkboxFilters.item),
+              primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
+              primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
+            }
           }}
           currentSorts={getCurrentSortsForPreset()}
           budgetItemFilters={{
@@ -2162,17 +2187,36 @@
           }}
           on:apply={(event) => {
             const preset = event.detail;
+            
+            // 初期化フラグを一時的に無効化（プリセット適用中の自動初期化を防ぐ）
+            const wasInitialized = isInitialized;
+            isInitialized = true;
+            
             // フィルター適用
             if (preset.filters) {
-              Object.assign(headerFilters, preset.filters);
+              // checkboxFiltersを除外してheaderFiltersを更新
+              const { checkboxFilters: _, ...filterData } = preset.filters;
+              // 新しいオブジェクトとして再割り当て（リアクティビティのため）
+              headerFilters = { ...headerFilters, ...filterData };
+              
               if (preset.filters.checkboxFilters) {
-                checkboxFilters = preset.filters.checkboxFilters;
+                // Setオブジェクトに変換して復元（配列であることを確認）
+                const restored = preset.filters.checkboxFilters;
+                checkboxFilters = {
+                  allocationStatus: new Set(Array.isArray(restored.allocationStatus) ? restored.allocationStatus : ['unallocated', 'partial', 'full']),
+                  account: new Set(Array.isArray(restored.account) ? restored.account : uniqueValues.account),
+                  department: new Set(Array.isArray(restored.department) ? restored.department : uniqueValues.department),
+                  supplier: new Set(Array.isArray(restored.supplier) ? restored.supplier : uniqueValues.supplier),
+                  item: new Set(Array.isArray(restored.item) ? restored.item : uniqueValues.item),
+                  primaryGrantName: new Set(Array.isArray(restored.primaryGrantName) ? restored.primaryGrantName : uniqueValues.primaryGrantName),
+                  primaryBudgetItemName: new Set(Array.isArray(restored.primaryBudgetItemName) ? restored.primaryBudgetItemName : uniqueValues.primaryBudgetItemName)
+                };
               }
             }
             // ソート適用
             if (preset.sorts) {
               if (preset.sorts.budgetItemSortFields) {
-                budgetItemSortFields = preset.sorts.budgetItemSortFields;
+                sortFields = preset.sorts.budgetItemSortFields;
               }
               if (preset.sorts.transactionSortFields) {
                 transactionSortFields = preset.sorts.transactionSortFields;
@@ -2183,6 +2227,11 @@
               budgetItemStatusFilter = preset.budgetFilters.budgetItemStatusFilter || '';
               budgetItemGrantFilter = preset.budgetFilters.budgetItemGrantFilter || '';
               budgetItemCategoryFilter = preset.budgetFilters.budgetItemCategoryFilter || '';
+            }
+            
+            // 初期化フラグを元に戻す
+            if (!wasInitialized) {
+              isInitialized = wasInitialized;
             }
           }}
         />
