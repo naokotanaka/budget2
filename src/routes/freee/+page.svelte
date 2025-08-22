@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { onMount, tick, onDestroy } from 'svelte';
+  import { goto, beforeNavigate } from '$app/navigation';
   import { browser } from '$app/environment';
   import type { TabulatorFull, CellComponent, RowComponent, ColumnComponent } from 'tabulator-tables';
 
@@ -17,6 +17,15 @@
   let selectedCompany: number | null = null;
   let fetchError: string | null = null;
   let Tabulator: typeof TabulatorFull | null = null;
+  
+  // 同期進捗表示用
+  let isSyncing = false;
+  let syncProgress = 0;
+  let syncCurrentBatch = 0;
+  let syncTotalBatches = 0;
+  let syncStatus = '';
+  let syncSuccessCount = 0;
+  let syncErrorCount = 0;
 
   onMount(async () => {
     console.log('freee認証ページ表示:', { isConnected, companies: companies?.length, lastSyncAt });
@@ -29,6 +38,38 @@
       const TabulatorModule = await import('tabulator-tables');
       Tabulator = TabulatorModule.TabulatorFull;
       await import('tabulator-tables/dist/css/tabulator.min.css');
+    }
+  });
+  
+  // ページ離脱防止
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (isSyncing) {
+      event.preventDefault();
+      event.returnValue = '同期処理中です。ページを離れると処理が中断されます。本当に離れますか？';
+      return event.returnValue;
+    }
+  }
+  
+  // ブラウザの離脱防止イベントを設定
+  $: if (browser && isSyncing) {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  } else if (browser) {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  }
+  
+  // SvelteKitのナビゲーション防止
+  beforeNavigate(({ cancel }) => {
+    if (isSyncing) {
+      if (!confirm('同期処理中です。ページを離れると処理が中断されます。本当に離れますか？')) {
+        cancel();
+      }
+    }
+  });
+  
+  // クリーンアップ
+  onDestroy(() => {
+    if (browser) {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     }
   });
 
@@ -522,31 +563,82 @@
     }
 
     isLoading = true;
+    isSyncing = true;
     
     try {
-      const response = await fetch('/budget2/api/freee/sync-selected', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deals: previewData,
-          companyId: selectedCompany
-        })
-      });
-
-      const result = await response.json();
+      // 大量データをバッチに分割（100件ずつ）
+      const batchSize = 100;
+      syncTotalBatches = Math.ceil(previewData.length / batchSize);
+      syncSuccessCount = 0;
+      syncErrorCount = 0;
+      let allMessages = [];
       
-      if (result.success) {
-        alert(`同期完了: ${result.message}`);
-        // 成功したらテーブルをクリア
-        previewData = [];
-        if (table) {
-          table.destroy();
-          table = null;
+      for (let i = 0; i < syncTotalBatches; i++) {
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, previewData.length);
+        const batch = previewData.slice(start, end);
+        
+        // 進捗状況を更新
+        syncCurrentBatch = i + 1;
+        syncProgress = Math.round((syncCurrentBatch / syncTotalBatches) * 100);
+        syncStatus = `バッチ ${syncCurrentBatch}/${syncTotalBatches} を同期中... (${batch.length}件)`;
+        console.log(syncStatus);
+        
+        // UIを更新するために少し待機
+        await tick();
+        
+        const response = await fetch('/budget2/api/freee/sync-selected', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deals: batch,
+            companyId: selectedCompany
+          })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          const created = result.stats?.created || 0;
+          const updated = result.stats?.updated || 0;
+          syncSuccessCount += created + updated;
+          if (result.message) allMessages.push(result.message);
+        } else {
+          syncErrorCount += batch.length;
+          console.error(`バッチ ${i + 1} エラー:`, result.error);
         }
+      }
+      
+      // 同期完了
+      syncProgress = 100;
+      syncStatus = '同期完了';
+      
+      // 結果表示
+      if (syncErrorCount === 0) {
+        setTimeout(() => {
+          alert(`同期完了: 全${syncTotalBatches}バッチ（${previewData.length}件）のデータを正常に同期しました`);
+          // 成功したらテーブルをクリア
+          previewData = [];
+          if (table) {
+            table.destroy();
+            table = null;
+          }
+          // 進捗表示をリセット
+          isSyncing = false;
+          syncProgress = 0;
+          syncCurrentBatch = 0;
+          syncTotalBatches = 0;
+          syncStatus = '';
+          syncSuccessCount = 0;
+          syncErrorCount = 0;
+        }, 1000);
       } else {
-        alert(`同期エラー: ${result.error}`);
+        setTimeout(() => {
+          alert(`同期一部エラー: ${syncSuccessCount}件成功、${syncErrorCount}件失敗`);
+          isSyncing = false;
+        }, 1000);
       }
     } catch (error: any) {
       alert(`同期エラー: ${error.message}`);
@@ -687,13 +779,57 @@
             <div class="space-x-2">
               <button
                 on:click={syncAllData}
-                disabled={isLoading}
+                disabled={isLoading || isSyncing}
                 class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
               >
-                すべて同期
+                {isSyncing ? '同期中...' : 'すべて同期'}
               </button>
             </div>
           </div>
+          
+          <!-- 同期進捗表示 -->
+          {#if isSyncing}
+            <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-blue-900">
+                  {syncStatus}
+                </span>
+                <span class="text-sm text-blue-700">
+                  {syncProgress}%
+                </span>
+              </div>
+              
+              <!-- プログレスバー -->
+              <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                <div 
+                  class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                  style="width: {syncProgress}%"
+                ></div>
+              </div>
+              
+              <!-- 詳細情報 -->
+              <div class="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span class="text-gray-600">バッチ進捗:</span>
+                  <span class="font-medium text-gray-900 ml-1">
+                    {syncCurrentBatch} / {syncTotalBatches}
+                  </span>
+                </div>
+                <div>
+                  <span class="text-gray-600">成功:</span>
+                  <span class="font-medium text-green-600 ml-1">
+                    {syncSuccessCount}件
+                  </span>
+                </div>
+                <div>
+                  <span class="text-gray-600">エラー:</span>
+                  <span class="font-medium text-red-600 ml-1">
+                    {syncErrorCount}件
+                  </span>
+                </div>
+              </div>
+            </div>
+          {/if}
           
           <!-- テーブルコンテナ（備考欄表示を確実にするための横スクロール対応） -->
           <div class="border rounded-lg overflow-hidden">

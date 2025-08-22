@@ -65,6 +65,21 @@ export const load: PageServerLoad = async () => {
 
     console.log('Fetched all allocations:', allAllocations.length);
 
+    // 助成金データを取得（開始日・終了日の計算用）
+    console.log('Fetching grants for date range...');
+    const grants = await prisma.grant.findMany({
+      where: {
+        status: {
+          in: ['ongoing', 'completed']
+        }
+      },
+      select: {
+        startDate: true,
+        endDate: true
+      }
+    })
+    console.log('Fetched grants:', grants.length);
+
     // bigintフィールドを文字列に変換してシリアライゼーション対応
     console.log('Serializing transactions...');
     const serializedTransactions = unallocatedOrPartial.map(tx => ({
@@ -94,14 +109,16 @@ export const load: PageServerLoad = async () => {
     return {
       transactions: serializedTransactions,
       budgetItems,
-      allAllocations: serializedAllocations
+      allAllocations: serializedAllocations,
+      grants
     }
   } catch (error: any) {
     console.error('Allocations loading error:', error)
     return {
       transactions: [],
       budgetItems: [],
-      allAllocations: []
+      allAllocations: [],
+      grants: []
     }
   }
 }

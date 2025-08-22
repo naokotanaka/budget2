@@ -111,6 +111,33 @@
   let endDate = ''; // 終了日（廃止予定）
   
   // ヘッダーフィルター状態（初期値は後で設定）
+  // 助成金の日付範囲から初期値を計算
+  function getDefaultDateRange() {
+    if (data.grants && data.grants.length > 0) {
+      // active（実施中）とcompleted（終了）の助成金のみ対象
+      const validGrants = data.grants.filter(g => 
+        (g.status === 'active' || g.status === 'completed') && 
+        g.startDate && g.endDate
+      );
+      
+      if (validGrants.length > 0) {
+        const startDates = validGrants.map(g => new Date(g.startDate));
+        const endDates = validGrants.map(g => new Date(g.endDate));
+        
+        const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+        const latestEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
+        
+        return {
+          startDate: earliestStart.toISOString().split('T')[0],
+          endDate: latestEnd.toISOString().split('T')[0]
+        };
+      }
+    }
+    return { startDate: '', endDate: '' };
+  }
+  
+  const defaultDates = getDefaultDateRange();
+  
   let headerFilters = {
     primaryGrantName: '',
     primaryBudgetItemName: '',
@@ -124,9 +151,11 @@
     tags: '',
     minAmount: '',
     maxAmount: '',
-    startDate: '',
-    endDate: ''
+    startDate: defaultDates.startDate,
+    endDate: defaultDates.endDate
   };
+  
+
   
   // チェックボックス式フィルター状態
   let checkboxFilters = {

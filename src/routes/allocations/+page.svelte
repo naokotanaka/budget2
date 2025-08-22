@@ -43,8 +43,9 @@
   let transactions: TransactionWithAllocations[] = [];
   let budgetItems: BudgetItem[] = [];
   let allAllocations: AllocationSplit[] = [];
+  let grants: any[] = [];
   
-  $: ({ transactions = [], budgetItems = [], allAllocations = [] } = data);
+  $: ({ transactions = [], budgetItems = [], allAllocations = [], grants = [] } = data);
 
   // Gridテーブル関連
   let tableData: any[] = [];
@@ -148,6 +149,25 @@
   let dateToFilter = '';
   let amountMinFilter = '';
   let amountMaxFilter = '';
+  
+  // onMount時に日付フィルターを設定
+  onMount(() => {
+    if (grants && grants.length > 0) {
+      const validGrants = grants.filter(g => g.startDate && g.endDate);
+      if (validGrants.length > 0) {
+        const startDates = validGrants.map(g => new Date(g.startDate));
+        const endDates = validGrants.map(g => new Date(g.endDate));
+        
+        const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+        const latestEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
+        
+        // YYYY-MM-DD形式に変換
+        dateFromFilter = earliestStart.toISOString().split('T')[0];
+        dateToFilter = latestEnd.toISOString().split('T')[0];
+        console.log('Date filters set on mount:', { dateFromFilter, dateToFilter });
+      }
+    }
+  });
   
   // ユニークな助成金・予算項目リスト
   let uniqueGrants: string[] = [];

@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			// Node.jsアダプターのオプション
+			bodyParser: {
+				sizeLimit: 52428800 // 50MB in bytes
+			}
+		}),
 		paths: {
 			base: '/budget2'
 		},
