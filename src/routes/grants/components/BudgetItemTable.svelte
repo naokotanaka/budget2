@@ -126,10 +126,20 @@
 
     const filteredMonths = getFilteredMonthColumns();
     
+    // 現在時刻を取得
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
     filteredMonths.forEach(monthCol => {
       const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
       
-      if (inGrantPeriod) {
+      // 現在月以前かどうかを判定
+      const isCurrentOrPast = 
+        monthCol.year < currentYear || 
+        (monthCol.year === currentYear && monthCol.month <= currentMonth);
+      
+      if (inGrantPeriod && isCurrentOrPast) {
         const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
         const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
         const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
@@ -442,20 +452,20 @@
           let totalUsed = 0;
           let totalRemaining = 0;
           
-          // フィルタリング後の表示されている行のみを集計
-          data.forEach((row: any) => {
-            // この月が助成期間内かチェック
-            const inGrantPeriod = isMonthInGrantPeriod(row.grantId, year, month);
-            if (!inGrantPeriod) return;
-            
-            // 月別の予算額を計算
-            const monthlyBudget = getMonthlyAmount(row, year, month);
-            const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-            const monthlyRemaining = monthlyBudget - monthlyUsed;
-            
-            totalBudget += monthlyBudget;
-            totalUsed += monthlyUsed;
-            totalRemaining += monthlyRemaining;
+          // 実際に表示されている行のみを集計
+          let visibleData;
+          if (table) {
+            const visibleRows = table.getRows("visible");
+
+            visibleData = visibleRows.length > 0 ? visibleRows.map(row => row.getData()) : data;
+          } else {
+            visibleData = data;
+          }
+          
+          visibleData.forEach((item: any) => {
+            totalBudget += item.budgetedAmount || 0;
+            totalUsed += item.usedAmount || 0;
+            totalRemaining += (item.budgetedAmount || 0) - (item.usedAmount || 0);
           });
           
           const items = [];
@@ -502,23 +512,65 @@
           const filteredMonths = getFilteredMonthColumns();
           
           // フィルタリング後の表示されている行のみを集計
-          data.forEach((row: any) => {
-            filteredMonths.forEach(monthCol => {
-              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentMonth = now.getMonth() + 1;
+          
+
+          // 実際に表示されている行のみを取得
+          let visibleData;
+          if (table) {
+            const visibleRows = table.getRows("visible");
+            visibleData = visibleRows.length > 0 ? visibleRows.map(row => row.getData()) : data;
+          } else {
+            visibleData = data;
+          }
+          
+          // 月別の集計を一度だけ行うためのマップ
+          const monthTotals = new Map<string, {budget: number, used: number, remaining: number}>();
+          
+          // まず月別の合計を計算
+          filteredMonths.forEach(monthCol => {
+            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+            
+            // 現在月以前のみ集計対象
+            const isCurrentOrPast = 
+              monthCol.year < currentYear || 
+              (monthCol.year === currentYear && monthCol.month <= currentMonth);
               
+            if (!isCurrentOrPast) return;
+            
+            let monthBudgetTotal = 0;
+            let monthUsedTotal = 0;
+            
+            visibleData.forEach((row: any) => {
               // この月が助成期間内かチェック
               const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
               if (!inGrantPeriod) return;
               
               // 月別の予算額を計算
-              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthlyBudget = getMonthlyAmount(row as BudgetItemTableData, monthCol.year, monthCol.month);
               const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-              const monthlyRemaining = monthlyBudget - monthlyUsed;
               
-              totalBudget += monthlyBudget;
-              totalUsed += monthlyUsed;
-              totalRemaining += monthlyRemaining;
+              monthBudgetTotal += monthlyBudget;
+              monthUsedTotal += monthlyUsed;
             });
+            
+            monthTotals.set(monthKey, {
+              budget: monthBudgetTotal,
+              used: monthUsedTotal,
+              remaining: monthBudgetTotal - monthUsedTotal
+            });
+            
+
+          });
+          
+          // 月別合計を総計に集計
+          monthTotals.forEach((monthTotal, monthKey) => {
+            totalBudget += monthTotal.budget;
+            totalUsed += monthTotal.used;
+            totalRemaining += monthTotal.remaining;
+
           });
           
           const items = [];
@@ -537,6 +589,7 @@
             return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
           }
           
+
           return `
             <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
               ${items.join('')}
@@ -558,64 +611,38 @@
         const currentShowUsed = showMonthlyUsed;
         const currentShowRemaining = showMonthlyRemaining;
         
-        const formatter = (cell: CellComponent) => {
+        return (cell: CellComponent) => {
           const row = cell.getRow();
-          if (!row) {
-            return '';
-          }
+          if (!row) return '';
           
           const rowData = row.getData();
-          if (!rowData) {
-            return '';
-          }
-          
-          const field = cell.getField();
+          if (!rowData) return '';
 
-          // Get monthly budget first
+          // 月別予算と助成期間チェック
           const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
-
-          // Check if within grant period
           const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
+          const isCurrentOrPast = isCurrentOrPastMonth(monthCol.year, monthCol.month);
+          const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+          const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
+          const monthlyRemaining = monthlyBudget - monthlyUsed;
 
-          // Set display based on period
-          let budgetDisplay = '-';
-          if (inGrantPeriod) {
-            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
-          }
+          // 表示用データの作成
+          const budgetDisplay = inGrantPeriod ? 
+            (monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0') : '-';
           
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const currentMonth = now.getMonth() + 1;
-          
-          const isCurrentOrPast = 
-            monthCol.year < currentYear || 
-            (monthCol.year === currentYear && monthCol.month <= currentMonth);
-          
-          let usedDisplay = '-';
-          if (isCurrentOrPast) {
-            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-            const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-            usedDisplay = monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0';
-          }
+          const usedDisplay = isCurrentOrPast ? 
+            (monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0') : '-';
           
           let remainingDisplay = '-';
-          if (isCurrentOrPast) {
-            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-            const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-            const monthlyRemaining = monthlyBudget - monthlyUsed;
-            
-            if (monthlyBudget > 0 || monthlyUsed > 0) {
-              const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-              remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
-            } else {
-              remainingDisplay = '0';
-            }
-          } else {
-            remainingDisplay = '-';
+          if (isCurrentOrPast && (monthlyBudget > 0 || monthlyUsed > 0)) {
+            const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+            remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
+          } else if (isCurrentOrPast) {
+            remainingDisplay = '0';
           }
           
+          // HTML生成
           const items = [];
-          
           if (currentShowBudget) {
             items.push(`<div style="padding: 1px 3px; font-size: 13px;">${budgetDisplay}</div>`);
           }
@@ -636,7 +663,6 @@
             </div>
           `;
         };
-        return formatter;
       }
       
       filteredMonthColumns.forEach((monthCol, index) => {
@@ -653,25 +679,39 @@
             let totalUsed = 0;
             let totalRemaining = 0;
             
+            // 現在時刻を動的に取得
             const now = new Date();
             const currentYear = now.getFullYear();
             const currentMonth = now.getMonth() + 1;
             
-            const isCurrentOrPast = 
-              monthCol.year < currentYear || 
-              (monthCol.year === currentYear && monthCol.month <= currentMonth);
+            // この列の年月を動的に取得
+            const columnYear = monthCol.year;
+            const columnMonth = monthCol.month;
             
-            data.forEach((row: any) => {
-              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
+            const isCurrentOrPast = 
+              columnYear < currentYear || 
+              (columnYear === currentYear && columnMonth <= currentMonth);
+            
+            // 実際に表示されている行のみを取得（visibleRowsを使用）
+            let visibleData;
+            if (table) {
+              const visibleRows = table.getRows("visible");
+              visibleData = visibleRows.length > 0 ? visibleRows.map(row => row.getData()) : data;
+            } else {
+              visibleData = data;
+            }
+            
+            visibleData.forEach((row: any) => {
+              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, columnYear, columnMonth);
               
               if (inGrantPeriod) {
-                const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
-                const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+                const monthlyBudget = getMonthlyAmount(row as BudgetItemTableData, columnYear, columnMonth);
+                const monthKey = `${columnYear}-${columnMonth.toString().padStart(2, '0')}`;
                 const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
                 const monthlyRemaining = monthlyBudget - monthlyUsed;
                 
                 totalBudget += monthlyBudget;
-              
+                
                 if (isCurrentOrPast) {
                   totalUsed += monthlyUsed;
                   if (monthlyBudget > 0 || monthlyUsed > 0) {
@@ -683,7 +723,8 @@
             
             const items = [];
             if (showMonthlyBudget) {
-              items.push(`<div style="padding: 1px 3px; font-size: 13px;">${totalBudget.toLocaleString()}</div>`);
+              const budgetDisplay = isCurrentOrPast ? totalBudget.toLocaleString() : '-';
+              items.push(`<div style="padding: 1px 3px; font-size: 13px;">${budgetDisplay}</div>`);
             }
             if (showMonthlyUsed) {
               const usedDisplay = isCurrentOrPast ? totalUsed.toLocaleString() : '-';
@@ -702,6 +743,7 @@
               return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
             }
             
+
             return `
               <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
                 ${items.join('')}
@@ -1145,27 +1187,18 @@
           totalRemaining += row.remainingAmount || 0;
         });
         
-        const items = [];
-        if (showMonthlyBudget) {
-          items.push(`<div style="padding: 1px 3px; font-size: 13px;"><strong>${formatAmount(totalBudget)}</strong></div>`);
-        }
-        if (showMonthlyUsed) {
-          items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><strong>${formatAmount(totalUsed)}</strong></div>`);
-        }
-        if (showMonthlyRemaining) {
-          const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-          items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><strong style="${color}">${formatAmount(totalRemaining)}</strong></div>`);
-        }
+        // generateTotalHtmlを使い、<strong>タグで囲む
+        const html = generateTotalHtml(
+          totalBudget,
+          totalUsed,
+          totalRemaining,
+          showMonthlyBudget,
+          showMonthlyUsed,
+          showMonthlyRemaining
+        );
         
-        if (items.length === 0) {
-          return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
-        }
-        
-        return `
-          <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
-            ${items.join('')}
-          </div>
-        `;
+        // <strong>タグを追加するために置換
+        return html.replace(/(¥[\d,]+)/g, '<strong>$1</strong>');
       },
       formatter: (cell) => {
         const rowData = cell.getRow().getData();
@@ -1220,27 +1253,19 @@
           totalRemaining += row.monthlyRemainingTotal || 0;
         });
         
-        const items = [];
-        if (showMonthlyBudget) {
-          items.push(`<div style="padding: 1px 3px; font-size: 13px;"><strong>${formatAmount(totalBudget, false)}</strong></div>`);
-        }
-        if (showMonthlyUsed) {
-          items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><strong>${formatAmount(totalUsed, false)}</strong></div>`);
-        }
-        if (showMonthlyRemaining) {
-          const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-          items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><strong style="${color}">${formatAmount(totalRemaining, false)}</strong></div>`);
-        }
+        // generateTotalHtmlを使い、<strong>タグで囲む
+        const html = generateTotalHtml(
+          totalBudget,
+          totalUsed,
+          totalRemaining,
+          showMonthlyBudget,
+          showMonthlyUsed,
+          showMonthlyRemaining,
+          false
+        );
         
-        if (items.length === 0) {
-          return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
-        }
-        
-        return `
-          <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
-            ${items.join('')}
-          </div>
-        `;
+        // <strong>タグを追加するために置換
+        return html.replace(/([\d,]+)/g, '<strong>$1</strong>');
       },
       formatter: (cell) => {
         const rowData = cell.getRow().getData();
@@ -1291,19 +1316,23 @@
           let totalUsed = 0;
           let totalRemaining = 0;
           
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const currentMonth = now.getMonth() + 1;
+          const isCurrentOrPast = isCurrentOrPastMonth(monthCol.year, monthCol.month);
           
-          const isCurrentOrPast = 
-            monthCol.year < currentYear || 
-            (monthCol.year === currentYear && monthCol.month <= currentMonth);
+          // 実際に表示されているカテゴリ行のみを取得
+          let visibleCategoryData;
+          if (categoryTable) {
+            const visibleCategoryRows = categoryTable.getRows("visible");
+
+            visibleCategoryData = visibleCategoryRows.length > 0 ? visibleCategoryRows.map(row => row.getData()) : categoryTableData;
+          } else {
+            visibleCategoryData = categoryTableData;
+          }
           
-          categoryTableData.forEach(row => {
+          visibleCategoryData.forEach(row => {
             const categoryAvailable = isCategoryMonthAvailable(row.name, monthCol.year, monthCol.month);
             
             if (categoryAvailable) {
-              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthlyBudget = getMonthlyAmount(row as BudgetItemTableData, monthCol.year, monthCol.month);
               const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
               const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
               const monthlyRemaining = monthlyBudget - monthlyUsed;
@@ -1319,79 +1348,57 @@
             }
           });
           
-          const items = [];
-          if (showMonthlyBudget) {
-            items.push(`<div style="padding: 1px 3px; font-size: 13px;">${totalBudget.toLocaleString()}</div>`);
-          }
-          if (showMonthlyUsed) {
-            const usedDisplay = isCurrentOrPast ? totalUsed.toLocaleString() : '-';
-            items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${usedDisplay}</div>`);
-          }
-          if (showMonthlyRemaining) {
-            if (isCurrentOrPast) {
-              const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-              items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${totalRemaining.toLocaleString()}</span></div>`);
-            } else {
-              items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;">-</div>`);
-            }
+          if (!isCurrentOrPast) {
+            // 未来の月は予算のみ表示
+            return generateTotalHtml(
+              totalBudget,
+              0,
+              0,
+              showMonthlyBudget,
+              false,
+              false,
+              false
+            );
           }
           
-          if (items.length === 0) {
-            return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
-          }
-          
-          return `
-            <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
-              ${items.join('')}
-            </div>
-          `;
+          return generateTotalHtml(
+            totalBudget,
+            totalUsed,
+            totalRemaining,
+            showMonthlyBudget,
+            showMonthlyUsed,
+            showMonthlyRemaining,
+            false
+          );
         },
         formatter: (cell: CellComponent) => {
           const fieldKey = `month_${monthCol.year}_${monthCol.month}`;
           const rowData = cell.getRow().getData();
           const monthlyBudget = rowData[fieldKey] || 0;
+          const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+          const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
+          const monthlyRemaining = monthlyBudget - monthlyUsed;
           
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const currentMonth = now.getMonth() + 1;
+          const isCurrentOrPast = isCurrentOrPastMonth(monthCol.year, monthCol.month);
+          const categoryAvailable = isCategoryMonthAvailable(rowData.name, monthCol.year, monthCol.month);
           
-          const isCurrentOrPast = 
-            monthCol.year < currentYear || 
-            (monthCol.year === currentYear && monthCol.month <= currentMonth);
+          // 表示用データの作成
+          const budgetDisplay = categoryAvailable ? 
+            (monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0') : '-';
           
-          const categoryName = rowData.name;
-          const categoryAvailable = isCategoryMonthAvailable(categoryName, monthCol.year, monthCol.month);
-          
-          let budgetDisplay = '-';
-          if (categoryAvailable) {
-            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
-          }
-          
-          let usedDisplay = '-';
-          if (isCurrentOrPast) {
-            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-            const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-            usedDisplay = monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0';
-          }
+          const usedDisplay = isCurrentOrPast ? 
+            (monthlyUsed > 0 ? monthlyUsed.toLocaleString() : '0') : '-';
           
           let remainingDisplay = '-';
-          if (isCurrentOrPast) {
-            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-            const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-            const monthlyRemaining = monthlyBudget - monthlyUsed;
-            
-            if (monthlyBudget > 0 || monthlyUsed > 0) {
-              const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
-              remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
-            } else {
-              remainingDisplay = '0';
-            }
-          } else {
-            remainingDisplay = '-';
+          if (isCurrentOrPast && (monthlyBudget > 0 || monthlyUsed > 0)) {
+            const color = monthlyRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+            remainingDisplay = `<span style="${color}">${monthlyRemaining.toLocaleString()}</span>`;
+          } else if (isCurrentOrPast) {
+            remainingDisplay = '0';
           }
           
+          // HTML生成
           const items = [];
-          
           if (currentDisplaySettings.showMonthlyBudget) {
             items.push(`<div style="padding: 1px 3px; font-size: 13px;">${budgetDisplay}</div>`);
           }
