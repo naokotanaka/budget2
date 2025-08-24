@@ -75,9 +75,12 @@
   }
 
   // カテゴリテーブルの更新（初期化後のみ）
-  $: if (browser && categoryTableElement && budgetItems.length > 0 && monthColumns.length > 0 && table && (table as any).initialized && baseColumns.length > 0) {
+  $: if (browser && categoryTableElement && budgetItems.length > 0) {
     // 少し遅延させて確実に初期化後に実行
-    setTimeout(() => updateCategoryTable(), 100);
+    setTimeout(() => {
+      categoryTableData = generateCategoryData();
+      updateCategoryTable();
+    }, 100);
   }
 
   // 表示設定が変更された時の処理は下のreactive blockで一元管理
@@ -1022,23 +1025,21 @@
       categoryData.usedAmount += item.usedAmount || 0;
       categoryData.remainingAmount = categoryData.budgetedAmount - categoryData.usedAmount;
       
-      // 月別データの集計（予算項目と同じ構造）
-      // 月別予算
+      // 月別データの集計
       const scheduleInfo = budgetItemSchedules.get(item.id);
-      if (scheduleInfo) {
+      if (scheduleInfo && scheduleInfo.scheduleData) {
         
-        scheduleInfo.months.forEach(monthKey => {
-          // monthKeyの形式を確認して適切に処理
+        scheduleInfo.scheduleData.forEach((monthData, monthKey) => {
+          // monthKeyの形式を統一（"25/04"形式を"2025-04"に変換）
           let correctMonthKey = monthKey;
           if (monthKey.includes('/')) {
-            // "25/04"形式の場合、"2025-04"に修正
             const parts = monthKey.split('/');
             if (parts[0].length === 2) {
               correctMonthKey = `20${parts[0]}-${parts[1]}`;
             }
           }
           
-          const monthlyBudget = scheduleInfo.scheduleData.get(monthKey)?.monthlyBudget || 0;
+          const monthlyBudget = monthData.monthlyBudget || 0;
           
           if (!categoryData.monthlyData) {
             categoryData.monthlyData = {};
