@@ -444,12 +444,18 @@
           
           // フィルタリング後の表示されている行のみを集計
           data.forEach((row: any) => {
-            const monthData = row[monthKey];
-            if (monthData) {
-              totalBudget += monthData.budget || 0;
-              totalUsed += monthData.used || 0;
-              totalRemaining += monthData.remaining || 0;
-            }
+            // この月が助成期間内かチェック
+            const inGrantPeriod = isMonthInGrantPeriod(row.grantId, year, month);
+            if (!inGrantPeriod) return;
+            
+            // 月別の予算額を計算
+            const monthlyBudget = getMonthlyAmount(row, year, month);
+            const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+            const monthlyRemaining = monthlyBudget - monthlyUsed;
+            
+            totalBudget += monthlyBudget;
+            totalUsed += monthlyUsed;
+            totalRemaining += monthlyRemaining;
           });
           
           const items = [];
@@ -499,14 +505,19 @@
           data.forEach((row: any) => {
             filteredMonths.forEach(monthCol => {
               const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-              const monthData = row[monthKey];
               
-              if (monthData) {
-                // 表示されている月のデータのみ集計
-                totalBudget += monthData.budget || 0;
-                totalUsed += monthData.used || 0;
-                totalRemaining += monthData.remaining || 0;
-              }
+              // この月が助成期間内かチェック
+              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
+              if (!inGrantPeriod) return;
+              
+              // 月別の予算額を計算
+              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              
+              totalBudget += monthlyBudget;
+              totalUsed += monthlyUsed;
+              totalRemaining += monthlyRemaining;
             });
           });
           
