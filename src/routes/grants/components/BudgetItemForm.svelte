@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import { base } from '$app/paths';
-  import SimpleMonthCheckboxes from '$lib/components/SimpleMonthCheckboxes.svelte';
+
   import type { Grant, BudgetItem } from '$lib/types/models';
 
   export let show: boolean = false;
@@ -9,12 +9,15 @@
   export let grants: Grant[] = [];
   export let budgetItems: BudgetItem[] = [];
   export let selectedMonths: Set<string> = new Set();
+  
+  // 月別予算額を管理するオブジェクト
+  let monthlyBudgets: Record<string, number> = {};
 
   const dispatch = createEventDispatcher();
   let error = '';
   let availableCategories: string[] = [];
   let showCategoryDropdown = false;
-  let availableMonths: Array<{year: number, month: number, label: string}> = [];
+  let availableMonths: Array<{year: number, month: number, label: string, daysInMonth: number}> = [];
   let showDeleteConfirm = false;
   let deleteLoading = false;
 
@@ -24,20 +27,46 @@
     applied: '報告済み'
   };
 
-  // 月割り予算額の計算（リアクティブ）
-  $: monthlyBudget = budgetItemForm && budgetItemForm.budgetedAmount && selectedMonths.size > 0 
-    ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
-    : 0;
+  // 月別予算額の合計を計算
+  $: totalMonthlyBudget = Object.values(monthlyBudgets).reduce((sum, amount) => sum + (amount || 0), 0);
 
   // フォームで選択された助成金
   $: formGrant = grants.find(g => g.id === parseInt(String(budgetItemForm.grantId || '0')));
+  
+  // 助成金が選択されたら月リストを更新
+  $: if (formGrant) {
+    availableMonths = generateMonthsFromGrant(formGrant);
+  }
 
   onMount(() => {
     updateAvailableCategories();
     if (budgetItemForm.grantId) {
       updateAvailableMonths();
+      // 既存の月別予算額を読み込む
+      loadExistingMonthlyBudgets();
     }
   });
+  
+  // 既存の月別予算額を読み込む関数
+  async function loadExistingMonthlyBudgets() {
+    if (!budgetItemForm.id) return;
+    
+    try {
+      const response = await fetch(`${base}/api/budget-items/${budgetItemForm.id}/schedule`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.schedules) {
+          monthlyBudgets = {};
+          data.schedules.forEach((schedule: any) => {
+            const monthKey = `${schedule.year}-${String(schedule.month).padStart(2, '0')}`;
+            monthlyBudgets[monthKey] = schedule.monthlyBudget || 0;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('月別予算額の読み込みエラー:', err);
+    }
+  }
 
   // budgetItemsが更新されたらカテゴリも更新
   $: if (budgetItems) {
@@ -82,7 +111,38 @@
     availableMonths = generateMonthsFromGrant(grant);
   }
 
-  function generateMonthsFromGrant(grant: Grant): Array<{year: number, month: number, label: string}> {
+  // 月別予算額を均等に配分する関数
+  function distributeEquallyToMonths() {
+    if (!budgetItemForm.budgetedAmount || !availableMonths.length) return;
+    
+    // 10日以上ある月のみフィルタリング
+    const targetMonths = availableMonths.filter(month => month.daysInMonth >= 10);
+    if (!targetMonths.length) {
+      alert('10日以上ある月がありません');
+      return;
+    }
+    
+    const amountPerMonth = Math.floor(budgetItemForm.budgetedAmount / targetMonths.length);
+    const remainder = budgetItemForm.budgetedAmount % targetMonths.length;
+    
+    // まず全ての月を0にリセット
+    availableMonths.forEach(month => {
+      const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`;
+      monthlyBudgets[monthKey] = 0;
+    });
+    
+    // 10日以上ある月のみに配分
+    targetMonths.forEach((month, index) => {
+      const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`;
+      // 余りを最初の月に追加
+      monthlyBudgets[monthKey] = amountPerMonth + (index === 0 ? remainder : 0);
+    });
+    
+    // 強制的に再レンダリング
+    monthlyBudgets = { ...monthlyBudgets };
+  }
+  
+  function generateMonthsFromGrant(grant: Grant): Array<{year: number, month: number, label: string, daysInMonth: number}> {
     if (!grant.startDate || !grant.endDate) return [];
     
     const startDate = new Date(grant.startDate);
@@ -109,10 +169,14 @@
         monthEnd = endDate;
       }
       
+      // その月の日数を計算
+      const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
       months.push({
         year,
         month,
-        label: `${year}年${month}月`
+        label: `${year}年${month}月`,
+        daysInMonth // 日数情報を追加
       });
       
       current.setMonth(current.getMonth() + 1);
@@ -160,20 +224,18 @@
 
   async function saveBudgetItemSchedule(budgetItemId: number) {
     try {
-      // 月割り予算額を計算
-      const calculatedMonthlyBudget = budgetItemForm.budgetedAmount && selectedMonths.size > 0 
-        ? Math.floor(budgetItemForm.budgetedAmount / selectedMonths.size)
-        : 0;
-      
-      const schedules = Array.from(selectedMonths).map(monthKey => {
-        const [year, month] = monthKey.split('-');
-        return {
-          year: parseInt(year),
-          month: parseInt(month),
-          isActive: true,
-          monthlyBudget: calculatedMonthlyBudget // 月割り予算額を追加
-        };
-      });
+      // 月別予算額が入力された月のみスケジュールを作成
+      const schedules = Object.entries(monthlyBudgets)
+        .filter(([_, amount]) => amount > 0)
+        .map(([monthKey, amount]) => {
+          const [year, month] = monthKey.split('-');
+          return {
+            year: parseInt(year),
+            month: parseInt(month),
+            isActive: true,
+            monthlyBudget: amount // 各月の個別金額を設定
+          };
+        });
       
       const response = await fetch(`${base}/api/budget-items/${budgetItemId}/schedule`, {
         method: 'PUT',
@@ -258,7 +320,7 @@
 
 {#if show}
   <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-10 mx-auto p-5 border max-w-3xl w-full shadow-lg rounded-md bg-white">
       <h3 class="text-lg font-medium text-gray-900 mb-4">
         {budgetItemForm.id ? '予算項目編集' : '新規予算項目作成'}
       </h3>
@@ -270,129 +332,163 @@
       {/if}
       
       <form on:submit={handleSubmit}>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
-          <select 
-            bind:value={budgetItemForm.grantId}
-            on:change={handleGrantChange}
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">助成金を選択してください</option>
-            {#each grants as grant}
-              <option value={grant.id}>
-                {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name} ({statusLabels[grant.status]})
-              </option>
-            {/each}
-          </select>
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
-          <input 
-            type="text" 
-            bind:value={budgetItemForm.name}
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="例: 消耗品費"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
-          <div class="relative category-dropdown">
-            <input 
-              type="text" 
-              bind:value={budgetItemForm.category}
-              on:focus={() => showCategoryDropdown = true}
-              on:input={() => showCategoryDropdown = true}
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例: 消耗品（入力またはドロップダウンから選択）"
-            />
-            
-            {#if showCategoryDropdown && availableCategories.length > 0}
-              <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                {#each filterCategories(budgetItemForm.category || '') as category}
-                  <button
-                    type="button"
-                    class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    on:click={() => selectCategory(category)}
-                  >
-                    {category}
-                  </button>
+        <!-- 上部の基本情報 -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <!-- 左側 -->
+          <div class="space-y-4">
+            <!-- 助成金 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
+              <select 
+                bind:value={budgetItemForm.grantId}
+                on:change={handleGrantChange}
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">助成金を選択してください</option>
+                {#each grants as grant}
+                  <option value={grant.id}>
+                    {grant.grantCode ? `[${grant.grantCode}] ` : ''}{grant.name} ({statusLabels[grant.status]})
+                  </option>
                 {/each}
+              </select>
+            </div>
+            
+            <!-- 項目名 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
+              <input 
+                type="text" 
+                bind:value={budgetItemForm.name}
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="例: 消耗品費"
+              />
+            </div>
+            
+            <!-- カテゴリ -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
+              <div class="relative category-dropdown">
+                <input 
+                  type="text" 
+                  bind:value={budgetItemForm.category}
+                  on:focus={() => showCategoryDropdown = true}
+                  on:input={() => showCategoryDropdown = true}
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="例: 消耗品（入力またはドロップダウンから選択）"
+                />
                 
-                {#if filterCategories(budgetItemForm.category || '').length === 0 && budgetItemForm.category}
-                  <div class="px-3 py-2 text-gray-500 text-sm">
-                    「{budgetItemForm.category}」で新規作成
+                {#if showCategoryDropdown && availableCategories.length > 0}
+                  <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {#each filterCategories(budgetItemForm.category || '') as category}
+                      <button
+                        type="button"
+                        class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                        on:click={() => selectCategory(category)}
+                      >
+                        {category}
+                      </button>
+                    {/each}
+                    
+                    {#if filterCategories(budgetItemForm.category || '').length === 0 && budgetItemForm.category}
+                      <div class="px-3 py-2 text-gray-500 text-sm">
+                        「{budgetItemForm.category}」で新規作成
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+                
+                {#if availableCategories.length === 0}
+                  <div class="mt-1 text-xs text-gray-500">
+                    新しいカテゴリを入力してください
                   </div>
                 {/if}
               </div>
-            {/if}
+            </div>
             
-            {#if availableCategories.length === 0}
-              <div class="mt-1 text-xs text-gray-500">
-                新しいカテゴリを入力してください
+            <!-- 予算額 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
+              <input 
+                type="number" 
+                bind:value={budgetItemForm.budgetedAmount}
+                min="0"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="498000"
+              />
+            </div>
+            
+            <!-- 備考 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
+              <textarea 
+                bind:value={budgetItemForm.note}
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="備考や説明を入力"
+              ></textarea>
+            </div>
+          </div>
+          
+          <!-- 右側：月別予算配分 -->
+          <div>
+            {#if formGrant}
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                月別予算配分
+                {#if totalMonthlyBudget > 0}
+                  <span class="ml-2 text-xs text-gray-500">
+                    (合計: ¥{totalMonthlyBudget.toLocaleString()})
+                  </span>
+                {/if}
+              </label>
+              
+              <!-- 均等割りボタン -->
+              {#if budgetItemForm.budgetedAmount}
+                <button 
+                  type="button"
+                  on:click={distributeEquallyToMonths}
+                  class="mb-3 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
+                >
+                  総額を均等に配分 (¥{budgetItemForm.budgetedAmount.toLocaleString()})
+                </button>
+              {/if}
+              
+              <!-- 月別入力フィールド -->
+              <div class="border border-gray-200 rounded-md p-3" style="max-height: 450px; overflow-y: auto;">
+                <div class="space-y-2">
+                  {#each availableMonths as month}
+                    {@const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`}
+                    <div class="flex items-center gap-2">
+                      <label class="text-sm text-gray-700 min-w-[100px]">
+                        {month.label}:
+                      </label>
+                      <input 
+                        type="number"
+                        bind:value={monthlyBudgets[monthKey]}
+                        min="0"
+                        class="flex-1 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  {/each}
+                </div>
+              </div>
+              
+              <!-- 合計チェック -->
+              {#if budgetItemForm.budgetedAmount && totalMonthlyBudget !== budgetItemForm.budgetedAmount}
+                <div class="mt-2 text-sm text-orange-600">
+                  ⚠️ 月別合計と総予算額が一致しません
+                  (差額: ¥{Math.abs(budgetItemForm.budgetedAmount - totalMonthlyBudget).toLocaleString()})
+                </div>
+              {/if}
+            {:else}
+              <div class="text-sm text-gray-500">
+                助成金を選択すると月別予算配分が表示されます
               </div>
             {/if}
           </div>
         </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
-          <input 
-            type="number" 
-            bind:value={budgetItemForm.budgetedAmount}
-            min="0"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="498000"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
-          <textarea 
-            bind:value={budgetItemForm.note}
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="備考や説明を入力"
-          ></textarea>
-        </div>
-
-        <!-- 月別スケジュール選択 -->
-        {#if budgetItemForm.grantId && formGrant}
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              月別予算配分
-              {#if selectedMonths.size > 0 && budgetItemForm.budgetedAmount}
-                <span class="ml-2 text-xs text-gray-500">
-                  ({selectedMonths.size}ヶ月選択中 → 月額¥{monthlyBudget.toLocaleString()})
-                </span>
-              {/if}
-            </label>
-            
-            {#if formGrant}
-              {@const availableMonthKeys = generateMonthsFromGrant(formGrant).map(m => `${m.year}-${String(m.month).padStart(2, '0')}`)}
-              <SimpleMonthCheckboxes
-                availableMonths={availableMonthKeys}
-                selectedMonths={Array.from(selectedMonths)}
-                title="利用予定月"
-                on:change={(e) => {
-                  selectedMonths = new Set(e.detail);
-                }}
-              />
-            {:else}
-              <SimpleMonthCheckboxes
-                availableMonths={[]}
-                selectedMonths={Array.from(selectedMonths)}
-                title="利用予定月"
-                on:change={(e) => {
-                  selectedMonths = new Set(e.detail);
-                }}
-              />
-            {/if}
-          </div>
-        {/if}
         
         <div class="flex justify-between">
           {#if budgetItemForm.id}
