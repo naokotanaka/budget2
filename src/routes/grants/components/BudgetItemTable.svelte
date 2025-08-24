@@ -119,6 +119,53 @@
     return includeYen ? `¥${amount.toLocaleString()}` : amount.toLocaleString();
   }
 
+  // ヘルパー関数：表示されている行のデータを取得
+  function getVisibleRowsData(tableInstance: any, fallbackData: any[]): any[] {
+    if (!tableInstance) return fallbackData;
+    const visibleRows = tableInstance.getRows("visible");
+    return visibleRows.length > 0 ? visibleRows.map((row: any) => row.getData()) : fallbackData;
+  }
+  
+  // ヘルパー関数：現在月以前かどうかを判定
+  function isCurrentOrPastMonth(year: number, month: number): boolean {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    return year < currentYear || (year === currentYear && month <= currentMonth);
+  }
+  
+  // ヘルパー関数：合計表示用のHTMLを生成
+  function generateTotalHtml(
+    totalBudget: number,
+    totalUsed: number,
+    totalRemaining: number,
+    showBudget: boolean,
+    showUsed: boolean,
+    showRemaining: boolean
+  ): string {
+    const items = [];
+    if (showBudget) {
+      items.push(`<div style="padding: 1px 3px; font-size: 13px;">${formatAmount(totalBudget)}</div>`);
+    }
+    if (showUsed) {
+      items.push(`<div style="background-color: #dbeafe; padding: 1px 3px; border-radius: 2px; font-size: 13px;">${formatAmount(totalUsed)}</div>`);
+    }
+    if (showRemaining) {
+      const color = totalRemaining < 0 ? 'color: red; font-weight: bold;' : '';
+      items.push(`<div style="background-color: #dcfce7; padding: 1px 3px; border-radius: 2px; font-size: 13px;"><span style="${color}">${formatAmount(totalRemaining)}</span></div>`);
+    }
+    
+    if (items.length === 0) {
+      return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+    }
+    
+    return `
+      <div style="display: flex; flex-direction: column; gap: 1px; font-size: 11px;">
+        ${items.join('')}
+      </div>
+    `;
+  }
+
   function calculateMonthlyTotals(rowData: BudgetItemTableData) {
     let totalBudget = 0;
     let totalUsed = 0;
