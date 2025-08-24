@@ -847,11 +847,23 @@
     
     if (table) {
       try {
+        // 現在のソート状態を保存
+        const currentSorters = table.getSorters();
+        
         table.destroy();
         table = null;
         
         initializeTableColumns();
         initializeTable();
+        
+        // ソート状態を復元
+        if (table && currentSorters && currentSorters.length > 0) {
+          const sorters = currentSorters.map((sorter: any) => ({
+            column: sorter.field,
+            dir: sorter.dir
+          }));
+          table.setSort(sorters);
+        }
         
       } catch (error) {
         initializeTable();
