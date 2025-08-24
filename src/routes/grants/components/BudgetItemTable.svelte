@@ -48,6 +48,9 @@
   let tableData: BudgetItemTableData[] = [];
   let lastValidBudgetItems: BudgetItem[] = [];
   
+  // ソート状態を保存する変数
+  let savedSortState: Array<{column: string, dir: string}> = [];
+  
   let currentDisplaySettings = {
     showMonthlyBudget,
     showMonthlyUsed,
@@ -228,15 +231,19 @@
       return false;
     }
     
-    const targetDate = new Date(targetYear, targetMonth - 1, 1);
+    // UTC時刻で統一して日付を比較
+    const targetDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
     const startDate = new Date(grant.startDate);
     const endDate = new Date(grant.endDate);
     
-    startDate.setDate(1);
-    endDate.setDate(1);
-    endDate.setMonth(endDate.getMonth() + 1);
+    // 助成金の開始日・終了日も月初のUTC時刻に統一
+    const grantStartMonth = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
+    const grantEndMonth = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
     
-    return targetDate >= startDate && targetDate < endDate;
+    // 終了月の次月初をリミットとして設定
+    const endDateLimit = new Date(Date.UTC(grantEndMonth.getUTCFullYear(), grantEndMonth.getUTCMonth() + 1, 1));
+    
+    return targetDate >= grantStartMonth && targetDate < endDateLimit;
   }
   
   function getMonthlyAmount(item: BudgetItemTableData, targetYear: number, targetMonth: number): number {
@@ -546,7 +553,18 @@
           }
           
           const field = cell.getField();
-          const monthlyBudget = rowData[field] ?? 0;
+
+          // Get monthly budget first
+          const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
+
+          // Check if within grant period
+          const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
+
+          // Set display based on period
+          let budgetDisplay = '-';
+          if (inGrantPeriod) {
+            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
+          }
           
           const now = new Date();
           const currentYear = now.getFullYear();
@@ -555,13 +573,6 @@
           const isCurrentOrPast = 
             monthCol.year < currentYear || 
             (monthCol.year === currentYear && monthCol.month <= currentMonth);
-          
-          const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
-          
-          let budgetDisplay = '-';
-          if (inGrantPeriod) {
-            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
-          }
           
           let usedDisplay = '-';
           if (isCurrentOrPast) {
@@ -822,6 +833,16 @@
           table.setData(tableData);
         }
         
+        // ソート状態を復元
+        if (savedSortState && savedSortState.length > 0) {
+          try {
+            table.setSort(savedSortState);
+          } catch (error) {
+            console.warn('Failed to restore sort state:', error);
+            savedSortState = [];
+          }
+        }
+        
         isTableInitializing = false;
         isTableUpdating = false;
       });
@@ -849,6 +870,12 @@
       try {
         // 現在のソート状態を保存
         const currentSorters = table.getSorters();
+        if (currentSorters && currentSorters.length > 0) {
+          savedSortState = currentSorters.map((sorter: any) => ({
+            column: sorter.field,
+            dir: sorter.dir
+          }));
+        }
         
         table.destroy();
         table = null;
@@ -856,16 +883,8 @@
         initializeTableColumns();
         initializeTable();
         
-        // ソート状態を復元
-        if (table && currentSorters && currentSorters.length > 0) {
-          const sorters = currentSorters.map((sorter: any) => ({
-            column: sorter.field,
-            dir: sorter.dir
-          }));
-          table.setSort(sorters);
-        }
-        
       } catch (error) {
+        savedSortState = [];
         initializeTable();
       }
     } else {
@@ -899,6 +918,19 @@
     currentDisplaySettings.showMonthlyRemaining = currentSettings.showMonthlyRemaining;
     
     if (table) {
+      // 現在のソート状態を保存
+      try {
+        const currentSorters = table.getSorters();
+        if (currentSorters && currentSorters.length > 0) {
+          savedSortState = currentSorters.map((sorter: any) => ({
+            column: sorter.field,
+            dir: sorter.dir
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to save sort state during display settings change:', error);
+      }
+      
       prepareTableData();
       
       table.destroy();

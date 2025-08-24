@@ -2147,6 +2147,13 @@
   on:save={async () => {
     showGrantForm = false;
     await loadGrants();
+    await loadAllBudgetItems();
+    // 絞り込み状態を維持
+    if (selectedGrant) {
+      budgetItems = getFilteredBudgetItems(allBudgetItems.filter(item => item.grantId === selectedGrant.id));
+    } else {
+      budgetItems = getFilteredBudgetItems(allBudgetItems);
+    }
   }}
   on:close={() => showGrantForm = false}
 />
