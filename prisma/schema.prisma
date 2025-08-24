@@ -21,7 +21,7 @@ model Transaction {
   remark            String?
   department        String?
   managementNumber  String?
-  freeDealId        BigInt?           @unique
+  freeDealId        BigInt?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   detailDescription String?

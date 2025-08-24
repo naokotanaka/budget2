@@ -21,7 +21,14 @@ export interface BudgetItemTableData {
   
   // 月別データ（動的フィールド）
   monthlyUsedAmounts?: Record<string, number>;
+  monthlyData?: Record<string, { budget: number; used: number; remaining: number }>;
   [key: `month_${number}_${number}`]: number;
+  
+  // カテゴリ集計用フィールド
+  allocationsCount?: number;
+  monthlyTotal?: number;
+  monthlyUsedTotal?: number;
+  monthlyRemainingTotal?: number;
   
   // UI用フィールド
   actions?: string;

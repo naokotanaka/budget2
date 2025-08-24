@@ -37,7 +37,7 @@
         const data = await response.json();
         allocations = data.allocations || [];
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load data:', error);
     }
   }
@@ -49,7 +49,7 @@
         const status = await response.json();
         freeeConnectionStatus = status;
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load freee status:', error);
       freeeConnectionStatus = { connected: false, message: 'Freee接続状態の取得に失敗しました' };
     }
@@ -78,7 +78,7 @@
           console.log('Failed to fetch deal detail');
           receipts = [];
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('ファイルボックス情報の取得に失敗しました:', error);
         receipts = [];
       } finally {
@@ -180,7 +180,7 @@
         budget_item: selectedBudgetItem,
         allocated_amount_edit: allocatedAmount
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save allocation:', error);
       alert('割当の保存に失敗しました');
     } finally {
@@ -214,7 +214,7 @@
           allocatedAmount = 0;
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to remove allocation:', error);
       alert('割当の削除に失敗しました');
     } finally {
