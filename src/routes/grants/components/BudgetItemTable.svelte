@@ -237,16 +237,29 @@
       return item.monthlyData?.[correctMonthKey]?.budget || 0;
     }
     
+    // 通常の予算項目の場合
     const schedules = budgetItemSchedules.get(item.id);
-    const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
+    if (!schedules || !schedules.scheduleData) {
+      return 0;
+    }
     
-    // スケジュールデータに保存された値のみを使用
-    if (schedules && schedules.scheduleData && schedules.scheduleData.has(monthKey)) {
-      const monthData = schedules.scheduleData.get(monthKey);
+    // 複数の月次キー形式を試行して値を取得
+    const monthKey1 = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;  // "25/04"形式
+    const monthKey2 = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;  // "2025-04"形式
+    
+    // まず"YY/MM"形式を試す
+    if (schedules.scheduleData.has(monthKey1)) {
+      const monthData = schedules.scheduleData.get(monthKey1);
       return monthData?.monthlyBudget || 0;
     }
     
-    // 保存された値がない場合は0を返す（計算しない）
+    // 次に"YYYY-MM"形式を試す
+    if (schedules.scheduleData.has(monthKey2)) {
+      const monthData = schedules.scheduleData.get(monthKey2);
+      return monthData?.monthlyBudget || 0;
+    }
+    
+    // どちらの形式でも見つからない場合は0を返す
     return 0;
   }
 
@@ -996,6 +1009,10 @@
 
   // カテゴリ別集計データを生成
   function generateCategoryData(): BudgetItemTableData[] {
+    console.log('generateCategoryData開始');
+    console.log('monthColumns:', monthColumns?.length);
+    console.log('budgetItems:', budgetItems.length);
+    
     const categoryMap = new Map<string, BudgetItemTableData>();
     
     // 予算項目をカテゴリ別に集計
@@ -1003,8 +1020,10 @@
       const category = item.category || '未分類';
       
       if (!categoryMap.has(category)) {
+        // カテゴリIDを一意にするため、category-接頭語を付ける
+        const categoryId = `category-${Math.abs(category.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0))}`;
         categoryMap.set(category, {
-          id: Math.abs(category.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)),
+          id: categoryId as any, // string型だが、テーブルでは文字列として処理される
           grantId: 0,
           grantName: 'カテゴリ集計',
           name: category,
@@ -1013,7 +1032,7 @@
           usedAmount: 0,
           remainingAmount: 0,
           monthlyData: {},
-          monthlyUsedAmounts: {},  // 予算項目と同じフィールド名
+          monthlyUsedAmounts: {},
           monthlyTotal: 0,
           monthlyUsedTotal: 0,
           monthlyRemainingTotal: 0
@@ -1028,8 +1047,11 @@
       // 月別データの集計
       const scheduleInfo = budgetItemSchedules.get(item.id);
       if (scheduleInfo && scheduleInfo.scheduleData) {
+        console.log(`項目[${item.name}] スケジュールデータ:`, scheduleInfo.scheduleData.size, '件');
         
         scheduleInfo.scheduleData.forEach((monthData, monthKey) => {
+          console.log(`  月キー: ${monthKey}, 予算: ${monthData.monthlyBudget}`);
+          
           // monthKeyの形式を統一（"25/04"形式を"2025-04"に変換）
           let correctMonthKey = monthKey;
           if (monthKey.includes('/')) {
@@ -1053,6 +1075,7 @@
           }
           
           categoryData.monthlyData[correctMonthKey].budget += monthlyBudget;
+          console.log(`  カテゴリ[${category}] ${correctMonthKey}月予算累計: ${categoryData.monthlyData[correctMonthKey].budget}`);
         });
       }
       
@@ -1067,7 +1090,7 @@
           }
           categoryData.monthlyUsedAmounts[monthKey] += amount as number;
           
-          // monthlyDataにも反映（monthKeyが正しい形式なのでそのまま使用）
+          // monthlyDataにも反映
           if (!categoryData.monthlyData) {
             categoryData.monthlyData = {};
           }
@@ -1083,19 +1106,20 @@
             categoryData.monthlyData[monthKey].budget - categoryData.monthlyData[monthKey].used;
         });
       }
-      
-      // 月別フィールドも予算項目と同じように設定（monthColumnsが初期化されている場合のみ）
+    });
+    
+    // 月別フィールドをカテゴリデータに設定（データ集計後）
+    categoryMap.forEach(categoryData => {
       if (monthColumns && monthColumns.length > 0) {
         monthColumns.forEach(monthCol => {
           const fieldKey = `month_${monthCol.year}_${monthCol.month}`;
           const monthlyAmount = getMonthlyAmount(categoryData, monthCol.year, monthCol.month);
           (categoryData as any)[fieldKey] = monthlyAmount;
+          console.log(`カテゴリ[${categoryData.name}] ${fieldKey}: ${monthlyAmount}`);
         });
       }
-    });
-    
-    // 月別合計を計算
-    categoryMap.forEach(categoryData => {
+      
+      // 月別合計を計算
       if (categoryData.monthlyData) {
         Object.values(categoryData.monthlyData).forEach(monthData => {
           categoryData.monthlyTotal! += monthData.budget;
@@ -1105,7 +1129,10 @@
       }
     });
     
-    return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const result = Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    console.log('generateCategoryData完了:', result.length, '件のカテゴリデータを生成');
+    
+    return result;
   }
 
   // カテゴリテーブルのカラム定義を生成
@@ -1432,7 +1459,17 @@
 
   // カテゴリテーブルの初期化
   function initializeCategoryTable() {
-    if (!categoryTableElement) return;
+    console.log('カテゴリテーブル初期化開始');
+    if (!categoryTableElement) {
+      console.log('categoryTableElement が存在しません');
+      return;
+    }
+    
+    // monthColumnsが初期化されていない場合は初期化
+    if (!monthColumns || monthColumns.length === 0) {
+      console.log('monthColumnsを初期化');
+      initializeTableColumns();
+    }
     
     if (categoryTable) {
       categoryTable.destroy();
@@ -1440,34 +1477,47 @@
     
     const categoryColumns = generateCategoryColumns();
     categoryTableData = generateCategoryData();
+    console.log('カテゴリデータ:', categoryTableData);
+    console.log('カテゴリカラム数:', categoryColumns.length);
     
     const tableHeight = calculateCategoryTableHeight();
+    console.log('カテゴリテーブル高さ:', tableHeight);
+    console.log('カテゴリテーブル要素:', categoryTableElement);
     
     // 予算項目テーブルと同じ設定を使用（仮想DOM無効化含む）
-    categoryTable = new Tabulator(categoryTableElement, {
-      data: categoryTableData,
-      columns: categoryColumns,
-      layout: "fitDataFill",
-      height: tableHeight,
-      autoResize: false, // 自動リサイズを無効化（F12対策）
-      rowHeight: dynamicRowHeight,
-      columnDefaults: {
-        resizable: true,
-        headerWordWrap: true,
-        variableHeight: activeItemCount > 1
-      },
-      renderVertical: "basic", // 基本的なレンダリングモード
-      renderHorizontal: "basic", // 基本的なレンダリングモード
-      reactiveData: false, // リアクティブデータを無効化
-      placeholder: "カテゴリデータがありません"
-    });
-    
-    // 初期化完了を待つ
-    categoryTable.on("tableBuilt", () => {
-      if (categoryTable) {
-        (categoryTable as any).initialized = true;
-      }
-    });
+    try {
+      categoryTable = new Tabulator(categoryTableElement, {
+        data: categoryTableData,
+        columns: categoryColumns,
+        layout: "fitDataFill",
+        height: tableHeight,
+        autoResize: false, // 自動リサイズを無効化（F12対策）
+        rowHeight: dynamicRowHeight,
+        columnDefaults: {
+          resizable: true,
+          headerWordWrap: true,
+          variableHeight: activeItemCount > 1
+        },
+        renderVertical: "basic", // 基本的なレンダリングモード
+        renderHorizontal: "basic", // 基本的なレンダリングモード
+        reactiveData: false, // リアクティブデータを無効化
+        placeholder: "カテゴリデータがありません"
+      });
+      
+      console.log('カテゴリテーブル作成成功');
+      
+      // 初期化完了を待つ
+      categoryTable.on("tableBuilt", () => {
+        console.log('カテゴリテーブルBuilt完了');
+        if (categoryTable) {
+          (categoryTable as any).initialized = true;
+          // 強制的に再描画
+          categoryTable.redraw(true);
+        }
+      });
+    } catch (error) {
+      console.error('カテゴリテーブル初期化エラー:', error);
+    }
   }
 
   function calculateCategoryTableHeight(): string {
