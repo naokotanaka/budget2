@@ -126,14 +126,19 @@
     const filteredMonths = getFilteredMonthColumns();
     
     filteredMonths.forEach(monthCol => {
-      const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
-      const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-      const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
-      const monthlyRemaining = monthlyBudget - monthlyUsed;
+      // 助成期間内かチェック
+      const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
+      
+      if (inGrantPeriod) {
+        const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
+        const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+        const monthlyUsed = rowData.monthlyUsedAmounts?.[monthKey] || 0;
+        const monthlyRemaining = monthlyBudget - monthlyUsed;
 
-      if (showMonthlyBudget) totalBudget += monthlyBudget;
-      if (showMonthlyUsed) totalUsed += monthlyUsed;
-      if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+        if (showMonthlyBudget) totalBudget += monthlyBudget;
+        if (showMonthlyUsed) totalUsed += monthlyUsed;
+        if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+      }
     });
 
     return {
@@ -230,11 +235,52 @@
     return filtered;
   }
 
+  // カテゴリに属する予算項目のいずれかが指定月に助成期間内かを判定
+  function isCategoryMonthAvailable(category: string, targetYear: number, targetMonth: number): boolean {
+    // カテゴリに属する予算項目を取得
+    const categoryItems = budgetItems.filter(item => item.category === category);
+    
+    // いずれかの予算項目がその月に助成期間内であればtrue
+    return categoryItems.some(item => isMonthInGrantPeriod(item.grantId, targetYear, targetMonth));
+  }
+  
+  // 指定された月が助成期間内かどうかを判定
+  function isMonthInGrantPeriod(grantId: number, targetYear: number, targetMonth: number): boolean {
+    const grant = grants.find(g => g.id === grantId);
+    if (!grant || !grant.startDate || !grant.endDate) {
+      return false;
+    }
+    
+    const targetDate = new Date(targetYear, targetMonth - 1, 1);
+    const startDate = new Date(grant.startDate);
+    const endDate = new Date(grant.endDate);
+    
+    // 月の開始日で比較
+    startDate.setDate(1);
+    endDate.setDate(1);
+    endDate.setMonth(endDate.getMonth() + 1); // 終了月も含める
+    
+    return targetDate >= startDate && targetDate < endDate;
+  }
+  
   function getMonthlyAmount(item: BudgetItemTableData, targetYear: number, targetMonth: number): number {
     // カテゴリデータの場合、monthlyDataから直接取得
     if (String(item.id).startsWith('category-')) {
-      const correctMonthKey = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
-      return item.monthlyData?.[correctMonthKey]?.budget || 0;
+      // 両方の形式を試す
+      const monthKey1 = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;  // "25/04"形式
+      const monthKey2 = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;  // "2025-04"形式
+      
+      // まず"YYYY-MM"形式を試す
+      if (item.monthlyData?.[monthKey2]) {
+        return item.monthlyData[monthKey2].budget || 0;
+      }
+      
+      // 次に"YY/MM"形式を試す  
+      if (item.monthlyData?.[monthKey1]) {
+        return item.monthlyData[monthKey1].budget || 0;
+      }
+      
+      return 0;
     }
     
     // 通常の予算項目の場合
@@ -500,14 +546,19 @@
           
           data.forEach((row: any) => {
             filteredMonths.forEach(monthCol => {
-              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
-              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              // 助成期間内かチェック
+              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
               
-              if (showMonthlyBudget) totalBudget += monthlyBudget;
-              if (showMonthlyUsed) totalUsed += monthlyUsed;
-              if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+              if (inGrantPeriod) {
+                const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+                const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+                const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+                const monthlyRemaining = monthlyBudget - monthlyUsed;
+                
+                if (showMonthlyBudget) totalBudget += monthlyBudget;
+                if (showMonthlyUsed) totalUsed += monthlyUsed;
+                if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+              }
             });
           });
           
@@ -585,8 +636,14 @@
             monthCol.year < currentYear || 
             (monthCol.year === currentYear && monthCol.month <= currentMonth);
           
-          // 表示制御
-          const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+          // 助成期間内かどうかをチェック
+          const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
+          
+          // 表示制御 - 助成期間外は"-"、期間内で予算未設定は"0"
+          let budgetDisplay = '-';
+          if (inGrantPeriod) {
+            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
+          }
           
           // 使用額
           let usedDisplay = '-';
@@ -673,20 +730,25 @@
               (monthCol.year === currentYear && monthCol.month <= currentMonth);
             
             data.forEach((row: any) => {
-              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
-              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              // 助成期間内かチェック
+              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
               
-              // 予算は常に合計
-              totalBudget += monthlyBudget;
+              if (inGrantPeriod) {
+                const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+                const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+                const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+                const monthlyRemaining = monthlyBudget - monthlyUsed;
+                
+                // 予算は助成期間内のみ合計
+                totalBudget += monthlyBudget;
               
-              // 使用額と残額は過去・現在月のみ合計
-              if (isCurrentOrPast) {
-                totalUsed += monthlyUsed;
-                // 予算または使用額がある場合のみ残額を計算
-                if (monthlyBudget > 0 || monthlyUsed > 0) {
-                  totalRemaining += monthlyRemaining;
+                // 使用額と残額は過去・現在月のみ合計
+                if (isCurrentOrPast) {
+                  totalUsed += monthlyUsed;
+                  // 予算または使用額がある場合のみ残額を計算
+                  if (monthlyBudget > 0 || monthlyUsed > 0) {
+                    totalRemaining += monthlyRemaining;
+                  }
                 }
               }
             });
@@ -1335,20 +1397,25 @@
             (monthCol.year === currentYear && monthCol.month <= currentMonth);
           
           categoryTableData.forEach(row => {
-            const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
-            const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-            const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-            const monthlyRemaining = monthlyBudget - monthlyUsed;
+            // カテゴリに属する予算項目の助成期間を考慮
+            const categoryAvailable = isCategoryMonthAvailable(row.name, monthCol.year, monthCol.month);
             
-            // 予算は常に合計
-            totalBudget += monthlyBudget;
+            if (categoryAvailable) {
+              const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
+              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+              const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
+              const monthlyRemaining = monthlyBudget - monthlyUsed;
+              
+              // 予算設定可能な月のみ合計
+              totalBudget += monthlyBudget;
             
-            // 使用額と残額は過去・現在月のみ合計
-            if (isCurrentOrPast) {
-              totalUsed += monthlyUsed;
-              // 予算または使用額がある場合のみ残額を計算
-              if (monthlyBudget > 0 || monthlyUsed > 0) {
-                totalRemaining += monthlyRemaining;
+              // 使用額と残額は過去・現在月のみ合計
+              if (isCurrentOrPast) {
+                totalUsed += monthlyUsed;
+                // 予算または使用額がある場合のみ残額を計算
+                if (monthlyBudget > 0 || monthlyUsed > 0) {
+                  totalRemaining += monthlyRemaining;
+                }
               }
             }
           });
@@ -1396,8 +1463,15 @@
             monthCol.year < currentYear || 
             (monthCol.year === currentYear && monthCol.month <= currentMonth);
           
-          // 表示制御 - currentDisplaySettingsから取得
-          const budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '-';
+          // カテゴリに属する予算項目の助成期間を考慮
+          const categoryName = rowData.name; // カテゴリ名
+          const categoryAvailable = isCategoryMonthAvailable(categoryName, monthCol.year, monthCol.month);
+          
+          // 表示制御 - カテゴリで予算設定可能な月は0、不可能な月は"-"
+          let budgetDisplay = '-';
+          if (categoryAvailable) {
+            budgetDisplay = monthlyBudget > 0 ? monthlyBudget.toLocaleString() : '0';
+          }
           
           // 使用額
           let usedDisplay = '-';
