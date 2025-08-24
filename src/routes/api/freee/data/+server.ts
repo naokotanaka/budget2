@@ -164,8 +164,13 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
           offset
         );
 
-        allDeals = allDeals.concat(deals);
-        console.log(`このページで取得: ${deals.length}件, 累計: ${allDeals.length}件`);
+        // 支出取引のみフィルタリング（収入を除外）
+        const expenseDeals = deals.filter((deal: any) => {
+          return deal.type === 'expense' || (deal.type !== 'income' && deal.amount < 0);
+        });
+
+        allDeals = allDeals.concat(expenseDeals);
+        console.log(`このページで取得: ${deals.length}件 → 支出のみ: ${expenseDeals.length}件, 累計: ${allDeals.length}件`);
         
         // 取得件数がlimit未満の場合、これ以上データがないと判断
         if (deals.length < limit) {
@@ -622,9 +627,32 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
               updatedAt: new Date()
             }
           });
+          
+          // 既存の割当を明細IDで検索して紐付け
+          if (detailId) {
+            const existingAllocations = await prisma.allocationSplit.findMany({
+              where: { 
+                detailId: detailId.toString(),
+                transactionId: null // まだ紐付けられていない割当
+              }
+            });
+            
+            if (existingAllocations.length > 0) {
+              await prisma.allocationSplit.updateMany({
+                where: { 
+                  detailId: detailId.toString(),
+                  transactionId: null
+                },
+                data: {
+                  transactionId: `freee_${deal.id}`
+                }
+              });
+              console.log(`割当を紐付け: 明細ID ${detailId} → 取引ID freee_${deal.id} (${existingAllocations.length}件)`);
+            }
+          }
         } else {
           // 新しい取引を作成
-          await prisma.transaction.create({
+          const created = await prisma.transaction.create({
             data: {
               id: `freee_${deal.id}`,
               journalNumber: deal.id,
@@ -650,6 +678,29 @@ async function processFreeeDataRequest(startDate: string, endDate: string, compa
               receiptIds: receiptIdsJson
             }
           });
+          
+          // 既存の割当を明細IDで検索して紐付け
+          if (detailId) {
+            const existingAllocations = await prisma.allocationSplit.findMany({
+              where: { 
+                detailId: detailId.toString(),
+                transactionId: null // まだ紐付けられていない割当
+              }
+            });
+            
+            if (existingAllocations.length > 0) {
+              await prisma.allocationSplit.updateMany({
+                where: { 
+                  detailId: detailId.toString(),
+                  transactionId: null
+                },
+                data: {
+                  transactionId: created.id
+                }
+              });
+              console.log(`割当を紐付け: 明細ID ${detailId} → 取引ID ${created.id} (${existingAllocations.length}件)`);
+            }
+          }
         }
 
         syncedCount++;

@@ -587,6 +587,10 @@
         // UIを更新するために少し待機
         await tick();
         
+        // タイムアウト付きfetch（5分）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分タイムアウト
+        
         const response = await fetch('/budget2/api/freee/sync-selected', {
           method: 'POST',
           headers: {
@@ -595,8 +599,9 @@
           body: JSON.stringify({
             deals: batch,
             companyId: selectedCompany
-          })
-        });
+          }),
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
 
         const result = await response.json();
         

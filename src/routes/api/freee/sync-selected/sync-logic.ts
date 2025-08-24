@@ -88,6 +88,9 @@ export async function processSingleDeal(
   try {
     const newTransactionData = createTransactionData(deal, tagMap, receiptsMap);
     const freeDealId = deal.id.toString();
+    
+    // 明細IDを取得（freee APIの構造により、最初の明細のIDを使用）
+    const detailId = deal.details?.[0]?.id;
 
     if (existingTransaction) {
       // 常に更新（変更チェックなし）
@@ -98,6 +101,23 @@ export async function processSingleDeal(
           updatedAt: new Date()
         }
       });
+      
+      // 既存の割当を明細IDで検索して紐付け（detailIdがNULLの割当を更新）
+      if (detailId) {
+        const existingAllocations = await tx.allocationSplit.findMany({
+          where: { 
+            detailId: null // まだ明細IDが設定されていない割当
+          }
+        });
+        
+        // 該当する割当があれば、最初に見つかったものを紐付け
+        // TODO: より精密なマッチングロジックが必要な場合は要検討
+        if (existingAllocations.length > 0) {
+          // 金額や日付でマッチングする場合はここにロジックを追加
+          logger.info(`未紐付けの割当が${existingAllocations.length}件見つかりました。明細ID ${detailId} の取引と照合中...`);
+        }
+      }
+      
       return { type: 'updated', freeDealId };
     } else {
       // 新規作成
@@ -106,9 +126,26 @@ export async function processSingleDeal(
         ...newTransactionData
       };
 
-      await tx.transaction.create({
+      const created = await tx.transaction.create({
         data: transactionData
       });
+      
+      // 既存の割当を明細IDで検索して紐付け（detailIdがNULLの割当を更新）
+      if (detailId) {
+        const existingAllocations = await tx.allocationSplit.findMany({
+          where: { 
+            detailId: null // まだ明細IDが設定されていない割当
+          }
+        });
+        
+        // 該当する割当があれば、最初に見つかったものを紐付け
+        // TODO: より精密なマッチングロジックが必要な場合は要検討
+        if (existingAllocations.length > 0) {
+          // 金額や日付でマッチングする場合はここにロジックを追加
+          logger.info(`未紐付けの割当が${existingAllocations.length}件見つかりました。明細ID ${detailId} の取引と照合中...`);
+        }
+      }
+      
       return { type: 'created', freeDealId };
     }
   } catch (error: any) {
@@ -177,41 +214,48 @@ export async function executeSync(
         tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
         logger.info(`タグマップ取得: ${tagMap.size}件`);
         
-        // 各取引のgetDealDetailを呼び出してreceipt_idsを取得
+        // 各取引のgetDealDetailを並列で呼び出してreceipt_idsを取得
         logger.info(`=== receipt_ids取得開始: ${deals.length}件の取引 ===`);
+        
+        // バッチサイズを10に設定（API制限を考慮）
+        const batchSize = 10;
         let totalReceiptIds = 0;
         
-        for (let i = 0; i < deals.length; i++) {
-          const deal = deals[i];
-          try {
-            logger.info(`[${i+1}/${deals.length}] Deal ${deal.id} の詳細取得中...`);
-            const dealDetail = await client.getDealDetail(
-              credentials.accessToken,
-              credentials.companyId,
-              deal.id
-            );
-            
-            // freee APIはreceipt_idsではなくreceipts配列を返す
-            if (dealDetail && dealDetail.receipts && Array.isArray(dealDetail.receipts) && dealDetail.receipts.length > 0) {
-              // receipts配列からIDを抽出
-              const receiptIds = dealDetail.receipts.map((r: any) => r.id);
-              deals[i].receipt_ids = receiptIds;
-              totalReceiptIds += receiptIds.length;
-              logger.info(`✓ Deal ${deal.id}: ${receiptIds.length}件のレシートID取得 => ${JSON.stringify(receiptIds)}`);
-            } else {
-              logger.info(`- Deal ${deal.id}: レシートなし`);
+        for (let i = 0; i < deals.length; i += batchSize) {
+          const batch = deals.slice(i, Math.min(i + batchSize, deals.length));
+          const batchPromises = batch.map(async (deal, index) => {
+            const dealIndex = i + index;
+            try {
+              logger.info(`[${dealIndex+1}/${deals.length}] Deal ${deal.id} の詳細取得中...`);
+              const dealDetail = await client.getDealDetail(
+                credentials.accessToken,
+                credentials.companyId,
+                deal.id
+              );
+              
+              // freee APIのreceiptsで��なくreceiptsディレクトリを返す
+              if (dealDetail && dealDetail.receipts && Array.isArray(dealDetail.receipts) && dealDetail.receipts.length > 0) {
+                // receipts配列からIDを抽出
+                const receiptIds = dealDetail.receipts.map((r: any) => r.id);
+                deals[dealIndex].receipt_ids = receiptIds;
+                totalReceiptIds += receiptIds.length;
+                logger.info(`✓ Deal ${deal.id}: ${receiptIds.length}件のレシートID取得 => ${JSON.stringify(receiptIds)}`);
+              } else {
+                logger.info(`- Deal ${deal.id}: レシートなし`);
+              }
+            } catch (error: any) {
+              logger.error(`Deal ${deal.id} の詳細取得エラー:`, error);
+              // エラーがあっても処理を続行
             }
-            
-            // APIレート制限を考慮して少し待機
-            if ((i + 1) % 100 === 0) {
-              logger.info(`API制限回避のため1秒待機...`);
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else if ((i + 1) % 10 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100));
-            }
-          } catch (error: any) {
-            logger.error(`Deal ${deal.id} の詳細取得エラー:`, error);
-            // エラーがあっても処理を続行
+          });
+          
+          // バッチ内の処理を並列実行
+          await Promise.all(batchPromises);
+          
+          // API制限回避のため待機（バッチごと）
+          if (i + batchSize < deals.length) {
+            logger.info(`API制限回避のため300ms待機...`);
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
         
@@ -259,9 +303,16 @@ export async function executeSync(
         errors: []
       };
 
-      // 各dealを処理
+      // 各dealを処理（支出のみ）
       const processTimer = new PerformanceTimer('取引処理');
       for (const deal of deals) {
+        // 支出取引のみ処理（収入はスキップ）
+        if (deal.type === 'income' || (deal.amount && deal.amount > 0 && deal.type !== 'expense')) {
+          logger.info(`収入取引をスキップ: freeDealId ${deal.id}, type: ${deal.type}, amount: ${deal.amount}`);
+          stats.skippedCount++;
+          continue;
+        }
+        
         const dealIdStr = deal.id.toString();
         const existingTransaction = existingMap.get(dealIdStr);
         
