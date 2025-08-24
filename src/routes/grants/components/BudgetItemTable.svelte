@@ -51,6 +51,10 @@
   // ソート状態を保存する変数
   let savedSortState: Array<{column: string, dir: string}> = [];
   
+  // ページネーション状態を保存する変数
+  let savedPageNumber = 1;
+  let savedPageSize = PAGINATION_SIZE;
+  
   let currentDisplaySettings = {
     showMonthlyBudget,
     showMonthlyUsed,
@@ -438,10 +442,14 @@
           let totalUsed = 0;
           let totalRemaining = 0;
           
+          // フィルタリング後の表示されている行のみを集計
           data.forEach((row: any) => {
-            totalBudget += row.budgetedAmount || 0;
-            totalUsed += row.usedAmount || 0;
-            totalRemaining += row.remainingAmount || 0;
+            const monthData = row[monthKey];
+            if (monthData) {
+              totalBudget += monthData.budget || 0;
+              totalUsed += monthData.used || 0;
+              totalRemaining += monthData.remaining || 0;
+            }
           });
           
           const items = [];
@@ -487,19 +495,17 @@
           
           const filteredMonths = getFilteredMonthColumns();
           
+          // フィルタリング後の表示されている行のみを集計
           data.forEach((row: any) => {
             filteredMonths.forEach(monthCol => {
-              const inGrantPeriod = isMonthInGrantPeriod(row.grantId, monthCol.year, monthCol.month);
+              const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
+              const monthData = row[monthKey];
               
-              if (inGrantPeriod) {
-                const monthlyBudget = getMonthlyAmount(row, monthCol.year, monthCol.month);
-                const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
-                const monthlyUsed = row.monthlyUsedAmounts?.[monthKey] || 0;
-                const monthlyRemaining = monthlyBudget - monthlyUsed;
-                
-                if (showMonthlyBudget) totalBudget += monthlyBudget;
-                if (showMonthlyUsed) totalUsed += monthlyUsed;
-                if (showMonthlyRemaining) totalRemaining += monthlyRemaining;
+              if (monthData) {
+                // 表示されている月のデータのみ集計
+                totalBudget += monthData.budget || 0;
+                totalUsed += monthData.used || 0;
+                totalRemaining += monthData.remaining || 0;
               }
             });
           });
@@ -843,6 +849,18 @@
           }
         }
         
+        // ページネーション状態を復元
+        try {
+          if (savedPageSize !== PAGINATION_SIZE) {
+            table.setPageSize(savedPageSize);
+          }
+          if (savedPageNumber > 1) {
+            table.setPage(savedPageNumber);
+          }
+        } catch (error) {
+          console.warn('Failed to restore pagination state:', error);
+        }
+        
         isTableInitializing = false;
         isTableUpdating = false;
       });
@@ -877,6 +895,14 @@
           }));
         }
         
+        // 現在のページネーション状態を保存
+        try {
+          savedPageNumber = table.getPage();
+          savedPageSize = table.getPageSize();
+        } catch (error) {
+          console.warn('Failed to save pagination state:', error);
+        }
+        
         table.destroy();
         table = null;
         
@@ -885,6 +911,8 @@
         
       } catch (error) {
         savedSortState = [];
+        savedPageNumber = 1;
+        savedPageSize = PAGINATION_SIZE;
         initializeTable();
       }
     } else {
@@ -927,6 +955,10 @@
             dir: sorter.dir
           }));
         }
+        
+        // 現在のページネーション状態を保存
+        savedPageNumber = table.getPage();
+        savedPageSize = table.getPageSize();
       } catch (error) {
         console.warn('Failed to save sort state during display settings change:', error);
       }
