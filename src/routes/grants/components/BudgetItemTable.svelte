@@ -41,7 +41,7 @@
   let tableData: BudgetItemTableData[] = [];
   let lastValidBudgetItems: BudgetItem[] = []; // データのバックアップ用
   
-  // 表示設定を保持するオブジェクト（フォーマッターから参照）
+  // 表示設定を保持するオブジェクト（カテゴリテーブル用）
   let currentDisplaySettings = {
     showMonthlyBudget: showMonthlyBudget,
     showMonthlyUsed: showMonthlyUsed,
@@ -80,6 +80,8 @@
     setTimeout(() => updateCategoryTable(), 100);
   }
 
+  // 表示設定が変更された時の処理は下のreactive blockで一元管理
+
   // Handle display settings changes
   $: {
     const currentSettings = {
@@ -97,6 +99,10 @@
       // カテゴリテーブルの更新はhandleDisplaySettingsChange内で行う
     }
   }
+
+
+
+
 
   // Helper functions
   function formatAmount(amount?: number, includeYen: boolean = true): string {
@@ -231,56 +237,26 @@
     const schedules = budgetItemSchedules.get(item.id);
     const monthKey = `${targetYear.toString().slice(-2)}/${targetMonth.toString().padStart(2, '0')}`;
     
-    // スケジュールデータがある場合はそれを優先
+    // スケジュールデータに保存された値のみを使用
     if (schedules && schedules.scheduleData && schedules.scheduleData.has(monthKey)) {
       const monthData = schedules.scheduleData.get(monthKey);
       return monthData?.monthlyBudget || 0;
     }
     
-    // 選択された月だけに予算を配分
-    if (schedules && schedules.months && schedules.months.length > 0) {
-      const isSelectedMonth = schedules.months.includes(monthKey);
-      if (isSelectedMonth) {
-        const monthlyAmount = Math.floor((item.budgetedAmount || 0) / schedules.months.length);
-        return monthlyAmount;
-      } else {
-        return 0;
-      }
-    }
-    
-    // スケジュールデータがない場合は、助成金期間全体で均等配分
-    if (!schedulesLoaded) {
-      const grant = grants.find(g => g.id === item.grantId);
-      if (grant && grant.startDate && grant.endDate) {
-        const start = new Date(grant.startDate);
-        const end = new Date(grant.endDate);
-        
-        const targetDate = new Date(targetYear, targetMonth - 1);
-        if (targetDate >= start && targetDate <= end) {
-          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                           (end.getMonth() - start.getMonth()) + 1;
-          const monthlyAmount = Math.floor((item.budgetedAmount || 0) / monthsDiff);
-          return monthlyAmount;
-        }
-      }
-    }
+    // 保存された値がない場合は0を返す（計算しない）
     return 0;
   }
 
   // formatter関数を動的に生成する関数
   function createCellFormatter() {
-    // フォーマッター実行時に最新の値を取得するため、
-    // クロージャーではなく関数内で参照する
+    // 現在の表示設定をキャプチャして新しいフォーマッター関数を生成
+    const currentShowBudget = showMonthlyBudget;
+    const currentShowUsed = showMonthlyUsed;
+    const currentShowRemaining = showMonthlyRemaining;
+    
     return (cell: CellComponent) => {
       try {
-      // 実行時に最新の表示設定を取得（グローバルオブジェクトから）
-      const currentShowBudget = currentDisplaySettings.showMonthlyBudget;
-      const currentShowUsed = currentDisplaySettings.showMonthlyUsed;
-      const currentShowRemaining = currentDisplaySettings.showMonthlyRemaining;
       
-      // デバッグ用（初回のみ）
-      
-    
       // スクロール時の問題対策: 行データの存在確認
       const row = cell.getRow();
       if (!row) {
@@ -338,7 +314,7 @@
 
       
       if (items.length === 0) {
-        return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">-</div>';
+        return '<div style="text-align: center; color: #9ca3af; font-size: 11px;">&nbsp;</div>';
       }
       
       const html = `
@@ -347,9 +323,6 @@
         </div>
       `;
       
-      // デバッグ
-
-
       return html;
       } catch (error) {
         return '';
@@ -359,12 +332,13 @@
   
   // 月計formatterを動的に生成
   function createMonthTotalFormatter() {
+    // 現在の表示設定をキャプチャして新しいフォーマッター関数を生成
+    const currentShowBudget = showMonthlyBudget;
+    const currentShowUsed = showMonthlyUsed;
+    const currentShowRemaining = showMonthlyRemaining;
+    
     return (cell: CellComponent) => {
       try {
-      // 実行時に最新の表示設定を取得（グローバルオブジェクトから）
-      const currentShowBudget = currentDisplaySettings.showMonthlyBudget;
-      const currentShowUsed = currentDisplaySettings.showMonthlyUsed;
-      const currentShowRemaining = currentDisplaySettings.showMonthlyRemaining;
       
       // スクロール時の問題対策: 行データの存在確認
       const row = cell.getRow();
@@ -559,13 +533,13 @@
       
       // 月別formatterを動的に生成する関数
       function createMonthFormatter(monthCol: MonthColumn) {
-        // 毎回新しい関数を生成して、クロージャーの問題を回避
+        // 現在の表示設定をキャプチャして新しいフォーマッター関数を生成
+        const currentShowBudget = showMonthlyBudget;
+        const currentShowUsed = showMonthlyUsed;
+        const currentShowRemaining = showMonthlyRemaining;
         const formatterId = Math.random().toString(36).substr(2, 9);
+        
         const formatter = (cell: CellComponent) => {
-          // 実行時に最新の表示設定を取得（グローバルオブジェクトから）
-          const currentShowBudget = currentDisplaySettings.showMonthlyBudget;
-          const currentShowUsed = currentDisplaySettings.showMonthlyUsed;
-          const currentShowRemaining = currentDisplaySettings.showMonthlyRemaining;
           
           // スクロール時の問題対策: getValue()ではなくrowDataから直接取得
           const row = cell.getRow();
@@ -978,15 +952,10 @@
     currentDisplaySettings.showMonthlyUsed = currentSettings.showMonthlyUsed;
     currentDisplaySettings.showMonthlyRemaining = currentSettings.showMonthlyRemaining;
     
-    // テーブルが既に存在する場合、データを保持しながら更新
+    // テーブルが既に存在する場合、完全に再構築
     if (table) {
-        // データを再準備（最新の状態を反映）
+      // データを再準備（最新の状態を反映）
       prepareTableData();
-        // 月別データの確認
-      if (tableData.length > 0) {
-        const firstItem = tableData[0];
-        const monthFields = Object.keys(firstItem).filter(key => key.startsWith('month_'));
-          }
       
       // テーブルを破棄
       table.destroy();
