@@ -10,8 +10,8 @@
   export let budgetItems: BudgetItem[] = [];
   export let selectedMonths: Set<string> = new Set();
   
-  // 月別予算額を管理するオブジェクト
-  let monthlyBudgets: Record<string, number> = {};
+  // 月別予算額を管理する配列
+  let monthlyBudgets: Array<{year: number, month: number, amount: number}> = [];
 
   const dispatch = createEventDispatcher();
   let error = '';
@@ -28,14 +28,25 @@
   };
 
   // 月別予算額の合計を計算
-  $: totalMonthlyBudget = Object.values(monthlyBudgets).reduce((sum, amount) => sum + (amount || 0), 0);
+  $: totalMonthlyBudget = monthlyBudgets.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   // フォームで選択された助成金
   $: formGrant = grants.find(g => g.id === parseInt(String(budgetItemForm.grantId || '0')));
   
   // 助成金が選択されたら月リストを更新
-  $: if (formGrant) {
+  $: if (budgetItemForm.grantId && formGrant) {
     availableMonths = generateMonthsFromGrant(formGrant);
+    // 月別予算配列を更新
+    monthlyBudgets = availableMonths.map(month => ({
+      year: month.year,
+      month: month.month,
+      amount: 0
+    }));
+    
+    // 既存項目の場合はデータを読み込み
+    if (budgetItemForm.id) {
+      loadExistingMonthlyBudgets();
+    }
   }
 
   onMount(() => {
@@ -43,7 +54,9 @@
     if (budgetItemForm.grantId) {
       updateAvailableMonths();
       // 既存の月別予算額を読み込む
-      loadExistingMonthlyBudgets();
+      if (budgetItemForm.id) {
+        loadExistingMonthlyBudgets();
+      }
     }
   });
   
@@ -51,16 +64,29 @@
   async function loadExistingMonthlyBudgets() {
     if (!budgetItemForm.id) return;
     
+    // まず全月を0で初期化
+    monthlyBudgets = availableMonths.map(month => ({
+      year: month.year,
+      month: month.month,
+      amount: 0
+    }));
+    
     try {
       const response = await fetch(`${base}/api/budget-items/${budgetItemForm.id}/schedule`);
       if (response.ok) {
         const data = await response.json();
-        if (data.schedules) {
-          monthlyBudgets = {};
+        if (data.schedules && Array.isArray(data.schedules)) {
+          // スケジュールデータで上書き
           data.schedules.forEach((schedule: any) => {
-            const monthKey = `${schedule.year}-${String(schedule.month).padStart(2, '0')}`;
-            monthlyBudgets[monthKey] = schedule.monthlyBudget || 0;
+            const monthlyItem = monthlyBudgets.find(item => 
+              item.year === schedule.year && item.month === schedule.month
+            );
+            if (monthlyItem) {
+              monthlyItem.amount = schedule.monthlyBudget || 0;
+            }
           });
+          // 強制的に再レンダリング
+          monthlyBudgets = [...monthlyBudgets];
         }
       }
     } catch (err) {
@@ -109,6 +135,15 @@
     }
 
     availableMonths = generateMonthsFromGrant(grant);
+    
+    // 月別予算を初期化（新規・編集両方で必要）
+    monthlyBudgets = availableMonths.map(month => ({
+      year: month.year,
+      month: month.month,
+      amount: 0
+    }));
+    
+    // 既存項目の場合は、データ読み込み後に値が上書きされる
   }
 
   // 月別予算額を均等に配分する関数
@@ -126,20 +161,23 @@
     const remainder = budgetItemForm.budgetedAmount % targetMonths.length;
     
     // まず全ての月を0にリセット
-    availableMonths.forEach(month => {
-      const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`;
-      monthlyBudgets[monthKey] = 0;
+    monthlyBudgets.forEach(item => {
+      item.amount = 0;
     });
     
     // 10日以上ある月のみに配分
     targetMonths.forEach((month, index) => {
-      const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`;
-      // 余りを最初の月に追加
-      monthlyBudgets[monthKey] = amountPerMonth + (index === 0 ? remainder : 0);
+      const monthlyItem = monthlyBudgets.find(item => 
+        item.year === month.year && item.month === month.month
+      );
+      if (monthlyItem) {
+        // 余りを最初の月に追加
+        monthlyItem.amount = amountPerMonth + (index === 0 ? remainder : 0);
+      }
     });
     
     // 強制的に再レンダリング
-    monthlyBudgets = { ...monthlyBudgets };
+    monthlyBudgets = [...monthlyBudgets];
   }
   
   function generateMonthsFromGrant(grant: Grant): Array<{year: number, month: number, label: string, daysInMonth: number}> {
@@ -224,18 +262,17 @@
 
   async function saveBudgetItemSchedule(budgetItemId: number) {
     try {
+      
       // 月別予算額が入力された月のみスケジュールを作成
-      const schedules = Object.entries(monthlyBudgets)
-        .filter(([_, amount]) => amount > 0)
-        .map(([monthKey, amount]) => {
-          const [year, month] = monthKey.split('-');
-          return {
-            year: parseInt(year),
-            month: parseInt(month),
-            isActive: true,
-            monthlyBudget: amount // 各月の個別金額を設定
-          };
-        });
+      const schedules = monthlyBudgets
+        .filter(item => item.amount > 0)
+        .map(item => ({
+          year: item.year,
+          month: item.month,
+          isActive: true,
+          monthlyBudget: item.amount // 各月の個別金額を設定
+        }));
+      
       
       const response = await fetch(`${base}/api/budget-items/${budgetItemId}/schedule`, {
         method: 'PUT',
@@ -445,33 +482,45 @@
               
               <!-- 均等割りボタン -->
               {#if budgetItemForm.budgetedAmount}
-                <button 
-                  type="button"
-                  on:click={distributeEquallyToMonths}
-                  class="mb-3 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
-                >
-                  総額を均等に配分 (¥{budgetItemForm.budgetedAmount.toLocaleString()})
-                </button>
+                <div class="mb-3">
+                  <button 
+                    type="button"
+                    on:click={distributeEquallyToMonths}
+                    class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
+                  >
+                    総額を均等に配分 (¥{budgetItemForm.budgetedAmount.toLocaleString()})
+                  </button>
+                  <p class="mt-1 text-xs text-gray-500">
+                    ※10日以上ある月のみに均等配分されます
+                  </p>
+                </div>
               {/if}
               
               <!-- 月別入力フィールド -->
               <div class="border border-gray-200 rounded-md p-3" style="max-height: 450px; overflow-y: auto;">
                 <div class="space-y-2">
-                  {#each availableMonths as month}
-                    {@const monthKey = `${month.year}-${String(month.month).padStart(2, '0')}`}
-                    <div class="flex items-center gap-2">
-                      <label class="text-sm text-gray-700 min-w-[100px]">
-                        {month.label}:
-                      </label>
-                      <input 
-                        type="number"
-                        bind:value={monthlyBudgets[monthKey]}
-                        min="0"
-                        class="flex-1 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="0"
-                      />
-                    </div>
-                  {/each}
+                  {#if monthlyBudgets && monthlyBudgets.length > 0}
+                    {#each monthlyBudgets as monthlyItem, index}
+                      <div class="flex items-center gap-2">
+                        <label class="text-sm text-gray-700 min-w-[100px]">
+                          {monthlyItem.year}年{monthlyItem.month}月:
+                        </label>
+                        <input 
+                          type="number"
+                          value={monthlyItem.amount}
+                          on:input={(e) => {
+                            monthlyBudgets[index].amount = parseInt(e.target.value) || 0;
+                            monthlyBudgets = monthlyBudgets; // 再代入でリアクティビティをトリガー
+                          }}
+                          min="0"
+                          class="flex-1 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    {/each}
+                  {:else}
+                    <div>データがありません</div>
+                  {/if}
                 </div>
               </div>
               
