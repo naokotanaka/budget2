@@ -250,8 +250,7 @@ export const actions: Actions = {
     } catch (error: any) {
       logger.error('一括割当エラー', createErrorContext('bulkAllocate', error, { 
         transactionIds: transactionIds.length,
-        budgetItemId,
-        allocationsCount: allocations.length
+        budgetItemId
       }));
       return fail(500, { message: '一括割当の保存に失敗しました' });
     }

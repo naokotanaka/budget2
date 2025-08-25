@@ -92,6 +92,7 @@
   // 月別残額表示用の状態
   let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
   let showMonthlyBalance = false;
+  let filterByMonthlyBudget = false; // 選択月の予算がある項目のみ表示
   
   // 左ペインソート状態（複数ソート対応）
   let sortFields: SortField[] = [{field: 'grantName', direction: 'asc'}];
@@ -206,6 +207,7 @@
   let isInitialized = false;
   let isRestoringState = false; // 状態復元中フラグ
   let isStateRestored = false;  // 状態復元完了フラグ
+  let isMounted = false; // マウント完了フラグ
   
   // 初期化時にチェックボックスフィルターを設定（一度だけ実行）
   $: if (!isInitialized && uniqueValues.account.length > 0) {
@@ -219,7 +221,7 @@
   }
   
   // 初期化完了後に状態復元を実行（一度だけ）
-  $: if (isInitialized && !isStateRestored && browser) {
+  $: if (isInitialized && !isStateRestored && browser && isMounted) {
     loadFilterState();
     isStateRestored = true;
   }
@@ -257,11 +259,13 @@
     // monthはYYYY-MM形式
     const [year, monthNum] = month.split('-').map(Number);
     
-    // 該当月の予算額を取得（schedulesフィールドを使用）
-    const hasSchedule = budgetItem.schedules?.some(
+    // 該当月の予算額を取得（schedulesフィールドから実際の月額を取得）
+    const monthSchedule = budgetItem.schedules?.find(
       (schedule: any) => schedule.year === year && schedule.month === monthNum
     );
-    const monthlyBudget = hasSchedule ? (budgetItem.budgetedAmount || 0) / (budgetItem.schedules?.length || 1) : 0;
+    
+    // monthlyBudgetフィールドを使用（amountではなく）
+    const monthlyBudget = monthSchedule?.monthlyBudget || 0;
     
     // 該当月の割当済み額を計算
     const monthStart = new Date(year, monthNum - 1, 1);
@@ -349,6 +353,21 @@
     
     // カテゴリフィルター
     if (budgetItemCategoryFilter && (!item.category || !item.category.toLowerCase().includes(budgetItemCategoryFilter.toLowerCase()))) return false;
+    
+    // 月予算フィルター（選択月の予算がある項目のみ）
+    if (showMonthlyBalance && filterByMonthlyBudget && selectedMonth) {
+      const [year, month] = selectedMonth.split('-').map(Number);
+      
+      // 該当月のスケジュールを探し、金額が0より大きいかチェック
+      const monthSchedule = item.schedules?.find(
+        (schedule: any) => schedule.year === year && schedule.month === month
+      );
+      
+      // monthlyBudgetフィールドをチェック
+      const hasMonthlyBudget = monthSchedule && monthSchedule.monthlyBudget && monthSchedule.monthlyBudget > 0;
+      
+      if (!hasMonthlyBudget) return false;
+    }
     
     return true;
   });
@@ -1883,6 +1902,7 @@
       
       // 復元は初期化完了後に実行
     }
+    isMounted = true;
   });
   
   onDestroy(() => {
@@ -1945,6 +1965,15 @@
               >
                 残額表示
               </button>
+              {#if showMonthlyBalance}
+                <button 
+                  class="btn btn-xs {filterByMonthlyBudget ? 'btn-warning' : 'btn-outline'}"
+                  on:click={() => filterByMonthlyBudget = !filterByMonthlyBudget}
+                  title="選択月の予算が設定されている項目のみ表示"
+                >
+                  月予算あり
+                </button>
+              {/if}
             </div>
             
             <div class="flex items-center gap-2 text-sm">
@@ -1956,40 +1985,14 @@
           </div>
         </div>
         
-        <!-- 月別残額サマリー -->
-        {#if showMonthlyBalance}
-          {@const monthlyTotals = calculateMonthlyTotals(selectedMonth)}
-          <div class="border-b px-3 py-2 bg-blue-50">
-            <div class="text-sm font-semibold mb-1">
-              {selectedMonth.replace('-', '年')}月の残額
-            </div>
-            <div class="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <span class="text-gray-600">予算:</span>
-                <div class="font-semibold">{formatCurrency(monthlyTotals.budget)}</div>
-              </div>
-              <div>
-                <span class="text-gray-600">使用:</span>
-                <div class="font-semibold">{formatCurrency(monthlyTotals.allocated)}</div>
-              </div>
-              <div>
-                <span class="text-gray-600">残額:</span>
-                <div class="font-semibold {monthlyTotals.remaining >= 0 ? 'text-blue-600' : 'text-red-600'}">
-                  {formatCurrency(monthlyTotals.remaining)}
-                </div>
-              </div>
-            </div>
-          </div>
-        {/if}
-        
         <!-- テーブル表示エリア -->
         <div class="flex-1 overflow-auto min-h-0">
           <table class="table table-xs table-pin-rows w-full">
             <thead class="bg-gray-100">
               <tr>
-                <th class="w-6 text-xs"></th>
+                <th class="w-6 text-xs sticky left-0 z-10 bg-gray-100"></th>
                 <th 
-                  class="cursor-pointer select-none min-w-[80px] text-xs"
+                  class="cursor-pointer select-none min-w-[80px] text-xs sticky left-6 z-10 bg-gray-100"
                   on:click={(e) => handleSort('grantName', e)}
                 >
                   <div class="flex items-center gap-1">
@@ -2007,8 +2010,9 @@
                   </div>
                 </th>
                 <th 
-                  class="cursor-pointer select-none min-w-[100px] text-xs"
+                  class="cursor-pointer select-none min-w-[100px] text-xs sticky z-10 bg-gray-100 border-r-2 border-gray-300"
                   on:click={(e) => handleSort('name', e)}
+                  style="left: 86px"
                 >
                   <div class="flex items-center gap-1">
                     予算項目名
@@ -2133,7 +2137,7 @@
                   class:bg-blue-100={selectedBudgetItem?.id === item.id}
                   on:click={() => selectedBudgetItem = item}
                 >
-                  <td class="p-0.5">
+                  <td class="p-0.5 sticky left-0 z-10" class:bg-gray-50={isOdd} class:bg-blue-100={selectedBudgetItem?.id === item.id} class:bg-white={!isOdd && selectedBudgetItem?.id !== item.id}>
                     <input 
                       type="radio" 
                       name="selectedBudgetItem" 
@@ -2142,10 +2146,19 @@
                       on:change={() => selectedBudgetItem = item}
                     />
                   </td>
-                  <td class="text-xs p-0.5 min-w-[80px]" title={item.grantName}>
+                  <td class="text-xs p-0.5 min-w-[80px] sticky left-6 z-10" 
+                      class:bg-gray-50={isOdd} 
+                      class:bg-blue-100={selectedBudgetItem?.id === item.id}
+                      class:bg-white={!isOdd && selectedBudgetItem?.id !== item.id}
+                      title={item.grantName}>
                     {item.grantName}
                   </td>
-                  <td class="text-xs p-0.5 min-w-[100px]" title={item.name}>
+                  <td class="text-xs p-0.5 min-w-[100px] sticky z-10 border-r-2 border-gray-300" 
+                      class:bg-gray-50={isOdd} 
+                      class:bg-blue-100={selectedBudgetItem?.id === item.id}
+                      class:bg-white={!isOdd && selectedBudgetItem?.id !== item.id}
+                      style="left: 86px"
+                      title={item.name}>
                     {item.name}
                     {#if item.schedules && item.schedules.length > 0}
                       <span class="text-gray-500 ml-1 text-[10px]">({item.schedules[0].month}月)</span>
@@ -2185,6 +2198,7 @@
           </table>
         </div>
       </div>
+      
       
       <!-- 下部: 選択項目の詳細表示 -->
       <div class="border-t bg-gray-50 flex-shrink-0">
@@ -2236,6 +2250,15 @@
                     {formatCurrency(selectedBudgetItem.remaining || 0)}
                   </span>
                 </div>
+                {#if showMonthlyBalance}
+                  {@const itemMonthlyBalance = calculateMonthlyBalance(selectedBudgetItem, selectedMonth)}
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">{selectedMonth.slice(5)}月残額:</span>
+                    <span class="font-semibold" class:text-red-600={itemMonthlyBalance.remaining < 0} class:text-blue-600={itemMonthlyBalance.remaining >= 0}>
+                      {formatCurrency(itemMonthlyBalance.remaining)}
+                    </span>
+                  </div>
+                {/if}
               </div>
             </div>
 
