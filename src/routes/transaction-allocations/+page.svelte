@@ -198,6 +198,8 @@
   
   // 初期化フラグ
   let isInitialized = false;
+  let isRestoringState = false; // 状態復元中フラグ
+  let isStateRestored = false;  // 状態復元完了フラグ
   
   // 初期化時にチェックボックスフィルターを設定（一度だけ実行）
   $: if (!isInitialized && uniqueValues.account.length > 0) {
@@ -208,6 +210,12 @@
     checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
     checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
     isInitialized = true;
+  }
+  
+  // 初期化完了後に状態復元を実行（一度だけ）
+  $: if (isInitialized && !isStateRestored && browser) {
+    loadFilterState();
+    isStateRestored = true;
   }
   
   // プリセット状態
@@ -676,8 +684,8 @@
   $: endIndex = Math.min(startIndex + itemsPerPage, sortedTransactionData.length);
   $: paginatedTransactionData = sortedTransactionData.slice(startIndex, endIndex);
   
-  // フィルターやソートが変更されたらページを1に戻す
-  $: if (filterStatus || filterGrant || searchQuery || startDate || endDate || transactionSortFields) {
+  // フィルターやソートが変更されたらページを1に戻す（復元中・初期化中は除く）
+  $: if (!isRestoringState && isInitialized && (filterStatus || filterGrant || searchQuery || startDate || endDate || transactionSortFields)) {
     currentPage = 1;
     pageInputValue = '1';
   }
@@ -1056,7 +1064,7 @@
   
   // フィルター状態のローカルストレージ保存
   function saveFilterState() {
-    if (browser) {
+    if (browser && !isRestoringState) { // 復元中は保存しない
       const filterState = {
         headerFilters,
         checkboxFilters: {
@@ -1084,7 +1092,10 @@
       const saved = localStorage.getItem('transaction-allocation-filters');
       if (saved) {
         try {
+          isRestoringState = true; // 復元開始
+          
           const filterState = JSON.parse(saved);
+          
           // 保存された状態を復元（金額範囲も含む）
           headerFilters = { ...headerFilters, ...filterState.headerFilters };
           if (filterState.checkboxFilters) {
@@ -1096,6 +1107,7 @@
             checkboxFilters.primaryGrantName = new Set(filterState.checkboxFilters.primaryGrantName);
             checkboxFilters.primaryBudgetItemName = new Set(filterState.checkboxFilters.primaryBudgetItemName);
           }
+          
           // ソート状態の復元
           if (filterState.transactionSortFields) {
             transactionSortFields = filterState.transactionSortFields;
@@ -1103,6 +1115,7 @@
           if (filterState.sortFields) {
             sortFields = filterState.sortFields;
           }
+          
           // ページネーション状態の復元
           if (filterState.currentPage) {
             currentPage = filterState.currentPage;
@@ -1111,8 +1124,15 @@
           if (filterState.itemsPerPage) {
             itemsPerPage = filterState.itemsPerPage;
           }
+          
+          // 次のティックで復元完了フラグをリセット（少し余裕を持つ）
+          setTimeout(() => {
+            isRestoringState = false;
+            isStateRestored = true; // 復元完了を記録
+          }, 100);
         } catch (e) {
           console.warn('フィルター状態の復元に失敗しました:', e);
+          isRestoringState = false; // エラー時もフラグをリセット
         }
       }
     }
@@ -1176,8 +1196,8 @@
     return { start: '', end: '' };
   })();
   
-  // フィルター状態が変更されたときに保存
-  $: if (browser && (headerFilters || checkboxFilters)) {
+  // フィルター状態が変更されたときに保存（復元中は除く）
+  $: if (browser && !isRestoringState && (headerFilters || checkboxFilters)) {
     saveFilterState();
   }
 
@@ -1755,7 +1775,7 @@
       window.addEventListener('keydown', handleKeydown);
       document.addEventListener('click', handleDocumentClick);
       
-      loadFilterState(); // フィルター状態を復元
+      // 復元は初期化完了後に実行
     }
   });
   
