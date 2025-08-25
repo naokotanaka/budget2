@@ -368,6 +368,9 @@
         transactionSortFields = [{ field, direction: defaultDirection }];
       }
     }
+    
+    // ソート変更時に状態を保存
+    saveFilterState();
   }
 
   // ソート関数（複数ソート対応）
@@ -1064,7 +1067,12 @@
           item: Array.from(checkboxFilters.item),
           primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
           primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
-        }
+        },
+        // ソート状態も保存
+        transactionSortFields,
+        sortFields,
+        currentPage,
+        itemsPerPage
       };
       localStorage.setItem('transaction-allocation-filters', JSON.stringify(filterState));
     }
@@ -1087,6 +1095,21 @@
             checkboxFilters.item = new Set(filterState.checkboxFilters.item);
             checkboxFilters.primaryGrantName = new Set(filterState.checkboxFilters.primaryGrantName);
             checkboxFilters.primaryBudgetItemName = new Set(filterState.checkboxFilters.primaryBudgetItemName);
+          }
+          // ソート状態の復元
+          if (filterState.transactionSortFields) {
+            transactionSortFields = filterState.transactionSortFields;
+          }
+          if (filterState.sortFields) {
+            sortFields = filterState.sortFields;
+          }
+          // ページネーション状態の復元
+          if (filterState.currentPage) {
+            currentPage = filterState.currentPage;
+            pageInputValue = filterState.currentPage.toString();
+          }
+          if (filterState.itemsPerPage) {
+            itemsPerPage = filterState.itemsPerPage;
           }
         } catch (e) {
           console.warn('フィルター状態の復元に失敗しました:', e);
