@@ -24,7 +24,8 @@
   const statusLabels = {
     active: '進行中',
     completed: '終了',
-    applied: '報告済み'
+    applied: '報告済み',
+    reported: '報告済み'
   };
 
   // 月別予算額の合計を計算
@@ -375,8 +376,9 @@
           <div class="space-y-4">
             <!-- 助成金 -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
+              <label for="grant-select" class="block text-sm font-medium text-gray-700 mb-2">助成金 *</label>
               <select 
+                id="grant-select"
                 bind:value={budgetItemForm.grantId}
                 on:change={handleGrantChange}
                 required
@@ -393,8 +395,9 @@
             
             <!-- 項目名 -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
+              <label for="item-name" class="block text-sm font-medium text-gray-700 mb-2">項目名 *</label>
               <input 
+                id="item-name"
                 type="text" 
                 bind:value={budgetItemForm.name}
                 required
@@ -405,9 +408,10 @@
             
             <!-- カテゴリ -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
+              <label for="category-input" class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
               <div class="relative category-dropdown">
                 <input 
+                  id="category-input"
                   type="text" 
                   bind:value={budgetItemForm.category}
                   on:focus={() => showCategoryDropdown = true}
@@ -446,8 +450,9 @@
             
             <!-- 予算額 -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
+              <label for="budget-amount" class="block text-sm font-medium text-gray-700 mb-2">予算額（円）</label>
               <input 
+                id="budget-amount"
                 type="number" 
                 bind:value={budgetItemForm.budgetedAmount}
                 min="0"
@@ -458,8 +463,9 @@
             
             <!-- 備考 -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
+              <label for="note-textarea" class="block text-sm font-medium text-gray-700 mb-2">備考</label>
               <textarea 
+                id="note-textarea"
                 bind:value={budgetItemForm.note}
                 rows="3"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -471,14 +477,14 @@
           <!-- 右側：月別予算配分 -->
           <div>
             {#if formGrant}
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+              <div class="block text-sm font-medium text-gray-700 mb-2">
                 月別予算配分
                 {#if totalMonthlyBudget > 0}
                   <span class="ml-2 text-xs text-gray-500">
                     (合計: ¥{totalMonthlyBudget.toLocaleString()})
                   </span>
                 {/if}
-              </label>
+              </div>
               
               <!-- 均等割りボタン -->
               {#if budgetItemForm.budgetedAmount}
@@ -502,14 +508,16 @@
                   {#if monthlyBudgets && monthlyBudgets.length > 0}
                     {#each monthlyBudgets as monthlyItem, index}
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-700 min-w-[100px]">
+                        <label for="monthly-budget-{index}" class="text-sm text-gray-700 min-w-[100px]">
                           {monthlyItem.year}年{monthlyItem.month}月:
                         </label>
                         <input 
+                          id="monthly-budget-{index}"
                           type="number"
                           value={monthlyItem.amount}
                           on:input={(e) => {
-                            monthlyBudgets[index].amount = parseInt(e.target.value) || 0;
+                            const target = e.target as HTMLInputElement;
+                            monthlyBudgets[index].amount = parseInt(target.value) || 0;
                             monthlyBudgets = monthlyBudgets; // 再代入でリアクティビティをトリガー
                           }}
                           min="0"
