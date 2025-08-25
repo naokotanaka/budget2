@@ -38,8 +38,93 @@
       if (stored) {
         presets = JSON.parse(stored);
       }
+      
+      // デフォルトプリセットを追加（まだ存在しない場合）
+      addDefaultPresets();
     } catch (e) {
       console.error('プリセット読み込みエラー:', e);
+    }
+  }
+  
+  function addDefaultPresets() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    
+    // 日付をyyyy-MM-dd形式にフォーマット
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // 月の最初と最後の日を取得
+    const getMonthRange = (year: number, month: number) => {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0); // 次月の0日 = 当月の最終日
+      return {
+        startDate: formatDate(start),
+        endDate: formatDate(end)
+      };
+    };
+    
+    // デフォルトプリセットの定義
+    const defaultPresets = [
+      {
+        id: 'default-this-month',
+        name: '今月',
+        filters: getMonthRange(currentYear, currentMonth),
+        sorts: null,
+        budgetFilters: null
+      },
+      {
+        id: 'default-last-month',
+        name: '先月',
+        filters: getMonthRange(
+          currentMonth === 0 ? currentYear - 1 : currentYear,
+          currentMonth === 0 ? 11 : currentMonth - 1
+        ),
+        sorts: null,
+        budgetFilters: null
+      },
+      {
+        id: 'default-two-months-ago',
+        name: '先々月',
+        filters: getMonthRange(
+          currentMonth <= 1 ? currentYear - 1 : currentYear,
+          currentMonth <= 1 ? currentMonth + 10 : currentMonth - 2
+        ),
+        sorts: null,
+        budgetFilters: null
+      },
+      {
+        id: 'default-three-months',
+        name: '3ヶ月',
+        filters: {
+          startDate: formatDate(new Date(currentYear, currentMonth - 2, 1)),
+          endDate: formatDate(new Date(currentYear, currentMonth + 1, 0))
+        },
+        sorts: null,
+        budgetFilters: null
+      }
+    ];
+    
+    // 既存のプリセットIDのセット
+    const existingIds = new Set(presets.map(p => p.id));
+    
+    // デフォルトプリセットを追加（存在しない場合のみ）
+    let presetsAdded = false;
+    defaultPresets.forEach(defaultPreset => {
+      if (!existingIds.has(defaultPreset.id)) {
+        presets = [...presets, defaultPreset];
+        presetsAdded = true;
+      }
+    });
+    
+    // 新しいプリセットが追加された場合は保存
+    if (presetsAdded) {
+      savePresets();
     }
   }
   
@@ -72,6 +157,8 @@
   function applyPreset(presetId: string) {
     const preset = presets.find(p => p.id === presetId);
     if (preset) {
+      console.log('Applying preset:', preset);
+      console.log('Preset filters:', preset.filters);
       dispatch('apply', preset);
     }
   }
@@ -89,6 +176,35 @@
   // プリセット選択をリセットする関数を公開
   export function resetSelection() {
     selectedPresetId = '';
+  }
+
+  // 助成期間プリセットを自動登録する関数を公開
+  export function registerGrantPeriodPreset(grantName: string, startDate: string, endDate: string) {
+    const presetName = `${grantName}助成期間 (${startDate} ~ ${endDate})`;
+    
+    // 既存の同名プリセットをチェック
+    const existingPreset = presets.find(p => p.name === presetName);
+    if (existingPreset) {
+      // 既存のプリセットがある場合は何もしない
+      return;
+    }
+
+    // 助成期間のフィルターデータを作成（日付のみ、他のフィルターは設定しない）
+    const grantPeriodFilters = {
+      startDate: startDate,
+      endDate: endDate
+    };
+
+    const newPreset: Preset = {
+      id: Date.now().toString(),
+      name: presetName,
+      filters: grantPeriodFilters,
+      sorts: null,
+      budgetFilters: null
+    };
+
+    presets = [...presets, newPreset];
+    savePresets();
   }
 </script>
 

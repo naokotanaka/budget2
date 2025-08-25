@@ -286,6 +286,24 @@
     return true;
   });
 
+  // 助成金選択時の助成期間プリセット自動登録
+  $: if (selectedBudgetItem && presetComponent && selectedBudgetItem.grantStartDate && selectedBudgetItem.grantEndDate) {
+    // 日付形式を yyyy/M/d から yyyy-MM-dd に変換
+    const convertToISOFormat = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    presetComponent.registerGrantPeriodPreset(
+      selectedBudgetItem.grantName,
+      convertToISOFormat(selectedBudgetItem.grantStartDate),
+      convertToISOFormat(selectedBudgetItem.grantEndDate)
+    );
+  }
+
   // 左ペインソート適用（複数ソート対応）
   $: sortedBudgetItems = [...filteredBudgetItems].sort((a, b) => {
     for (const sortConfig of sortFields) {
@@ -2230,6 +2248,8 @@
           }}
           on:apply={(event) => {
             const preset = event.detail;
+            console.log('Received preset in page:', preset);
+            console.log('Preset filters received:', preset.filters);
             
             // 初期化フラグを一時的に無効化（プリセット適用中の自動初期化を防ぐ）
             const wasInitialized = isInitialized;
@@ -2239,8 +2259,11 @@
             if (preset.filters) {
               // checkboxFiltersを除外してheaderFiltersを更新
               const { checkboxFilters: _, ...filterData } = preset.filters;
+              console.log('filterData to apply:', filterData);
+              console.log('headerFilters before:', headerFilters);
               // 新しいオブジェクトとして再割り当て（リアクティビティのため）
               headerFilters = { ...headerFilters, ...filterData };
+              console.log('headerFilters after:', headerFilters);
               
               if (preset.filters.checkboxFilters) {
                 // Setオブジェクトに変換して復元（配列であることを確認）
