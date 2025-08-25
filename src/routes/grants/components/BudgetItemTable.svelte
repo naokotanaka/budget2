@@ -23,7 +23,7 @@
   export let monthFilterEndYear: number = 2025;
   export let monthFilterEndMonth: number = 12;
   export let budgetItemSchedules: Map<number, {months: string[], scheduleData: Map<string, {monthlyBudget: number}>}> = new Map();
-  export let schedulesLoaded: boolean = false;
+  export const _schedulesLoaded: boolean = false;
 
   // Constants
   const TABLE_HEIGHT_LARGE = 0.7;
@@ -49,7 +49,7 @@
   let lastValidBudgetItems: BudgetItem[] = [];
   
   // ソート状態を保存する変数
-  let savedSortState: Array<{column: string, dir: string}> = [];
+  let savedSortState: Array<{column: string, dir: 'asc' | 'desc'}> = [];
   
   // ページネーション状態を保存する変数
   let savedPageNumber = 1;
@@ -286,7 +286,8 @@
     return categoryItems.some(item => isMonthInGrantPeriod(item.grantId, targetYear, targetMonth));
   }
   
-  function isMonthInGrantPeriod(grantId: number, targetYear: number, targetMonth: number): boolean {
+  function isMonthInGrantPeriod(grantId: number | null | undefined, targetYear: number, targetMonth: number): boolean {
+    if (!grantId) return false;
     const grant = grants.find(g => g.id === grantId);
     if (!grant?.startDate || !grant?.endDate) {
       return false;
@@ -666,7 +667,7 @@
           if (!rowData) return '';
 
           // 月別予算と助成期間チェック
-          const monthlyBudget = getMonthlyAmount(rowData, monthCol.year, monthCol.month);
+          const monthlyBudget = getMonthlyAmount(rowData as BudgetItemTableData, monthCol.year, monthCol.month);
           const inGrantPeriod = isMonthInGrantPeriod(rowData.grantId, monthCol.year, monthCol.month);
           const isCurrentOrPast = isCurrentOrPastMonth(monthCol.year, monthCol.month);
           const monthKey = `${monthCol.year}-${monthCol.month.toString().padStart(2, '0')}`;
@@ -991,14 +992,16 @@
         if (currentSorters && currentSorters.length > 0) {
           savedSortState = currentSorters.map((sorter: any) => ({
             column: sorter.field,
-            dir: sorter.dir
+            dir: sorter.dir as 'asc' | 'desc'
           }));
         }
         
         // 現在のページネーション状態を保存
         try {
-          savedPageNumber = table.getPage();
-          savedPageSize = table.getPageSize();
+          const currentPage = table.getPage();
+          const currentPageSize = table.getPageSize();
+          savedPageNumber = typeof currentPage === 'number' ? currentPage : 1;
+          savedPageSize = typeof currentPageSize === 'number' ? currentPageSize : PAGINATION_SIZE;
         } catch (error) {
           console.warn('Failed to save pagination state:', error);
         }
@@ -1052,13 +1055,15 @@
         if (currentSorters && currentSorters.length > 0) {
           savedSortState = currentSorters.map((sorter: any) => ({
             column: sorter.field,
-            dir: sorter.dir
+            dir: sorter.dir as 'asc' | 'desc'
           }));
         }
         
         // 現在のページネーション状態を保存
-        savedPageNumber = table.getPage();
-        savedPageSize = table.getPageSize();
+        const currentPage = table.getPage();
+        const currentPageSize = table.getPageSize();
+        savedPageNumber = typeof currentPage === 'number' ? currentPage : 1;
+        savedPageSize = typeof currentPageSize === 'number' ? currentPageSize : PAGINATION_SIZE;
       } catch (error) {
         console.warn('Failed to save sort state during display settings change:', error);
       }
@@ -1307,8 +1312,7 @@
           totalRemaining,
           showMonthlyBudget,
           showMonthlyUsed,
-          showMonthlyRemaining,
-          false
+          showMonthlyRemaining
         );
         
         // <strong>タグを追加するために置換
@@ -1403,7 +1407,6 @@
               0,
               showMonthlyBudget,
               false,
-              false,
               false
             );
           }
@@ -1414,8 +1417,7 @@
             totalRemaining,
             showMonthlyBudget,
             showMonthlyUsed,
-            showMonthlyRemaining,
-            false
+            showMonthlyRemaining
           );
         },
         formatter: (cell: CellComponent) => {

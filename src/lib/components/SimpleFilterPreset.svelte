@@ -1,30 +1,24 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import type { FilterPreset, HeaderFilters, BudgetItemFilters, SortField } from '$lib/types/presets';
+  import { PRESET_STORAGE_KEY, DEFAULT_PRESET_IDS, MAX_CUSTOM_PRESETS, MAX_PRESET_NAME_LENGTH } from '$lib/types/presets';
+  import { safeGetItem, safeSetItem } from '$lib/utils/storageUtils';
+  import { formatDateForInput, getMonthRange, calculateMonthOffset, convertToISOFormat } from '$lib/utils/dateUtils';
   
   const dispatch = createEventDispatcher();
   
   // プロパティ
-  export let currentFilters: any;
-  export let currentSorts: any;
-  export let budgetItemFilters: any;
-  
-  // プリセット型定義
-  interface Preset {
-    id: string;
-    name: string;
-    filters: any;
-    sorts: any;
-    budgetFilters: any;
-  }
+  export let currentFilters: HeaderFilters;
+  export let currentSorts: SortField[] | null;
+  export let budgetItemFilters: BudgetItemFilters | null;
   
   // 状態
-  let presets: Preset[] = [];
+  let presets: FilterPreset[] = [];
   let selectedPresetId = '';
   let showSaveDialog = false;
   let newPresetName = '';
-  
-  const STORAGE_KEY = 'filter-presets-simple';
+  let storageError: string | null = null;
   
   onMount(() => {
     if (browser) {
@@ -32,119 +26,146 @@
     }
   });
   
-  function loadPresets() {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        presets = JSON.parse(stored);
-      }
-      
-      // デフォルトプリセットを追加（まだ存在しない場合）
-      addDefaultPresets();
-    } catch (e) {
-      console.error('プリセット読み込みエラー:', e);
+  /**
+   * Load presets from localStorage with error handling
+   */
+  function loadPresets(): void {
+    const result = safeGetItem<FilterPreset[]>(PRESET_STORAGE_KEY);
+    
+    if (result.success && result.data) {
+      presets = result.data;
+    } else if (result.error) {
+      storageError = `プリセットの読み込みに失敗しました: ${result.error.message}`;
+      // Initialize with empty array on error
+      presets = [];
     }
+    
+    // Add default presets if they don't exist
+    addDefaultPresets();
   }
   
-  function addDefaultPresets() {
+  /**
+   * Add default presets for common date ranges
+   */
+  function addDefaultPresets(): void {
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
     
-    // 日付をyyyy-MM-dd形式にフォーマット
-    const formatDate = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
+    // Calculate month offsets with proper year boundary handling
+    const lastMonth = calculateMonthOffset(currentYear, currentMonth, -1);
+    const twoMonthsAgo = calculateMonthOffset(currentYear, currentMonth, -2);
     
-    // 月の最初と最後の日を取得
-    const getMonthRange = (year: number, month: number) => {
-      const start = new Date(year, month, 1);
-      const end = new Date(year, month + 1, 0); // 次月の0日 = 当月の最終日
-      return {
-        startDate: formatDate(start),
-        endDate: formatDate(end)
-      };
-    };
-    
-    // デフォルトプリセットの定義
-    const defaultPresets = [
+    // Define default presets with proper typing
+    const defaultPresets: FilterPreset[] = [
       {
-        id: 'default-this-month',
+        id: DEFAULT_PRESET_IDS.THIS_MONTH,
         name: '今月',
         filters: getMonthRange(currentYear, currentMonth),
         sorts: null,
-        budgetFilters: null
+        budgetFilters: null,
+        isDefault: true
       },
       {
-        id: 'default-last-month',
+        id: DEFAULT_PRESET_IDS.LAST_MONTH,
         name: '先月',
-        filters: getMonthRange(
-          currentMonth === 0 ? currentYear - 1 : currentYear,
-          currentMonth === 0 ? 11 : currentMonth - 1
-        ),
+        filters: getMonthRange(lastMonth.year, lastMonth.month),
         sorts: null,
-        budgetFilters: null
+        budgetFilters: null,
+        isDefault: true
       },
       {
-        id: 'default-two-months-ago',
+        id: DEFAULT_PRESET_IDS.TWO_MONTHS_AGO,
         name: '先々月',
-        filters: getMonthRange(
-          currentMonth <= 1 ? currentYear - 1 : currentYear,
-          currentMonth <= 1 ? currentMonth + 10 : currentMonth - 2
-        ),
+        filters: getMonthRange(twoMonthsAgo.year, twoMonthsAgo.month),
         sorts: null,
-        budgetFilters: null
+        budgetFilters: null,
+        isDefault: true
       },
       {
-        id: 'default-three-months',
+        id: DEFAULT_PRESET_IDS.THREE_MONTHS,
         name: '3ヶ月',
         filters: {
-          startDate: formatDate(new Date(currentYear, currentMonth - 2, 1)),
-          endDate: formatDate(new Date(currentYear, currentMonth + 1, 0))
+          startDate: formatDateForInput(new Date(twoMonthsAgo.year, twoMonthsAgo.month, 1)),
+          endDate: formatDateForInput(new Date(currentYear, currentMonth + 1, 0))
         },
         sorts: null,
-        budgetFilters: null
+        budgetFilters: null,
+        isDefault: true
       }
     ];
     
-    // 既存のプリセットIDのセット
+    // Check existing preset IDs
     const existingIds = new Set(presets.map(p => p.id));
     
-    // デフォルトプリセットを追加（存在しない場合のみ）
+    // Add default presets if they don't exist
     let presetsAdded = false;
-    defaultPresets.forEach(defaultPreset => {
+    for (const defaultPreset of defaultPresets) {
       if (!existingIds.has(defaultPreset.id)) {
         presets = [...presets, defaultPreset];
         presetsAdded = true;
       }
-    });
+    }
     
-    // 新しいプリセットが追加された場合は保存
+    // Save if new presets were added
     if (presetsAdded) {
       savePresets();
     }
   }
   
-  function savePresets() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
-    } catch (e) {
-      console.error('プリセット保存エラー:', e);
+  /**
+   * Save presets to localStorage with error handling
+   */
+  function savePresets(): void {
+    const result = safeSetItem(PRESET_STORAGE_KEY, presets);
+    
+    if (!result.success && result.error) {
+      storageError = `プリセットの保存に失敗しました: ${result.error.message}`;
+      // Show temporary error message
+      setTimeout(() => {
+        storageError = null;
+      }, 5000);
     }
   }
   
-  function saveNewPreset() {
-    if (!newPresetName.trim()) return;
+  /**
+   * Save current filters as a new preset
+   */
+  function saveNewPreset(): void {
+    const trimmedName = newPresetName.trim();
     
-    const newPreset: Preset = {
-      id: Date.now().toString(),
-      name: newPresetName,
+    // Validate preset name
+    if (!trimmedName) {
+      storageError = 'プリセット名を入力してください';
+      return;
+    }
+    
+    if (trimmedName.length > MAX_PRESET_NAME_LENGTH) {
+      storageError = `プリセット名は${MAX_PRESET_NAME_LENGTH}文字以内で入力してください`;
+      return;
+    }
+    
+    // Check if name already exists
+    if (presets.some(p => p.name === trimmedName && !p.isDefault)) {
+      storageError = '同じ名前のプリセットが既に存在します';
+      return;
+    }
+    
+    // Check maximum presets limit
+    const customPresetsCount = presets.filter(p => !p.isDefault).length;
+    if (customPresetsCount >= MAX_CUSTOM_PRESETS) {
+      storageError = `カスタムプリセットは最大${MAX_CUSTOM_PRESETS}個まで保存できます`;
+      return;
+    }
+    
+    const newPreset: FilterPreset = {
+      id: `custom-${Date.now()}`,
+      name: trimmedName,
       filters: currentFilters,
       sorts: currentSorts,
-      budgetFilters: budgetItemFilters
+      budgetFilters: budgetItemFilters,
+      createdAt: new Date().toISOString(),
+      isDefault: false
     };
     
     presets = [...presets, newPreset];
@@ -152,55 +173,94 @@
     
     newPresetName = '';
     showSaveDialog = false;
+    storageError = null;
   }
   
-  function applyPreset(presetId: string) {
+  /**
+   * Apply selected preset
+   */
+  function applyPreset(presetId: string): void {
     const preset = presets.find(p => p.id === presetId);
     if (preset) {
-      console.log('Applying preset:', preset);
-      console.log('Preset filters:', preset.filters);
       dispatch('apply', preset);
     }
   }
   
-  function deletePresetById(id: string) {
-    if (confirm('このプリセットを削除しますか？')) {
+  /**
+   * Delete a preset by ID (only custom presets can be deleted)
+   */
+  function deletePresetById(id: string): void {
+    const preset = presets.find(p => p.id === id);
+    
+    if (!preset) return;
+    
+    // Prevent deletion of default presets
+    if (preset.isDefault) {
+      storageError = 'デフォルトプリセットは削除できません';
+      setTimeout(() => {
+        storageError = null;
+      }, 3000);
+      return;
+    }
+    
+    if (confirm(`プリセット「${preset.name}」を削除しますか？`)) {
       presets = presets.filter(p => p.id !== id);
       savePresets();
+      
       if (selectedPresetId === id) {
         selectedPresetId = '';
       }
     }
   }
   
-  // プリセット選択をリセットする関数を公開
-  export function resetSelection() {
+  /**
+   * Reset preset selection
+   */
+  export function resetSelection(): void {
     selectedPresetId = '';
   }
 
-  // 助成期間プリセットを自動登録する関数を公開
-  export function registerGrantPeriodPreset(grantName: string, startDate: string, endDate: string) {
-    const presetName = `${grantName}助成期間 (${startDate} ~ ${endDate})`;
+  /**
+   * Register grant period preset automatically when a grant is selected
+   * @param grantName - Name of the grant
+   * @param startDate - Grant start date (any format)
+   * @param endDate - Grant end date (any format)
+   */
+  export function registerGrantPeriodPreset(grantName: string, startDate: string, endDate: string): void {
+    if (!grantName || !startDate || !endDate) return;
     
-    // 既存の同名プリセットをチェック
+    // Convert dates to ISO format for consistency
+    const isoStartDate = convertToISOFormat(startDate);
+    const isoEndDate = convertToISOFormat(endDate);
+    
+    if (!isoStartDate || !isoEndDate) {
+      // Invalid dates, skip registration
+      return;
+    }
+    
+    const presetName = `${grantName}助成期間 (${isoStartDate} ~ ${isoEndDate})`;
+    
+    // Check for existing preset with same name
     const existingPreset = presets.find(p => p.name === presetName);
     if (existingPreset) {
-      // 既存のプリセットがある場合は何もしない
+      // Preset already exists, no need to add
       return;
     }
 
-    // 助成期間のフィルターデータを作成（日付のみ、他のフィルターは設定しない）
-    const grantPeriodFilters = {
-      startDate: startDate,
-      endDate: endDate
+    // Create grant period filter (only dates, no other filters)
+    const grantPeriodFilters: HeaderFilters = {
+      startDate: isoStartDate,
+      endDate: isoEndDate
     };
 
-    const newPreset: Preset = {
-      id: Date.now().toString(),
+    const newPreset: FilterPreset = {
+      id: `grant-${Date.now()}`,
       name: presetName,
       filters: grantPeriodFilters,
       sorts: null,
-      budgetFilters: null
+      budgetFilters: null,
+      isAutoGenerated: true,
+      createdAt: new Date().toISOString()
     };
 
     presets = [...presets, newPreset];
@@ -231,7 +291,7 @@
   </button>
   
   <!-- 削除ボタン -->
-  {#if selectedPresetId}
+  {#if selectedPresetId && !presets.find(p => p.id === selectedPresetId)?.isDefault}
     <button 
       class="btn btn-sm px-4 bg-white border border-red-400 text-red-600 hover:bg-red-50 hover:border-red-600"
       on:click={() => deletePresetById(selectedPresetId)}
@@ -241,6 +301,13 @@
     </button>
   {/if}
 </div>
+
+<!-- エラーメッセージ表示 -->
+{#if storageError}
+  <div class="alert alert-error mt-2">
+    <span>{storageError}</span>
+  </div>
+{/if}
 
 <!-- 保存ダイアログ -->
 {#if showSaveDialog}

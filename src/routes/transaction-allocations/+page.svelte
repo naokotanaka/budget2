@@ -8,6 +8,8 @@
   import type { AllocationSplit, BudgetItem, Grant, Transaction } from '$lib/types/models';
   import type { SerializedGrant, SerializedBudgetItem, SerializedTransaction } from '$lib/types/serialized';
   import SimpleFilterPreset from '$lib/components/SimpleFilterPreset.svelte';
+  import { safeGetItem, safeSetItem } from '$lib/utils/storageUtils';
+  import { FILTER_STATE_STORAGE_KEY } from '$lib/types/presets';
   
   // プリセットコンポーネントへの参照
   let presetComponent: SimpleFilterPreset;
@@ -87,6 +89,10 @@
   let budgetItemGrantFilter = '';
   let budgetItemCategoryFilter = '';
   
+  // 月別残額表示用の状態
+  let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
+  let showMonthlyBalance = false;
+  
   // 左ペインソート状態（複数ソート対応）
   let sortFields: SortField[] = [{field: 'grantName', direction: 'asc'}];
   
@@ -124,8 +130,8 @@
       );
       
       if (validGrants.length > 0) {
-        const startDates = validGrants.map(g => new Date(g.startDate));
-        const endDates = validGrants.map(g => new Date(g.endDate));
+        const startDates = validGrants.map(g => new Date(g.startDate!));
+        const endDates = validGrants.map(g => new Date(g.endDate!));
         
         const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
         const latestEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
@@ -246,6 +252,67 @@
     return `¥${amount.toLocaleString()}`;
   }
   
+  // 月別残額を計算する関数
+  function calculateMonthlyBalance(budgetItem: BudgetItemWithGrant, month: string) {
+    // monthはYYYY-MM形式
+    const [year, monthNum] = month.split('-').map(Number);
+    
+    // 該当月の予算額を取得（schedulesフィールドを使用）
+    const hasSchedule = budgetItem.schedules?.some(
+      (schedule: any) => schedule.year === year && schedule.month === monthNum
+    );
+    const monthlyBudget = hasSchedule ? (budgetItem.budgetedAmount || 0) / (budgetItem.schedules?.length || 1) : 0;
+    
+    // 該当月の割当済み額を計算
+    const monthStart = new Date(year, monthNum - 1, 1);
+    const monthEnd = new Date(year, monthNum, 0, 23, 59, 59);
+    
+    // data.allocationsを使用して該当月の割当額を計算
+    const monthlyAllocated = (data.allocations || [])
+      .filter((alloc: any) => {
+        if (alloc.budgetItemId !== budgetItem.id) return false;
+        // transactionの日付を取得
+        const transaction = data.transactions.find((t: any) => t.id === alloc.transactionId);
+        if (!transaction) return false;
+        const allocDate = new Date(transaction.date);
+        return allocDate >= monthStart && allocDate <= monthEnd;
+      })
+      .reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
+    
+    return {
+      budget: monthlyBudget,
+      allocated: monthlyAllocated,
+      remaining: monthlyBudget - monthlyAllocated
+    };
+  }
+  
+  // 全予算項目の月別合計を計算
+  function calculateMonthlyTotals(month: string) {
+    let totalBudget = 0;
+    let totalAllocated = 0;
+    
+    // sortedBudgetItemsが存在しない場合はデフォルト値を返す
+    if (!sortedBudgetItems || sortedBudgetItems.length === 0) {
+      return {
+        budget: 0,
+        allocated: 0,
+        remaining: 0
+      };
+    }
+    
+    sortedBudgetItems.forEach(item => {
+      const balance = calculateMonthlyBalance(item, month);
+      totalBudget += balance.budget;
+      totalAllocated += balance.allocated;
+    });
+    
+    return {
+      budget: totalBudget,
+      allocated: totalAllocated,
+      remaining: totalBudget - totalAllocated
+    };
+  }
+  
   function cleanBudgetItemName(name: string): string {
     // 予算項目名から月表記を削除（例: "項目名(4月)" → "項目名"）
     return name.replace(/\([^)]*月[^)]*\)/g, '').trim();
@@ -269,7 +336,7 @@
       grantStartDate: formatDate(grant?.startDate),
       grantEndDate: formatDate(grant?.endDate),
       remaining: remaining
-    } as BudgetItemWithGrant;
+    } as unknown as BudgetItemWithGrant;
   });
 
   // 左ペインフィルター適用
@@ -288,19 +355,12 @@
 
   // 助成金選択時の助成期間プリセット自動登録
   $: if (selectedBudgetItem && presetComponent && selectedBudgetItem.grantStartDate && selectedBudgetItem.grantEndDate) {
-    // 日付形式を yyyy/M/d から yyyy-MM-dd に変換
-    const convertToISOFormat = (dateStr: string) => {
-      const date = new Date(dateStr);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    
+    // Register grant period preset using the component's method
+    // The component will handle date format conversion internally
     presetComponent.registerGrantPeriodPreset(
       selectedBudgetItem.grantName,
-      convertToISOFormat(selectedBudgetItem.grantStartDate),
-      convertToISOFormat(selectedBudgetItem.grantEndDate)
+      selectedBudgetItem.grantStartDate,
+      selectedBudgetItem.grantEndDate
     );
   }
 
@@ -346,7 +406,7 @@
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         result = aValue.localeCompare(bValue);
       } else {
-        result = (aValue || 0) - (bValue || 0);
+        result = Number(aValue || 0) - Number(bValue || 0);
       }
       
       if (result !== 0) {
@@ -489,8 +549,8 @@
         if (typeof transaction.receiptIds === 'string') {
           try {
             return JSON.parse(transaction.receiptIds);
-          } catch (e) {
-            console.warn('Failed to parse receiptIds:', transaction.receiptIds);
+          } catch {
+            // Failed to parse receiptIds, return empty array
             return [];
           }
         }
@@ -565,8 +625,8 @@
           if (typeof transaction.receiptIds === 'string') {
             try {
               return JSON.parse(transaction.receiptIds);
-            } catch (e) {
-              console.warn('Failed to parse receiptIds:', transaction.receiptIds);
+            } catch {
+              // Failed to parse receiptIds, return empty array
               return [];
             }
           }
@@ -796,7 +856,7 @@
   function editAllocation(allocation: AllocationSplit & { 
     budgetItem: BudgetItem & { grant: Grant } 
   }) {
-    editingAllocation = allocation;
+    editingAllocation = allocation as any;
     allocationForm = {
       budgetItemId: allocation.budgetItemId.toString(),
       amount: allocation.amount.toString(),
@@ -859,9 +919,6 @@
         // データの再取得を強制
         data = data;
         
-        // 取引データを再構築
-        transactionRows = createTransactionRows(data.transactions, data.allocations);
-        
         // 予算項目の残額を強制的に再計算
         budgetItemsWithGrant = data.budgetItems.map(item => {
           const grant = data.grants.find(g => g.id === item.grantId);
@@ -882,11 +939,11 @@
             allocatedAmount,
             schedules: item.schedules || []
           };
-        });
+        }) as unknown as BudgetItemWithGrant[];
         
         // 選択中の予算項目を再選択
         if (selectedBudgetItem) {
-          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
+          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem!.id) || null;
         }
         
         alert(`一括割当が完了しました（${allocatedCount}件処理）`);
@@ -940,18 +997,18 @@
           allocatedAmount,
           schedules: item.schedules || []
         };
-      });
+      }) as unknown as BudgetItemWithGrant[];
       
       // 選択した取引の情報を更新
       if (selectedTransaction) {
-        const updatedTransaction = transactionData.find(t => t.id === selectedTransaction.id);
+        const updatedTransaction = transactionData.find(t => t.id === selectedTransaction!.id);
         if (updatedTransaction) {
-          selectedTransaction = updatedTransaction;
+          selectedTransaction = updatedTransaction as any;
         }
       }
       // 選択中の予算項目を再選択して残額を更新
       if (selectedBudgetItem) {
-        selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
+        selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem!.id) || null;
       }
     }
   }
@@ -983,18 +1040,18 @@
             allocatedAmount,
             schedules: item.schedules || []
           };
-        });
+        }) as unknown as BudgetItemWithGrant[];
         
         // 選択した取引の情報を更新
         if (selectedTransaction) {
-          const updatedTransaction = transactionData.find(t => t.id === selectedTransaction.id);
+          const updatedTransaction = transactionData.find(t => t.id === selectedTransaction!.id);
           if (updatedTransaction) {
-            selectedTransaction = updatedTransaction;
+            selectedTransaction = updatedTransaction as any;
           }
         }
         // 選択中の予算項目を再選択して残額を更新
         if (selectedBudgetItem) {
-          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem.id) || null;
+          selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem!.id) || null;
         }
       }
     };
@@ -1061,98 +1118,128 @@
     if (selectAll) {
       // allocationStatusは特別扱い
       if (field === 'allocationStatus') {
-        checkboxFilters[field] = new Set(['unallocated', 'partial', 'full']);
+        (checkboxFilters as any)[field] = new Set(['unallocated', 'partial', 'full']);
       } else {
-        checkboxFilters[field] = new Set(uniqueValues[field] || []);
+        (checkboxFilters as any)[field] = new Set((uniqueValues as any)[field] || []);
       }
     } else {
-      checkboxFilters[field] = new Set();
+      (checkboxFilters as any)[field] = new Set();
     }
     checkboxFilters = checkboxFilters; // リアクティブ更新
   }
   
   function toggleCheckboxValue(field: string, value: string) {
-    if (checkboxFilters[field].has(value)) {
-      checkboxFilters[field].delete(value);
+    if ((checkboxFilters as any)[field].has(value)) {
+      (checkboxFilters as any)[field].delete(value);
     } else {
-      checkboxFilters[field].add(value);
+      (checkboxFilters as any)[field].add(value);
     }
     checkboxFilters = checkboxFilters; // リアクティブ更新
   }
   
-  // フィルター状態のローカルストレージ保存
-  function saveFilterState() {
-    if (browser && !isRestoringState) { // 復元中は保存しない
-      const filterState = {
-        headerFilters,
-        checkboxFilters: {
-          allocationStatus: Array.from(checkboxFilters.allocationStatus),
-          account: Array.from(checkboxFilters.account),
-          department: Array.from(checkboxFilters.department),
-          supplier: Array.from(checkboxFilters.supplier),
-          item: Array.from(checkboxFilters.item),
-          primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
-          primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
-        },
-        // ソート状態も保存
-        transactionSortFields,
-        sortFields,
-        currentPage,
-        itemsPerPage
-      };
-      localStorage.setItem('transaction-allocation-filters', JSON.stringify(filterState));
+  /**
+   * Save filter state to localStorage with error handling
+   */
+  function saveFilterState(): void {
+    if (!browser || isRestoringState) return; // Don't save during restoration
+    
+    const filterState = {
+      headerFilters,
+      checkboxFilters: {
+        allocationStatus: Array.from(checkboxFilters.allocationStatus),
+        account: Array.from(checkboxFilters.account),
+        department: Array.from(checkboxFilters.department),
+        supplier: Array.from(checkboxFilters.supplier),
+        item: Array.from(checkboxFilters.item),
+        primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
+        primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
+      },
+      transactionSortFields,
+      sortFields,
+      currentPage,
+      itemsPerPage,
+      savedAt: new Date().toISOString()
+    };
+    
+    const result = safeSetItem(FILTER_STATE_STORAGE_KEY, filterState);
+    
+    if (!result.success && result.error) {
+      // Storage failed, but don't interrupt user flow
+      // Could show a non-blocking notification here if needed
     }
   }
   
-  // フィルター状態のローカルストレージ復元
-  function loadFilterState() {
-    if (browser) {
-      const saved = localStorage.getItem('transaction-allocation-filters');
-      if (saved) {
-        try {
-          isRestoringState = true; // 復元開始
-          
-          const filterState = JSON.parse(saved);
-          
-          // 保存された状態を復元（金額範囲も含む）
-          headerFilters = { ...headerFilters, ...filterState.headerFilters };
-          if (filterState.checkboxFilters) {
-            checkboxFilters.allocationStatus = new Set(filterState.checkboxFilters.allocationStatus);
-            checkboxFilters.account = new Set(filterState.checkboxFilters.account);
-            checkboxFilters.department = new Set(filterState.checkboxFilters.department);
-            checkboxFilters.supplier = new Set(filterState.checkboxFilters.supplier);
-            checkboxFilters.item = new Set(filterState.checkboxFilters.item);
-            checkboxFilters.primaryGrantName = new Set(filterState.checkboxFilters.primaryGrantName);
-            checkboxFilters.primaryBudgetItemName = new Set(filterState.checkboxFilters.primaryBudgetItemName);
-          }
-          
-          // ソート状態の復元
-          if (filterState.transactionSortFields) {
-            transactionSortFields = filterState.transactionSortFields;
-          }
-          if (filterState.sortFields) {
-            sortFields = filterState.sortFields;
-          }
-          
-          // ページネーション状態の復元
-          if (filterState.currentPage) {
-            currentPage = filterState.currentPage;
-            pageInputValue = filterState.currentPage.toString();
-          }
-          if (filterState.itemsPerPage) {
-            itemsPerPage = filterState.itemsPerPage;
-          }
-          
-          // 次のティックで復元完了フラグをリセット（少し余裕を持つ）
-          setTimeout(() => {
-            isRestoringState = false;
-            isStateRestored = true; // 復元完了を記録
-          }, 100);
-        } catch (e) {
-          console.warn('フィルター状態の復元に失敗しました:', e);
-          isRestoringState = false; // エラー時もフラグをリセット
+  /**
+   * Load filter state from localStorage with error handling
+   */
+  function loadFilterState(): void {
+    if (!browser) return;
+    
+    const result = safeGetItem<any>(FILTER_STATE_STORAGE_KEY);
+    
+    if (!result.success || !result.data) {
+      // No saved state or error loading, use defaults
+      return;
+    }
+    
+    try {
+      isRestoringState = true; // Start restoration
+      const filterState = result.data;
+      
+      // Check if saved state is not too old (optional: skip if older than 7 days)
+      if (filterState.savedAt) {
+        const savedDate = new Date(filterState.savedAt);
+        const daysSinceSaved = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceSaved > 7) {
+          // State is too old, use defaults
+          isRestoringState = false;
+          return;
         }
       }
+      
+      // Restore saved state (including amount ranges)
+      if (filterState.headerFilters) {
+        headerFilters = { ...headerFilters, ...filterState.headerFilters };
+      }
+      
+      if (filterState.checkboxFilters) {
+        // Safely restore checkbox filters with validation
+        const cb = filterState.checkboxFilters;
+        checkboxFilters.allocationStatus = new Set(cb.allocationStatus || ['unallocated', 'partial', 'full']);
+        checkboxFilters.account = new Set(cb.account || []);
+        checkboxFilters.department = new Set(cb.department || []);
+        checkboxFilters.supplier = new Set(cb.supplier || []);
+        checkboxFilters.item = new Set(cb.item || []);
+        checkboxFilters.primaryGrantName = new Set(cb.primaryGrantName || []);
+        checkboxFilters.primaryBudgetItemName = new Set(cb.primaryBudgetItemName || []);
+      }
+      
+      // Restore sort state
+      if (filterState.transactionSortFields && Array.isArray(filterState.transactionSortFields)) {
+        transactionSortFields = filterState.transactionSortFields;
+      }
+      if (filterState.sortFields && Array.isArray(filterState.sortFields)) {
+        sortFields = filterState.sortFields;
+      }
+      
+      // Restore pagination state with validation
+      if (typeof filterState.currentPage === 'number' && filterState.currentPage > 0) {
+        currentPage = filterState.currentPage;
+        pageInputValue = filterState.currentPage.toString();
+      }
+      if (typeof filterState.itemsPerPage === 'number' && filterState.itemsPerPage > 0) {
+        itemsPerPage = filterState.itemsPerPage;
+      }
+      
+      // Complete restoration after next tick
+      setTimeout(() => {
+        isRestoringState = false;
+        isStateRestored = true;
+      }, 100);
+    } catch {
+      // Failed to apply filter state, reset flags and continue with defaults
+      isRestoringState = false;
+      isStateRestored = false;
     }
   }
   
@@ -1247,12 +1334,12 @@
     
     // 選択行を更新
     if (paginatedTransactionData[selectedRowIndex]) {
-      selectedTransaction = paginatedTransactionData[selectedRowIndex];
+      selectedTransaction = paginatedTransactionData[selectedRowIndex] as any;
       showRightPane = true;
       scrollToSelectedRow();
       // freeeファイルボックスから画像を取得
       if (selectedTransaction?.freeDealId) {
-        loadFreeeReceipts(selectedTransaction.freeDealId);
+        loadFreeeReceipts(selectedTransaction.freeDealId.toString());
       }
     }
   }
@@ -1260,12 +1347,12 @@
   function selectFirstRow() {
     if (paginatedTransactionData.length > 0) {
       selectedRowIndex = 0;
-      selectedTransaction = paginatedTransactionData[0];
+      selectedTransaction = paginatedTransactionData[0] as any;
       showRightPane = true;
       scrollToSelectedRow();
       // freeeファイルボックスから画像を取得
       if (selectedTransaction?.freeDealId) {
-        loadFreeeReceipts(selectedTransaction.freeDealId);
+        loadFreeeReceipts(selectedTransaction.freeDealId.toString());
       }
     }
   }
@@ -1273,12 +1360,12 @@
   function selectLastRow() {
     if (paginatedTransactionData.length > 0) {
       selectedRowIndex = paginatedTransactionData.length - 1;
-      selectedTransaction = paginatedTransactionData[selectedRowIndex];
+      selectedTransaction = paginatedTransactionData[selectedRowIndex] as any;
       showRightPane = true;
       scrollToSelectedRow();
       // freeeファイルボックスから画像を取得
       if (selectedTransaction?.freeDealId) {
-        loadFreeeReceipts(selectedTransaction.freeDealId);
+        loadFreeeReceipts(selectedTransaction.freeDealId.toString());
       }
     }
   }
@@ -1310,13 +1397,13 @@
   function toggleRightPane() {
     if (selectedRowIndex >= 0 && paginatedTransactionData[selectedRowIndex]) {
       if (!selectedTransaction || selectedTransaction.id !== paginatedTransactionData[selectedRowIndex].id) {
-        selectedTransaction = paginatedTransactionData[selectedRowIndex];
+        selectedTransaction = paginatedTransactionData[selectedRowIndex] as any;
       }
       showRightPane = !showRightPane;
       
       // 右ペインが開いたら、freeeファイルボックスから画像を取得
       if (showRightPane && selectedTransaction?.freeDealId) {
-        loadFreeeReceipts(selectedTransaction.freeDealId);
+        loadFreeeReceipts(selectedTransaction.freeDealId.toString());
       }
     }
   }
@@ -1617,7 +1704,7 @@
           }
           
           container.appendChild(receiptDiv);
-        });
+        }) as unknown as BudgetItemWithGrant[];
       } else {
         // レシートがない場合の表示を改善
         const message = data.message || 'この取引には領収書が登録されていません';
@@ -1636,9 +1723,10 @@
       // 表示完了したdealIdを記録
       displayedDealId = dealId;
     } catch (error: any) {
-      console.error('領収書の取得エラー:', error);
+      // Handle receipt fetch error gracefully
       if (container) {
-        container.innerHTML = '<p class="text-sm text-red-500">領収書の取得に失敗しました</p>';
+        const errorMessage = error?.message || '領収書の取得に失敗しました';
+        container.innerHTML = `<p class="text-sm text-red-500">${errorMessage}</p>`;
       }
     } finally {
       // 読み込み完了
@@ -1812,7 +1900,7 @@
   
   // ページネーション後のデータが変更されたときに選択インデックスを調整
   $: if (paginatedTransactionData.length > 0 && selectedTransaction) {
-    const index = paginatedTransactionData.findIndex(row => row.id === selectedTransaction.id);
+    const index = paginatedTransactionData.findIndex(row => row.id === selectedTransaction!.id);
     if (index >= 0) {
       selectedRowIndex = index;
     } else {
@@ -1845,6 +1933,21 @@
             </div>
             
             <div class="flex items-center gap-2 text-sm">
+              <label class="text-gray-600 shrink-0">月別:</label>
+              <input 
+                type="month" 
+                class="input input-xs input-bordered"
+                bind:value={selectedMonth}
+              />
+              <button 
+                class="btn btn-xs {showMonthlyBalance ? 'btn-primary' : 'btn-outline'}"
+                on:click={() => showMonthlyBalance = !showMonthlyBalance}
+              >
+                残額表示
+              </button>
+            </div>
+            
+            <div class="flex items-center gap-2 text-sm">
               
               <div class="text-gray-600 text-xs">
                 表示: {sortedBudgetItems.length}件
@@ -1852,6 +1955,32 @@
             </div>
           </div>
         </div>
+        
+        <!-- 月別残額サマリー -->
+        {#if showMonthlyBalance}
+          {@const monthlyTotals = calculateMonthlyTotals(selectedMonth)}
+          <div class="border-b px-3 py-2 bg-blue-50">
+            <div class="text-sm font-semibold mb-1">
+              {selectedMonth.replace('-', '年')}月の残額
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span class="text-gray-600">予算:</span>
+                <div class="font-semibold">{formatCurrency(monthlyTotals.budget)}</div>
+              </div>
+              <div>
+                <span class="text-gray-600">使用:</span>
+                <div class="font-semibold">{formatCurrency(monthlyTotals.allocated)}</div>
+              </div>
+              <div>
+                <span class="text-gray-600">残額:</span>
+                <div class="font-semibold {monthlyTotals.remaining >= 0 ? 'text-blue-600' : 'text-red-600'}">
+                  {formatCurrency(monthlyTotals.remaining)}
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
         
         <!-- テーブル表示エリア -->
         <div class="flex-1 overflow-auto min-h-0">
@@ -1931,6 +2060,13 @@
                     {/if}
                   </div>
                 </th>
+                {#if showMonthlyBalance}
+                  <th class="text-xs min-w-[60px]">
+                    <div class="flex items-center gap-1 justify-end">
+                      月別残額
+                    </div>
+                  </th>
+                {/if}
                 <th 
                   class="cursor-pointer select-none min-w-[55px] text-xs"
                   on:click={(e) => handleSort('grantStartDate', e)}
@@ -2021,6 +2157,14 @@
                   <td class="text-xs p-0.5 text-gray-600 min-w-[60px]" title={item.category || '未分類'}>
                     {item.category || '未分類'}
                   </td>
+                  {#if showMonthlyBalance}
+                    {@const monthBalance = calculateMonthlyBalance(item, selectedMonth)}
+                    <td class="text-xs p-0.5 text-right font-medium min-w-[60px]" 
+                        class:text-red-600={monthBalance.remaining < 0} 
+                        class:text-blue-600={monthBalance.remaining >= 0}>
+                      {formatCurrency(monthBalance.remaining)}
+                    </td>
+                  {/if}
                   <td class="text-xs p-0.5 min-w-[55px]" title={item.grantStartDate}>
                     {formatShortDate(item.grantStartDate)}
                   </td>
@@ -2239,17 +2383,15 @@
               primaryGrantName: Array.from(checkboxFilters.primaryGrantName),
               primaryBudgetItemName: Array.from(checkboxFilters.primaryBudgetItemName)
             }
-          }}
-          currentSorts={getCurrentSortsForPreset()}
+          } as any}
+          currentSorts={getCurrentSortsForPreset() as any}
           budgetItemFilters={{
             budgetItemStatusFilter,
             budgetItemGrantFilter,
             budgetItemCategoryFilter
-          }}
+          } as any}
           on:apply={(event) => {
             const preset = event.detail;
-            console.log('Received preset in page:', preset);
-            console.log('Preset filters received:', preset.filters);
             
             // 初期化フラグを一時的に無効化（プリセット適用中の自動初期化を防ぐ）
             const wasInitialized = isInitialized;
@@ -2259,11 +2401,8 @@
             if (preset.filters) {
               // checkboxFiltersを除外してheaderFiltersを更新
               const { checkboxFilters: _, ...filterData } = preset.filters;
-              console.log('filterData to apply:', filterData);
-              console.log('headerFilters before:', headerFilters);
               // 新しいオブジェクトとして再割り当て（リアクティビティのため）
               headerFilters = { ...headerFilters, ...filterData };
-              console.log('headerFilters after:', headerFilters);
               
               if (preset.filters.checkboxFilters) {
                 // Setオブジェクトに変換して復元（配列であることを確認）
@@ -2373,7 +2512,7 @@
                 checked={paginatedTransactionData.length > 0 && paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
                 indeterminate={paginatedTransactionData.some(row => checkedTransactions.has(row.id)) && !paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
                 on:change={(e) => {
-                  if (e.target.checked) {
+                  if ((e.target as HTMLInputElement).checked) {
                     selectAllCurrentPage();
                   } else {
                     deselectAll();
@@ -2905,17 +3044,17 @@
               class:ring-blue-400={selectedRowIndex === index}
               class:ring-offset-1={selectedRowIndex === index}
               on:click={() => {
-                selectedTransaction = row;
+                selectedTransaction = row as any;
                 selectedRowIndex = index;
                 // 右ペインは自動で開かない（Enterキーかダブルクリックで開く）
               }}
               on:dblclick={() => {
-                selectedTransaction = row;
+                selectedTransaction = row as any;
                 selectedRowIndex = index;
                 showRightPane = true;
                 // freeeファイルボックスから画像を取得
                 if (row.freeDealId) {
-                  loadFreeeReceipts(row.freeDealId);
+                  loadFreeeReceipts(row.freeDealId.toString());
                 }
               }}
             >
@@ -3153,7 +3292,7 @@
                 <span class="text-gray-600 font-semibold">割当情報</span>
                 <button 
                   class="btn btn-xs btn-primary"
-                  on:click={() => openAllocationModal(selectedTransaction)}
+                  on:click={() => openAllocationModal(selectedTransaction!)}
                   disabled={selectedTransaction.allocationStatus === 'full'}
                 >
                   新規割当
@@ -3247,6 +3386,23 @@
                 <span class="ml-2 text-xs text-gray-500">{selectedTransaction.freeDealId || '-'}</span>
               </div>
             </div>
+            
+            <!-- freeeリンクボタン -->
+            {#if selectedTransaction.freeDealId}
+              <div class="mt-3 pt-3 border-t">
+                <a 
+                  href="https://secure.freee.co.jp/deals/standards?deal_id={selectedTransaction.freeDealId}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn-sm btn-outline btn-info w-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                  freeeで取引を確認
+                </a>
+              </div>
+            {/if}
           </div>
 
           <!-- 領収書ファイル表示エリア -->
@@ -3311,7 +3467,7 @@
             <option value="">予算項目を選択</option>
             {#each data.budgetItems as item}
               <option value={item.id}>
-                {getBudgetItemDisplayName(item)} (残額: {formatCurrency(item.remaining || 0)})
+                {getBudgetItemDisplayName(item as any)} (残額: {formatCurrency(item.remaining || 0)})
               </option>
             {/each}
           </select>

@@ -1,6 +1,7 @@
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 import { prisma } from '$lib/database';
+import { logger, createErrorContext } from '$lib/utils/logger';
 
 export const load: PageServerLoad = async () => {
   // 【事】【管】勘定科目のフィルタリング
@@ -173,7 +174,11 @@ export const actions: Actions = {
 
       return { success: true };
     } catch (error: any) {
-      console.error('割当保存エラー:', error);
+      logger.error('割当保存エラー', createErrorContext('saveAllocation', error, { 
+        transactionId, 
+        budgetItemId, 
+        amount 
+      }));
       return fail(500, { message: '割当の保存に失敗しました' });
     }
   },
@@ -193,7 +198,9 @@ export const actions: Actions = {
 
       return { success: true };
     } catch (error: any) {
-      console.error('割当削除エラー:', error);
+      logger.error('割当削除エラー', createErrorContext('deleteAllocation', error, { 
+        allocationId 
+      }));
       return fail(500, { message: '割当の削除に失敗しました' });
     }
   },
@@ -241,7 +248,11 @@ export const actions: Actions = {
 
       return { success: true, allocatedCount: allocations.length };
     } catch (error: any) {
-      console.error('一括割当エラー:', error);
+      logger.error('一括割当エラー', createErrorContext('bulkAllocate', error, { 
+        transactionIds: transactionIds.length,
+        budgetItemId,
+        allocationsCount: allocations.length
+      }));
       return fail(500, { message: '一括割当の保存に失敗しました' });
     }
   }
