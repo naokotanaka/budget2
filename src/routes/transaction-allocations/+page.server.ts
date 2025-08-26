@@ -92,21 +92,22 @@ export const load: PageServerLoad = async () => {
   });
 
   // すべての割当を取得（リアルタイム更新用）
-  const allocations = await prisma.allocationSplit.findMany({
-    include: {
-      budgetItem: {
-        include: {
-          grant: true
-        }
-      }
-    }
+  const allocations = await prisma.allocationSplit.findMany({});
+  
+  // allocationsにtransactionIdを追加
+  const allocationsWithTransactionId = allocations.map(allocation => {
+    const transaction = processedTransactions.find(t => t.detailId === allocation.detailId);
+    return {
+      ...allocation,
+      transactionId: transaction?.id || null
+    };
   });
 
   return {
     transactions: processedTransactions,
     budgetItems: budgetItemsWithCalculations,
     grants,
-    allocations
+    allocations: allocationsWithTransactionId
   };
 };
 

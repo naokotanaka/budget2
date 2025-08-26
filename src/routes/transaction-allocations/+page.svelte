@@ -272,16 +272,45 @@
     const monthEnd = new Date(year, monthNum, 0, 23, 59, 59);
     
     // data.allocationsを使用して該当月の割当額を計算
-    const monthlyAllocated = (data.allocations || [])
+    const monthlyAllocations = (data.allocations || [])
       .filter((alloc: any) => {
         if (alloc.budgetItemId !== budgetItem.id) return false;
         // transactionの日付を取得
         const transaction = data.transactions.find((t: any) => t.id === alloc.transactionId);
         if (!transaction) return false;
         const allocDate = new Date(transaction.date);
-        return allocDate >= monthStart && allocDate <= monthEnd;
-      })
-      .reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
+        const isInMonth = allocDate >= monthStart && allocDate <= monthEnd;
+        
+        // デバッグ: 人件費の6月データを詳しく見る
+        if (budgetItem.name === '人件費' && month === '2025-06' && isInMonth) {
+          console.log('Found 6月 allocation for 人件費:', {
+            alloc,
+            transaction,
+            date: transaction.date,
+            allocDate: allocDate.toISOString(),
+            monthStart: monthStart.toISOString(),
+            monthEnd: monthEnd.toISOString()
+          });
+        }
+        
+        return isInMonth;
+      });
+    
+    const monthlyAllocated = monthlyAllocations.reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
+    
+    // デバッグ: 賃金（職員）の割当を確認
+    if (budgetItem.id === 16 && (month === '2025-06' || month === '2025-07' || month === '2025-08')) {
+      console.log(`[月残額計算] ${budgetItem.name} - ${month}`, {
+        budgetItemId: budgetItem.id,
+        monthlyBudget,
+        monthlyAllocationsCount: monthlyAllocations.length,
+        monthlyAllocated,
+        remaining: monthlyBudget - monthlyAllocated,
+        sampleAllocations: monthlyAllocations.slice(0, 2)
+      });
+    }
+    
+  
     
     return {
       budget: monthlyBudget,
@@ -364,7 +393,7 @@
       );
       
       // monthlyBudgetフィールドをチェック
-      const hasMonthlyBudget = monthSchedule && monthSchedule.monthlyBudget && monthSchedule.monthlyBudget > 0;
+      const hasMonthlyBudget = monthSchedule && (monthSchedule as any).monthlyBudget && (monthSchedule as any).monthlyBudget > 0;
       
       if (!hasMonthlyBudget) return false;
     }
