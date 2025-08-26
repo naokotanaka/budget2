@@ -79,6 +79,8 @@
   // 選択状態の管理（単一選択に変更）
   let selectedBudgetItem: BudgetItemWithGrant | null = null;
   let selectedTransaction: TransactionRow | null = null;
+  let selectedAllocationIds: Set<string> = new Set(); // 選択された割当ID
+  let isDeleting = false; // 削除処理中フラグ
   let checkedTransactions = new Set<string>();
   
   // キーボードショートカット用の行選択状態
@@ -891,6 +893,8 @@
   // 割当モーダルを開く
   function openAllocationModal(transaction: TransactionRow) {
     selectedTransaction = transaction;
+    selectedAllocationIds.clear(); // 選択状態をクリア
+    selectedAllocationIds = selectedAllocationIds; // リアクティブ更新
     showAllocationModal = true;
     allocationForm = {
       budgetItemId: '',
@@ -1005,6 +1009,46 @@
   
   
   // 割当削除
+  // 一括削除処理
+  async function bulkDeleteAllocations() {
+    const selectedIds = Array.from(selectedAllocationIds);
+    if (selectedIds.length === 0) {
+      alert('削除する割当を選択してください');
+      return;
+    }
+    
+    if (!confirm(`${selectedIds.length}件の割当を削除しますか？
+この操作は取り消せません。`)) {
+      return;
+    }
+    
+    isDeleting = true;
+    const formData = new FormData();
+    formData.append('allocationIds', JSON.stringify(selectedIds));
+    
+    try {
+      const response = await fetch('?/bulkDeleteAllocations', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        await invalidateAll();
+        selectedAllocationIds.clear();
+        selectedAllocationIds = selectedAllocationIds; // リアクティブ更新
+      } else {
+        const result = await response.json();
+        alert(`削除に失敗しました: ${result.message || 'エラーが発生しました'}`);
+      }
+    } catch (error) {
+      console.error('削除エラー:', error);
+      alert('削除中にエラーが発生しました');
+    } finally {
+      isDeleting = false;
+    }
+  }
+
   async function deleteAllocation(allocationId: string) {
     if (!confirm('この割当を削除しますか？')) return;
     
@@ -2403,10 +2447,47 @@
             
             <button 
               class="btn btn-sm px-3 bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 gap-1 text-xs"
-              on:click={() => {
-                if (confirm(`選択した${checkedTransactions.size}件の割当をすべて削除しますか？`)) {
-                  // 一括削除処理を実装予定
-                  alert('一括削除機能は準備中です');
+              on:click={async () => {
+                if (!confirm(`選択した${checkedTransactions.size}件の取引の割当をすべて削除しますか？
+この操作は取り消せません。`)) {
+                  return;
+                }
+                
+                // 選択された取引のすべての割当IDを収集
+                const allAllocationIds: string[] = [];
+                for (const transactionId of checkedTransactions) {
+                  const transaction = transactionData.find(t => t.id === transactionId);
+                  if (transaction && transaction.allocations) {
+                    allAllocationIds.push(...transaction.allocations.map((a: any) => a.id));
+                  }
+                }
+                
+                if (allAllocationIds.length === 0) {
+                  alert('削除する割当がありません');
+                  return;
+                }
+                
+                // 一括削除実行
+                const formData = new FormData();
+                formData.append('allocationIds', JSON.stringify(allAllocationIds));
+                
+                try {
+                  const response = await fetch('?/bulkDeleteAllocations', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                  });
+                  
+                  if (response.ok) {
+                    await invalidateAll();
+                    checkedTransactions.clear();
+                    checkedTransactions = checkedTransactions; // リアクティブ更新
+                  } else {
+                    alert('削除に失敗しました');
+                  }
+                } catch (error) {
+                  console.error('削除エラー:', error);
+                  alert('削除中にエラーが発生しました');
                 }
               }}
               title="選択した取引の割当をすべて削除します"
@@ -3352,24 +3433,57 @@
               </div>
               {#if selectedTransaction.allocations.length > 0}
                 <div class="space-y-1">
-                  {#each selectedTransaction.allocations as alloc}
-                    <div class="flex justify-between items-center">
-                      <span class="flex-1">
-                        {alloc.budgetItem.grant.name}・{alloc.budgetItem.name} /{formatCurrency(alloc.amount)}
+                  <!-- 一括削除ボタン -->
+                  {#if selectedAllocationIds.size > 0}
+                    <div class="flex justify-between items-center mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                      <span class="text-sm text-yellow-800">
+                        {selectedAllocationIds.size}件選択中
                       </span>
-                      <div class="flex gap-1 ml-2">
-                        <button 
-                          class="btn btn-xs btn-outline"
-                          on:click={() => editAllocation(alloc)}
-                        >
-                          編集
-                        </button>
-                        <button 
-                          class="btn btn-xs btn-error btn-outline"
-                          on:click|stopPropagation={() => deleteAllocation(alloc.id)}
-                        >
-                          削除
-                        </button>
+                      <button 
+                        class="btn btn-sm btn-error"
+                        on:click={bulkDeleteAllocations}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? '削除中...' : '選択した項目を削除'}
+                      </button>
+                    </div>
+                  {/if}
+                  
+                  {#each selectedTransaction.allocations as alloc}
+                    <div class="flex items-center gap-2">
+                      <!-- チェックボックス -->
+                      <input 
+                        type="checkbox" 
+                        class="checkbox checkbox-sm"
+                        checked={selectedAllocationIds.has(alloc.id)}
+                        on:change={() => {
+                          if (selectedAllocationIds.has(alloc.id)) {
+                            selectedAllocationIds.delete(alloc.id);
+                          } else {
+                            selectedAllocationIds.add(alloc.id);
+                          }
+                          selectedAllocationIds = selectedAllocationIds; // リアクティブ更新
+                        }}
+                      />
+                      
+                      <div class="flex justify-between items-center flex-1">
+                        <span class="flex-1">
+                          {alloc.budgetItem.grant.name}・{alloc.budgetItem.name} /{formatCurrency(alloc.amount)}
+                        </span>
+                        <div class="flex gap-1 ml-2">
+                          <button 
+                            class="btn btn-xs btn-outline"
+                            on:click={() => editAllocation(alloc)}
+                          >
+                            編集
+                          </button>
+                          <button 
+                            class="btn btn-xs btn-error btn-outline"
+                            on:click|stopPropagation={() => deleteAllocation(alloc.id)}
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
                     </div>
                   {/each}

@@ -255,5 +255,40 @@ export const actions: Actions = {
       }));
       return fail(500, { message: '一括割当の保存に失敗しました' });
     }
+  },
+
+  bulkDeleteAllocations: async ({ request }) => {
+    const data = await request.formData();
+    const allocationIds = JSON.parse(data.get('allocationIds') as string) as string[];
+
+    if (!allocationIds || allocationIds.length === 0) {
+      return fail(400, { message: '削除する割当が選択されていません' });
+    }
+
+    try {
+      // 一括削除を実行
+      const result = await prisma.allocationSplit.deleteMany({
+        where: {
+          id: {
+            in: allocationIds
+          }
+        }
+      });
+
+      logger.info('割当一括削除完了', { 
+        count: result.count,
+        allocationIds: allocationIds.length 
+      });
+
+      return { 
+        success: true, 
+        message: `${result.count}件の割当を削除しました` 
+      };
+    } catch (error: any) {
+      logger.error('割当一括削除エラー', createErrorContext('bulkDeleteAllocations', error, { 
+        allocationIds: allocationIds.length
+      }));
+      return fail(500, { message: '割当の削除に失敗しました' });
+    }
   }
 };
