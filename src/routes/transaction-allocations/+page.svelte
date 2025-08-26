@@ -998,7 +998,7 @@
           selectedBudgetItem = budgetItemsWithGrant.find(item => item.id === selectedBudgetItem!.id) || null;
         }
         
-        alert(`一括割当が完了しました（${allocatedCount}件処理）`);
+        // アラート削除（静かに完了）
       } else if (result.type === 'failure') {
         const message = result.data?.message || '一括割当に失敗しました';
         alert(message);

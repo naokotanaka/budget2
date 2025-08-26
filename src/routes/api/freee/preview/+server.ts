@@ -331,28 +331,46 @@ export const POST: RequestHandler = async ({ request }) => {
         return deal;
       });
 
-      // 【事】【管】勘定科目のみフィルタリング
+      // 【事】【管】勘定科目を含む取引のみフィルタリング（全明細をチェック）
       const filteredDeals = enrichedDeals.filter((deal: any) => {
         if (deal.details && deal.details.length > 0) {
-          const accountName = deal.details[0].account_item_name || '';
-          return accountName.startsWith('【事】') || accountName.startsWith('【管】');
+          // すべての明細行をチェックして、【事】または【管】が含まれているか確認
+          return deal.details.some((detail: any) => {
+            const accountName = detail.account_item_name || '';
+            return accountName.startsWith('【事】') || accountName.startsWith('【管】');
+          });
         }
         return false;
       });
       
-      // 各取引に明細ベースの行番号情報を追加
-      const dealsWithDetailInfo = filteredDeals.map((deal: any) => ({
-        ...deal,
-        // 最初の明細のIDを行識別子として使用（現行システムとの互換性のため）
-        primary_detail_id: deal.details?.[0]?.id || null,
-        // 明細が複数ある場合の情報
-        detail_count: deal.details?.length || 0,
-        // 明細インデックス（0始まり）
-        detail_index: 0  // 最初の明細を使用
-      }));
+      // 各取引の明細ごとに分割（【事】【管】の明細のみ）
+      const dealsWithDetailInfo: any[] = [];
+      filteredDeals.forEach((deal: any) => {
+        if (deal.details && deal.details.length > 0) {
+          deal.details.forEach((detail: any, index: number) => {
+            const accountName = detail.account_item_name || '';
+            // 【事】【管】の明細のみを個別の取引として追加
+            if (accountName.startsWith('【事】') || accountName.startsWith('【管】')) {
+              dealsWithDetailInfo.push({
+                ...deal,
+                // 明細ごとの金額を使用（取引全体の金額ではなく）
+                amount: detail.amount || 0,
+                // この明細のIDを行識別子として使用
+                primary_detail_id: detail.id || null,
+                // 明細が複数ある場合の情報
+                detail_count: deal.details.length,
+                // 明細インデックス（0始まり）
+                detail_index: index,
+                // この明細を最初の要素として配置（互換性のため）
+                details: [detail, ...deal.details.filter((d: any, i: number) => i !== index)]
+              });
+            }
+          });
+        }
+      });
 
       allDeals = allDeals.concat(dealsWithDetailInfo);
-      console.log(`このページで取得: ${deals.length}件 → 支出のみ: ${expenseDeals.length}件 → 【事】【管】のみ: ${filteredDeals.length}件, 累計: ${allDeals.length}件`);
+      console.log(`このページで取得: ${deals.length}件 → 支出のみ: ${expenseDeals.length}件 → 【事】【管】含む取引: ${filteredDeals.length}件 → 明細分割後: ${dealsWithDetailInfo.length}件, 累計: ${allDeals.length}件`);
       
       // 取得件数がlimit未満の場合、これ以上データがないと判断
       if (deals.length < limit) {

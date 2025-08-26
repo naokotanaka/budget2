@@ -356,7 +356,7 @@ export const POST: RequestHandler = async ({ request }) => {
           journalLineNumber: 1,
           date: new Date(deal.issue_date),
           description: transactionDescription,  // nullを設定（freee APIのdeals APIにはdescriptionフィールドが存在しないため）
-          amount: Math.abs(deal.amount),
+          amount: Math.abs(detail?.amount || deal.amount),
           account: accountName,  // account_item_idから変換した名前
           supplier: partnerName,  // partner_idから変換した名前
           department: sectionName,  // section_idから変換した名前
