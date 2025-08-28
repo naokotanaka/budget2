@@ -194,6 +194,11 @@
   // 検索とヒントの表示状態
   let showSearch = false;
   let showHints = false;
+
+  // Shift+クリック範囲選択用の状態管理
+  let lastClickedGrantIndex = -1;
+  let lastClickedBudgetItemIndex = -1;
+  let lastClickedTransactionIndex = -1;
   
   // フィルターの一意な値を取得
   $: uniqueValues = {
@@ -201,8 +206,25 @@
     department: [...new Set(transactionData.map(t => t.department).filter(v => v))],
     supplier: [...new Set(transactionData.map(t => t.supplier).filter(v => v))],
     item: [...new Set(transactionData.map(t => t.item).filter(v => v))],
-    primaryGrantName: [...new Set(transactionData.map(t => t.primaryGrantName).filter(v => v))],
-    primaryBudgetItemName: [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))]
+    primaryGrantName: (() => {
+      const values = [...new Set(transactionData.map(t => t.primaryGrantName).filter(v => v))];
+      // 未割当の取引があるかチェック（助成金が割り当てられていない取引）
+      const hasUnassigned = transactionData.some(t => 
+        !t.allocations || 
+        t.allocations.length === 0 || 
+        t.allocations.every(allocation => !allocation.budgetItem.grant)
+      );
+      return hasUnassigned ? ['- (未割当)', ...values] : values;
+    })(),
+    primaryBudgetItemName: (() => {
+      const values = [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))];
+      // 未割当の取引があるかチェック（予算項目が全く割り当てられていない取引）
+      const hasUnassigned = transactionData.some(t => 
+        !t.allocations || 
+        t.allocations.length === 0
+      );
+      return hasUnassigned ? ['- (未割当)', ...values] : values;
+    })()
   };
   
   // 初期化フラグ
@@ -266,8 +288,8 @@
       (schedule: any) => schedule.year === year && schedule.month === monthNum
     );
     
-    // monthlyBudgetフィールドを使用（amountではなく）
-    const monthlyBudget = monthSchedule?.monthlyBudget || 0;
+    // monthlyBudgetフィールドが存在しないため0を返す
+    const monthlyBudget = 0;
     
     // 該当月の割当済み額を計算
     const monthStart = new Date(year, monthNum - 1, 1);
@@ -752,8 +774,37 @@
     if (row.department && !checkboxFilters.department.has(row.department)) return false;
     if (row.supplier && !checkboxFilters.supplier.has(row.supplier)) return false;
     if (row.item && !checkboxFilters.item.has(row.item)) return false;
-    if (row.primaryGrantName && !checkboxFilters.primaryGrantName.has(row.primaryGrantName)) return false;
-    if (row.primaryBudgetItemName && !checkboxFilters.primaryBudgetItemName.has(row.primaryBudgetItemName)) return false;
+    // 助成金フィルター（未割当オプション対応）
+    const isUnassignedGrant = !row.allocations || 
+                              row.allocations.length === 0 || 
+                              !row.primaryGrantName;
+    
+    if (checkboxFilters.primaryGrantName.size > 0) {
+      // 何かしらの助成金が選択されている場合
+      if (isUnassignedGrant) {
+        // 未割当の取引の場合
+        if (!checkboxFilters.primaryGrantName.has('- (未割当)')) return false;
+      } else {
+        // 割当済みの取引の場合
+        if (!checkboxFilters.primaryGrantName.has(row.primaryGrantName)) return false;
+      }
+    }
+    
+    // 予算項目フィルター（未割当オプション対応）
+    const isUnassignedBudget = !row.allocations || 
+                               row.allocations.length === 0 || 
+                               !row.primaryBudgetItemName;
+    
+    if (checkboxFilters.primaryBudgetItemName.size > 0) {
+      // 何かしらの予算項目が選択されている場合
+      if (isUnassignedBudget) {
+        // 未割当の取引の場合
+        if (!checkboxFilters.primaryBudgetItemName.has('- (未割当)')) return false;
+      } else {
+        // 割当済みの取引の場合
+        if (!checkboxFilters.primaryBudgetItemName.has(row.primaryBudgetItemName)) return false;
+      }
+    }
     
     return true;
   });
@@ -1204,6 +1255,10 @@
     checkboxFilters.item = new Set(uniqueValues.item);
     checkboxFilters.primaryGrantName = new Set(uniqueValues.primaryGrantName);
     checkboxFilters.primaryBudgetItemName = new Set(uniqueValues.primaryBudgetItemName);
+    
+    // 範囲選択の状態もリセット
+    lastClickedGrantIndex = -1;
+    lastClickedBudgetItemIndex = -1;
   }
   
   function toggleAllCheckboxes(field: string, selectAll: boolean) {
@@ -1217,6 +1272,14 @@
     } else {
       (checkboxFilters as any)[field] = new Set();
     }
+    
+    // 助成金・予算項目フィルターの場合、最後のクリック位置をリセット
+    if (field === 'primaryGrantName') {
+      lastClickedGrantIndex = -1;
+    } else if (field === 'primaryBudgetItemName') {
+      lastClickedBudgetItemIndex = -1;
+    }
+    
     checkboxFilters = checkboxFilters; // リアクティブ更新
   }
   
@@ -1227,6 +1290,57 @@
       (checkboxFilters as any)[field].add(value);
     }
     checkboxFilters = checkboxFilters; // リアクティブ更新
+  }
+
+  /**
+   * Shift+クリックによる範囲選択処理
+   */
+  function handleRangeSelection(field: 'primaryGrantName' | 'primaryBudgetItemName', currentIndex: number, shiftKey: boolean) {
+    if (!shiftKey) {
+      // 通常のクリック：最後のクリック位置を更新
+      if (field === 'primaryGrantName') {
+        lastClickedGrantIndex = currentIndex;
+      } else {
+        lastClickedBudgetItemIndex = currentIndex;
+      }
+      return false; // 通常の処理を継続
+    }
+
+    // Shift+クリック：範囲選択処理
+    const lastIndex = field === 'primaryGrantName' ? lastClickedGrantIndex : lastClickedBudgetItemIndex;
+    
+    if (lastIndex === -1) {
+      // 最後のクリック位置が記録されていない場合は通常処理
+      if (field === 'primaryGrantName') {
+        lastClickedGrantIndex = currentIndex;
+      } else {
+        lastClickedBudgetItemIndex = currentIndex;
+      }
+      return false;
+    }
+
+    // 範囲を計算
+    const startIndex = Math.min(lastIndex, currentIndex);
+    const endIndex = Math.max(lastIndex, currentIndex);
+    const values = (uniqueValues as any)[field];
+    const checkboxFilter = (checkboxFilters as any)[field];
+    
+    // 最初にクリックした項目の状態を取得
+    const firstValue = values[lastIndex];
+    const shouldCheck = !checkboxFilter.has(firstValue);
+    
+    // 範囲内のすべての項目を同じ状態に設定
+    for (let i = startIndex; i <= endIndex; i++) {
+      const value = values[i];
+      if (shouldCheck) {
+        checkboxFilter.add(value);
+      } else {
+        checkboxFilter.delete(value);
+      }
+    }
+    
+    checkboxFilters = checkboxFilters; // リアクティブ更新
+    return true; // 範囲選択処理を実行したことを示す
   }
   
   /**
@@ -2858,13 +2972,49 @@
                       </div>
                     </div>
                     <div class="p-1">
-                      {#each uniqueValues.primaryGrantName as value}
-                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                      {#each uniqueValues.primaryGrantName as value, index}
+                        <!-- svelte-ignore a11y-click-events-have-key-events -->
+                        <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+                        <label 
+                          class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer select-none"
+                          on:click={(e) => {
+                            e.preventDefault();
+                            
+                            if (e.shiftKey && lastClickedGrantIndex >= 0 && lastClickedGrantIndex !== index) {
+                              // Shift+クリック：範囲選択
+                              const start = Math.min(lastClickedGrantIndex, index);
+                              const end = Math.max(lastClickedGrantIndex, index);
+                              
+                              // 最初にクリックした項目の状態を基準にする
+                              const firstValue = uniqueValues.primaryGrantName[lastClickedGrantIndex];
+                              const shouldAdd = !checkboxFilters.primaryGrantName.has(firstValue);
+                              
+                              for (let i = start; i <= end; i++) {
+                                const v = uniqueValues.primaryGrantName[i];
+                                if (shouldAdd) {
+                                  checkboxFilters.primaryGrantName.add(v);
+                                } else {
+                                  checkboxFilters.primaryGrantName.delete(v);
+                                }
+                              }
+                              checkboxFilters = checkboxFilters; // リアクティブ更新
+                            } else {
+                              // 通常のクリック
+                              if (checkboxFilters.primaryGrantName.has(value)) {
+                                checkboxFilters.primaryGrantName.delete(value);
+                              } else {
+                                checkboxFilters.primaryGrantName.add(value);
+                              }
+                              checkboxFilters = checkboxFilters; // リアクティブ更新
+                              lastClickedGrantIndex = index;
+                            }
+                          }}
+                        >
                           <input
                             type="checkbox"
-                            class="checkbox checkbox-xs"
+                            class="checkbox checkbox-xs pointer-events-none"
                             checked={checkboxFilters.primaryGrantName.has(value)}
-                            on:change={() => toggleCheckboxValue('primaryGrantName', value)}
+                            tabindex="-1"
                           />
                           <span class="text-xs truncate">{value}</span>
                         </label>
@@ -2899,13 +3049,49 @@
                       </div>
                     </div>
                     <div class="p-1">
-                      {#each uniqueValues.primaryBudgetItemName as value}
-                        <label class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer">
+                      {#each uniqueValues.primaryBudgetItemName as value, index}
+                        <!-- svelte-ignore a11y-click-events-have-key-events -->
+                        <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+                        <label 
+                          class="flex items-center gap-2 p-1 hover:bg-gray-100 cursor-pointer select-none"
+                          on:click={(e) => {
+                            e.preventDefault();
+                            
+                            if (e.shiftKey && lastClickedBudgetItemIndex >= 0 && lastClickedBudgetItemIndex !== index) {
+                              // Shift+クリック：範囲選択
+                              const start = Math.min(lastClickedBudgetItemIndex, index);
+                              const end = Math.max(lastClickedBudgetItemIndex, index);
+                              
+                              // 最初にクリックした項目の状態を基準にする
+                              const firstValue = uniqueValues.primaryBudgetItemName[lastClickedBudgetItemIndex];
+                              const shouldAdd = !checkboxFilters.primaryBudgetItemName.has(firstValue);
+                              
+                              for (let i = start; i <= end; i++) {
+                                const v = uniqueValues.primaryBudgetItemName[i];
+                                if (shouldAdd) {
+                                  checkboxFilters.primaryBudgetItemName.add(v);
+                                } else {
+                                  checkboxFilters.primaryBudgetItemName.delete(v);
+                                }
+                              }
+                              checkboxFilters = checkboxFilters; // リアクティブ更新
+                            } else {
+                              // 通常のクリック
+                              if (checkboxFilters.primaryBudgetItemName.has(value)) {
+                                checkboxFilters.primaryBudgetItemName.delete(value);
+                              } else {
+                                checkboxFilters.primaryBudgetItemName.add(value);
+                              }
+                              checkboxFilters = checkboxFilters; // リアクティブ更新
+                              lastClickedBudgetItemIndex = index;
+                            }
+                          }}
+                        >
                           <input
                             type="checkbox"
-                            class="checkbox checkbox-xs"
+                            class="checkbox checkbox-xs pointer-events-none"
                             checked={checkboxFilters.primaryBudgetItemName.has(value)}
-                            on:change={() => toggleCheckboxValue('primaryBudgetItemName', value)}
+                            tabindex="-1"
                           />
                           <span class="text-xs truncate">{value}</span>
                         </label>
@@ -3197,13 +3383,35 @@
                   type="checkbox" 
                   class="checkbox checkbox-xs"
                   checked={checkedTransactions.has(row.id)}
-                  on:click|stopPropagation={() => {
-                    if (checkedTransactions.has(row.id)) {
-                      checkedTransactions.delete(row.id);
+                  on:click|stopPropagation={(e) => {
+                    if (e.shiftKey && lastClickedTransactionIndex >= 0 && lastClickedTransactionIndex !== index) {
+                      // Shift+クリック：範囲選択
+                      const start = Math.min(lastClickedTransactionIndex, index);
+                      const end = Math.max(lastClickedTransactionIndex, index);
+                      
+                      // 最初にクリックした項目の現在の状態を基準にする（クリック後の状態）
+                      const firstRowId = paginatedTransactionData[lastClickedTransactionIndex].id;
+                      const shouldCheck = checkedTransactions.has(firstRowId);
+                      
+                      for (let i = start; i <= end; i++) {
+                        const rowId = paginatedTransactionData[i].id;
+                        if (shouldCheck) {
+                          checkedTransactions.add(rowId);
+                        } else {
+                          checkedTransactions.delete(rowId);
+                        }
+                      }
+                      checkedTransactions = checkedTransactions; // リアクティブ更新
                     } else {
-                      checkedTransactions.add(row.id);
+                      // 通常のクリック
+                      if (checkedTransactions.has(row.id)) {
+                        checkedTransactions.delete(row.id);
+                      } else {
+                        checkedTransactions.add(row.id);
+                      }
+                      checkedTransactions = checkedTransactions;
+                      lastClickedTransactionIndex = index;
                     }
-                    checkedTransactions = checkedTransactions;
                   }}
                 />
               </td>
