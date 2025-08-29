@@ -30,7 +30,7 @@
     grantEndDate: string;
     remaining: number;
     allocatedAmount?: number;
-    schedules?: Array<{ month: number; year: number }>;
+    schedules?: Array<{ month: number; year: number; monthlyBudget?: number | null }>;
   }
   
   interface TransactionRow {
@@ -312,8 +312,8 @@
       (schedule: any) => schedule.year === year && schedule.month === monthNum
     );
     
-    // schedulesから月別予算額を取得、なければ0
-    const monthlyBudget = monthSchedule?.amount || 0;
+    // schedulesから月別予算額を取得（monthlyBudgetフィールド）、なければ0
+    const monthlyBudget = monthSchedule?.monthlyBudget || 0;
     
     // 該当月の割当済み額を計算
     const monthStart = new Date(year, monthNum - 1, 1);
