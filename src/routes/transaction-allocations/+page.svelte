@@ -333,31 +333,12 @@
         const allocDate = new Date(transaction.date);
         const isInMonth = allocDate >= monthStart && allocDate <= monthEnd;
         
-        // デバッグ: 人件費の6月データを詳しく見る
-        if (budgetItem.name === '人件費' && month === '2025-06' && isInMonth) {
-          console.log('Found 6月 allocation for 人件費:', {
-            alloc,
-            transaction,
-            date: transaction.date,
-            allocDate: allocDate.toISOString(),
-            monthStart: monthStart.toISOString(),
-            monthEnd: monthEnd.toISOString()
-          });
-        }
         
         return isInMonth;
       });
     
     const monthlyAllocated = monthlyAllocations.reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
     
-    // デバッグ: 賃金（職員）の割当を確認
-    if (budgetItem.id === 16 && (month === '2025-06' || month === '2025-07' || month === '2025-08')) {
-      console.log(`[月残額計算] ${budgetItem.name} - ${month}`, {
-        budgetItemId: budgetItem.id,
-        monthlyBudget,
-        monthlyAllocationsCount: monthlyAllocations.length,
-        monthlyAllocated,
-        remaining: monthlyBudget - monthlyAllocated,
         sampleAllocations: monthlyAllocations.slice(0, 2)
       });
     }
@@ -987,15 +968,12 @@
   function editAllocation(allocation: AllocationSplit & { 
     budgetItem: BudgetItem & { grant: Grant } 
   }) {
-    console.log('editAllocation called with:', allocation);
-    console.log('budgetItemId:', allocation.budgetItemId);
     editingAllocation = allocation as any;
     allocationForm = {
       budgetItemId: allocation.budgetItemId.toString(),
       amount: allocation.amount.toString(),
       note: allocation.note || ''
     };
-    console.log('allocationForm after setting:', allocationForm);
     rightPaneMode = 'edit';
   }
   
@@ -1013,33 +991,21 @@
   
   // 残額を自動入力
   function setRemainingAmount() {
-    console.log('setRemainingAmount called');
-    console.log('selectedTransaction:', selectedTransaction);
-    
     if (selectedTransaction) {
       // TransactionRow型として扱い、unallocatedAmountを取得
       const txRow = selectedTransaction as TransactionRow;
-      console.log('Transaction as TransactionRow:', {
-        id: txRow.id,
-        amount: txRow.amount,
-        allocatedAmount: txRow.allocatedAmount,
-        unallocatedAmount: txRow.unallocatedAmount
-      });
       
       // unallocatedAmountを優先的に使用
       if (txRow.unallocatedAmount !== undefined && txRow.unallocatedAmount !== null && txRow.unallocatedAmount >= 0) {
         allocationForm.amount = txRow.unallocatedAmount.toString();
-        console.log('Set amount from unallocatedAmount:', allocationForm.amount);
       } else {
         // フォールバック計算（念のため）
         const total = txRow.amount || 0;
         const allocated = txRow.allocatedAmount || 0;
         const remaining = Math.max(0, total - allocated);
         allocationForm.amount = remaining.toString();
-        console.log('Fallback calculation - total:', total, 'allocated:', allocated, 'remaining:', remaining);
       }
     } else {
-      console.log('No selected transaction');
       allocationForm.amount = '0';
     }
   }
@@ -1808,7 +1774,6 @@
       }
 
       const responseText = await response.text();
-      console.log('Response text length:', responseText.length);
       console.log('Response text (first 200 chars):', responseText.substring(0, 200));
       
       // SvelteKitのアクションレスポンスを解析
