@@ -1013,23 +1013,30 @@
     console.log('selectedTransaction:', selectedTransaction);
     
     if (selectedTransaction) {
-      console.log('selectedTransaction.unallocatedAmount:', selectedTransaction.unallocatedAmount);
-      console.log('selectedTransaction.amount:', selectedTransaction.amount);
-      console.log('selectedTransaction.allocatedAmount:', selectedTransaction.allocatedAmount);
+      // TransactionRow型として扱い、unallocatedAmountを取得
+      const txRow = selectedTransaction as TransactionRow;
+      console.log('Transaction as TransactionRow:', {
+        id: txRow.id,
+        amount: txRow.amount,
+        allocatedAmount: txRow.allocatedAmount,
+        unallocatedAmount: txRow.unallocatedAmount
+      });
       
-      if (selectedTransaction.unallocatedAmount !== undefined && selectedTransaction.unallocatedAmount !== null) {
-        allocationForm.amount = selectedTransaction.unallocatedAmount.toString();
-        console.log('Set amount to:', allocationForm.amount);
+      // unallocatedAmountを優先的に使用
+      if (txRow.unallocatedAmount !== undefined && txRow.unallocatedAmount !== null && txRow.unallocatedAmount >= 0) {
+        allocationForm.amount = txRow.unallocatedAmount.toString();
+        console.log('Set amount from unallocatedAmount:', allocationForm.amount);
       } else {
-        // フォールバック計算
-        const allocated = selectedTransaction.allocatedAmount || 0;
-        const total = selectedTransaction.amount || 0;
-        const remaining = total - allocated;
+        // フォールバック計算（念のため）
+        const total = txRow.amount || 0;
+        const allocated = txRow.allocatedAmount || 0;
+        const remaining = Math.max(0, total - allocated);
         allocationForm.amount = remaining.toString();
         console.log('Fallback calculation - total:', total, 'allocated:', allocated, 'remaining:', remaining);
       }
     } else {
-      console.log('selectedTransaction is null or undefined');
+      console.log('No selected transaction');
+      allocationForm.amount = '0';
     }
   }
   

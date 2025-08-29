@@ -1,3 +1,8 @@
+<!-- 
+  ⚠️ 注意: このページは現在使用されていません
+  現在は /transaction-allocations ページを使用しています
+  このファイルは参考のために残されています
+-->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { enhance } from '$app/forms';
