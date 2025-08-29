@@ -370,12 +370,17 @@ export const actions: Actions = {
         where: { id: parseInt(grantId) }
       });
 
+      // SvelteKitのform actionは通常のオブジェクトを返せない
+      // JSON文字列として返す
       return {
-        success: true,
-        transactions,
-        grant,
-        yearMonth,
-        budgetItems
+        type: 'success',
+        data: JSON.stringify({
+          success: true,
+          transactions,
+          grant,
+          yearMonth,
+          budgetItems
+        })
       };
     } catch (error: any) {
       logger.error('WAM CSV出力エラー', createErrorContext('exportWamCsv', error, {

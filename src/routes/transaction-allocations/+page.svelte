@@ -1800,7 +1800,7 @@
       });
 
       const responseText = await response.text();
-      console.log('Response:', responseText);
+      console.log('Response text length:', responseText.length);
       
       // SvelteKitのアクションレスポンスを解析
       let result;
@@ -1808,13 +1808,24 @@
         result = JSON.parse(responseText);
       } catch (e) {
         console.error('JSON parse error:', e);
+        console.error('Response text:', responseText.substring(0, 500));
         alert('サーバーレスポンスの解析に失敗しました。');
         return;
       }
 
-      // SvelteKitのアクションは直接オブジェクトを返す
-      if (result && result.success) {
-        const { transactions, grant, yearMonth, budgetItems } = result;
+      // SvelteKitのアクションはtype: 'success'とdataを返す
+      if (result && result.type === 'success' && result.data) {
+        // dataはJSON文字列なので再度パース
+        let exportData;
+        try {
+          exportData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+        } catch (e) {
+          console.error('Data parse error:', e);
+          alert('データの解析に失敗しました。');
+          return;
+        }
+        
+        const { transactions, grant, yearMonth, budgetItems } = exportData;
         
         if (!transactions || !Array.isArray(transactions)) {
           console.error('Invalid transactions data:', transactions);
