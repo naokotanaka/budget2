@@ -370,17 +370,35 @@ export const actions: Actions = {
         where: { id: parseInt(grantId) }
       });
 
-      // SvelteKitのform actionは通常のオブジェクトを返せない
+      // BigIntをstringに変換する関数
+      const serializeData = (obj: any): any => {
+        if (obj === null || obj === undefined) return obj;
+        if (typeof obj === 'bigint') return obj.toString();
+        if (obj instanceof Date) return obj.toISOString();
+        if (Array.isArray(obj)) return obj.map(serializeData);
+        if (typeof obj === 'object') {
+          const result: any = {};
+          for (const key in obj) {
+            result[key] = serializeData(obj[key]);
+          }
+          return result;
+        }
+        return obj;
+      };
+
+      // データをシリアライズ
+      const serializedData = {
+        success: true,
+        transactions: serializeData(transactions),
+        grant: serializeData(grant),
+        yearMonth,
+        budgetItems: serializeData(budgetItems)
+      };
+
       // JSON文字列として返す
       return {
         type: 'success',
-        data: JSON.stringify({
-          success: true,
-          transactions,
-          grant,
-          yearMonth,
-          budgetItems
-        })
+        data: JSON.stringify(serializedData)
       };
     } catch (error: any) {
       console.error('WAM CSV出力エラー:', error);
