@@ -207,7 +207,11 @@
     supplier: [...new Set(transactionData.map(t => t.supplier).filter(v => v))],
     item: [...new Set(transactionData.map(t => t.item).filter(v => v))],
     primaryGrantName: (() => {
-      const values = [...new Set(transactionData.map(t => t.primaryGrantName).filter(v => v))];
+      // 左ペインに表示されている助成金名のリストを取得
+      const leftPaneGrantNames = new Set(filteredBudgetItems.map(item => item.grantName));
+      
+      // transactionDataから助成金名を取得し、左ペインに表示されているもののみに限定
+      const values = [...new Set(transactionData.map(t => t.primaryGrantName).filter(v => v && leftPaneGrantNames.has(v)))];
       // 未割当の取引があるかチェック（助成金が割り当てられていない取引）
       const hasUnassigned = transactionData.some(t => 
         !t.allocations || 
@@ -217,7 +221,23 @@
       return hasUnassigned ? ['- (未割当)', ...values] : values;
     })(),
     primaryBudgetItemName: (() => {
-      const values = [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))];
+      // 選択された助成金でフィルタリング
+      const selectedGrants = checkboxFilters.primaryGrantName;
+      
+      // 選択された助成金に属する予算項目を取得
+      let values;
+      if (selectedGrants.size > 0 && !selectedGrants.has('- (未割当)')) {
+        // 助成金が選択されている場合、その助成金に属する予算項目のみ
+        values = [...new Set(
+          transactionData
+            .filter(t => t.primaryGrantName && selectedGrants.has(t.primaryGrantName))
+            .map(t => t.primaryBudgetItemName)
+            .filter(v => v)
+        )];
+      } else {
+        // 助成金が選択されていない、または「未割当」が含まれる場合は全て表示
+        values = [...new Set(transactionData.map(t => t.primaryBudgetItemName).filter(v => v))];
+      }
       // 未割当の取引があるかチェック（予算項目が全く割り当てられていない取引）
       const hasUnassigned = transactionData.some(t => 
         !t.allocations || 
@@ -253,7 +273,11 @@
   // プリセット状態
   
   // モーダル状態
-  let showAllocationModal = false;
+  // モーダル削除のため、この変数は不要
+  // let showAllocationModal = false;
+  
+  // 右ペインの状態管理（新規追加）
+  let rightPaneMode: 'view' | 'create' | 'edit' = 'view';
   let allocationForm: AllocationFormData = {
     budgetItemId: '',
     amount: '',
@@ -941,12 +965,12 @@
     }
   }
   
-  // 割当モーダルを開く
-  function openAllocationModal(transaction: TransactionRow) {
-    selectedTransaction = transaction;
+  // 割当作成フォームを開く
+  function openAllocationForm(transaction: TransactionRow) {
+    // selectedTransactionは既に設定済み（右ペインは選択済みの取引に対して動作）
     selectedAllocationIds.clear(); // 選択状態をクリア
     selectedAllocationIds = selectedAllocationIds; // リアクティブ更新
-    showAllocationModal = true;
+    rightPaneMode = 'create';
     allocationForm = {
       budgetItemId: '',
       amount: transaction.unallocatedAmount.toString(),
@@ -955,23 +979,26 @@
     editingAllocation = null;
   }
   
-  // 割当編集モーダルを開く
+  // 割当編集フォームを開く
   function editAllocation(allocation: AllocationSplit & { 
     budgetItem: BudgetItem & { grant: Grant } 
   }) {
+    console.log('editAllocation called with:', allocation);
+    console.log('budgetItemId:', allocation.budgetItemId);
     editingAllocation = allocation as any;
     allocationForm = {
       budgetItemId: allocation.budgetItemId.toString(),
       amount: allocation.amount.toString(),
       note: allocation.note || ''
     };
-    showAllocationModal = true;
+    console.log('allocationForm after setting:', allocationForm);
+    rightPaneMode = 'edit';
   }
   
-  // モーダルを閉じる
-  function closeAllocationModal() {
-    showAllocationModal = false;
-    selectedTransaction = null;
+  // 割当フォームを閉じる
+  function closeAllocationForm() {
+    rightPaneMode = 'view';
+    // selectedTransactionは維持（右ペインの詳細表示は継続）
     editingAllocation = null;
     allocationForm = {
       budgetItemId: '',
@@ -1160,7 +1187,7 @@
   function handleFormResult() {
     return async ({ result, update }: { result: { type: string }, update: () => Promise<void> }) => {
       if (result.type === 'success') {
-        closeAllocationModal();
+        closeAllocationForm();
         await update();
         
         // 予算項目の残額を強制的に再計算
@@ -1943,8 +1970,8 @@
   }
   
   function closeModalsAndPanes() {
-    if (showAllocationModal) {
-      closeAllocationModal();
+    if (rightPaneMode !== 'view') {
+      closeAllocationForm();
     } else if (showRightPane) {
       showRightPane = false;
       // 右ペインを閉じた時に表示済みIDをリセット
@@ -1996,11 +2023,11 @@
       return;
     }
   
-    // モーダル表示中の処理
-    if (showAllocationModal) {
+    // フォーム表示中の処理
+    if (rightPaneMode !== 'view') {
       if (e.key === 'Escape') {
         e.preventDefault();
-        closeAllocationModal();
+        closeAllocationForm();
       }
       return;
     }
@@ -2130,11 +2157,10 @@
             <div class="flex items-center gap-2 text-sm">
               <label class="text-gray-600 shrink-0">ステータス:</label>
               <select class="select select-xs select-bordered" bind:value={budgetItemStatusFilter}>
-                <option value="active">進行中</option>
                 <option value="all">すべて</option>
-                <option value="completed">完了</option>
-                <option value="applied">申請中</option>
-                <option value="reported">報告済</option>
+                <option value="active">進行中</option>
+                <option value="completed">終了</option>
+                <option value="applied">報告済み</option>
               </select>
               
             </div>
@@ -2477,7 +2503,7 @@
   </div>
 
   <!-- ペイン2: 取引一覧（メイン） -->
-  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
     <!-- ツールバー -->
     <div class="border-b bg-white px-4 py-2">
       <div class="flex items-center gap-2 flex-wrap">
@@ -3593,25 +3619,22 @@
         全{totalPages}ページ
       </div>
     </div>
-  </div>
-
-  <!-- ペイン3: 取引明細 -->
-  <div 
-    class="border-l bg-white transition-all duration-300 overflow-hidden relative"
-    class:w-96={showRightPane}
-    class:w-0={!showRightPane}
-  >
+    
+    <!-- 右ペインが閉じている時のヒント -->
     {#if !showRightPane && selectedTransaction}
-      <!-- 右ペインが閉じている時のヒント -->
       <button
-        class="absolute left-0 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-1 py-4 rounded-l-lg shadow-lg hover:bg-blue-600 transition-colors z-50"
+        class="absolute right-0 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-1 py-4 rounded-l-lg shadow-lg hover:bg-blue-600 transition-colors z-50"
         on:click={() => showRightPane = true}
         title="詳細を表示 (Enter/ダブルクリック)"
       >
         <span class="text-xs writing-mode-vertical">詳細</span>
       </button>
     {/if}
-    {#if showRightPane && selectedTransaction}
+  </div>
+
+  <!-- ペイン3: 取引明細 -->
+  {#if showRightPane && selectedTransaction}
+    <div class="w-96 border-l bg-white transition-all duration-300 overflow-hidden relative flex-shrink-0">
       <div class="h-full flex flex-col">
         <div class="border-b px-3 py-2 bg-gray-50 flex justify-between items-center">
           <h3 class="text-sm font-semibold">取引明細</h3>
@@ -3631,15 +3654,121 @@
             <div class="pb-3 border-b">
               <div class="flex justify-between items-center mb-2">
                 <span class="text-gray-600 font-semibold">割当情報</span>
-                <button 
-                  class="btn btn-xs btn-primary"
-                  on:click={() => openAllocationModal(selectedTransaction!)}
-                  disabled={selectedTransaction.allocationStatus === 'full'}
-                >
-                  新規割当
-                </button>
+                {#if rightPaneMode === 'view'}
+                  <button 
+                    class="btn btn-xs btn-primary"
+                    on:click={() => selectedTransaction && openAllocationForm(selectedTransaction)}
+                    disabled={selectedTransaction?.allocationStatus === 'full'}
+                  >
+                    新規割当
+                  </button>
+                {/if}
               </div>
-              {#if selectedTransaction.allocations.length > 0}
+              
+              {#if rightPaneMode === 'create' || rightPaneMode === 'edit'}
+                <!-- インライン割当フォーム -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-semibold text-sm text-blue-800">
+                      {rightPaneMode === 'edit' ? '割当編集' : '新規割当'}
+                    </h4>
+                    <button 
+                      class="btn btn-xs btn-ghost text-blue-600" 
+                      on:click={closeAllocationForm}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <form method="POST" action="?/saveAllocation" use:enhance={handleFormResult} class="space-y-3">
+                    <input type="hidden" name="transactionId" value={selectedTransaction?.id} />
+                    {#if editingAllocation}
+                      <input type="hidden" name="allocationId" value={editingAllocation.id} />
+                    {/if}
+                    
+                    <div class="form-control w-full">
+                      <label class="label py-1">
+                        <span class="label-text text-xs">予算項目</span>
+                      </label>
+                      <select 
+                        class="select select-bordered select-sm w-full text-xs" 
+                        name="budgetItemId"
+                        bind:value={allocationForm.budgetItemId}
+                        required
+                      >
+                        <option value="">予算項目を選択</option>
+                        {#each data.budgetItems.filter(item => {
+                          const grant = data.grants.find(g => g.id === item.grantId);
+                          return grant?.status !== 'applied';
+                        }) as item}
+                          <option value={item.id.toString()}>
+                            {getBudgetItemDisplayName(item as any)} (残額: {formatCurrency(item.remaining || 0)})
+                          </option>
+                        {/each}
+                      </select>
+                    </div>
+                    
+                    <div class="form-control w-full">
+                      <label class="label py-1">
+                        <span class="label-text text-xs">割当額</span>
+                      </label>
+                      <div class="flex gap-1">
+                        <input 
+                          type="number" 
+                          class="input input-bordered input-sm flex-1 text-xs" 
+                          name="amount"
+                          bind:value={allocationForm.amount}
+                          min="0"
+                          max={selectedTransaction?.amount}
+                          required
+                        />
+                        <button 
+                          type="button"
+                          class="btn btn-xs bg-white border border-gray-400 hover:bg-gray-50"
+                          on:click={setRemainingAmount}
+                        >
+                          残額
+                        </button>
+                      </div>
+                      {#if parseInt(allocationForm.amount) > selectedTransaction?.unallocatedAmount}
+                        <label class="label py-1">
+                          <span class="label-text-alt text-warning text-xs">
+                            未割当額を超過しています
+                          </span>
+                        </label>
+                      {/if}
+                    </div>
+                    
+                    <div class="form-control w-full">
+                      <label class="label py-1">
+                        <span class="label-text text-xs">備考</span>
+                      </label>
+                      <textarea 
+                        class="textarea textarea-bordered textarea-sm text-xs" 
+                        name="note"
+                        bind:value={allocationForm.note}
+                        placeholder="備考（任意）"
+                        rows="2"
+                      ></textarea>
+                    </div>
+                    
+                    <div class="flex gap-2 justify-end pt-2">
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-ghost text-xs" 
+                        on:click={closeAllocationForm}
+                      >
+                        キャンセル
+                      </button>
+                      <button type="submit" class="btn btn-sm btn-primary text-xs">
+                        {rightPaneMode === 'edit' ? '更新' : '保存'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              {/if}
+              
+              {#if selectedTransaction?.allocations?.length > 0}
                 <div class="space-y-1">
                   <!-- 一括削除ボタン -->
                   {#if selectedAllocationIds.size > 0}
@@ -3657,7 +3786,7 @@
                     </div>
                   {/if}
                   
-                  {#each selectedTransaction.allocations as alloc}
+                  {#each selectedTransaction?.allocations || [] as alloc}
                     <div class="flex items-center gap-2">
                       <!-- チェックボックス -->
                       <input 
@@ -3682,12 +3811,14 @@
                           <button 
                             class="btn btn-xs btn-outline"
                             on:click={() => editAllocation(alloc)}
+                            disabled={rightPaneMode !== 'view'}
                           >
                             編集
                           </button>
                           <button 
                             class="btn btn-xs btn-error btn-outline"
                             on:click|stopPropagation={() => deleteAllocation(alloc.id)}
+                            disabled={rightPaneMode !== 'view'}
                           >
                             削除
                           </button>
@@ -3789,119 +3920,11 @@
           </div>
         </div>
       </div>
-    {/if}
-  </div>
-
-<!-- 割当設定モーダル -->
-{#if showAllocationModal && selectedTransaction}
-  <div class="modal modal-open">
-    <div class="modal-box w-11/12 max-w-2xl">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-lg">
-          {editingAllocation ? '割当編集' : '新規割当'}
-        </h3>
-        <button class="btn btn-sm btn-circle btn-ghost" on:click={closeAllocationModal}>
-          ✕
-        </button>
-      </div>
-      
-      <!-- 取引詳細 -->
-      <div class="bg-gray-50 p-3 rounded mb-4">
-        <div class="grid grid-cols-2 gap-2 text-sm">
-          <div><span class="text-gray-600">発生日:</span> {selectedTransaction.date}</div>
-          <div><span class="text-gray-600">金額:</span> {formatCurrency(selectedTransaction.amount)}</div>
-          <div><span class="text-gray-600">勘定科目:</span> {selectedTransaction.account || '-'}</div>
-          <div><span class="text-gray-600">取引先:</span> {selectedTransaction.supplier || '-'}</div>
-          <div><span class="text-gray-600">部門:</span> {selectedTransaction.department || '-'}</div>
-          <div><span class="text-gray-600">品目:</span> {selectedTransaction.item || '-'}</div>
-          <div><span class="text-gray-600">取引内容:</span> {selectedTransaction.detailDescription || '-'}</div>
-          <div><span class="text-gray-600">メモタグ:</span> <span class="text-blue-600">{selectedTransaction.tags || '-'}</span></div>
-          <div><span class="text-gray-600">割当済:</span> {formatCurrency(selectedTransaction.allocatedAmount)}</div>
-          <div><span class="text-gray-600">未割当:</span> {formatCurrency(selectedTransaction.unallocatedAmount)}</div>
-        </div>
-      </div>
-      
-      <!-- 割当フォーム -->
-      <form method="POST" action="?/saveAllocation" use:enhance={handleFormResult}>
-        <input type="hidden" name="transactionId" value={selectedTransaction.id} />
-        {#if editingAllocation}
-          <input type="hidden" name="allocationId" value={editingAllocation.id} />
-        {/if}
-        
-        <div class="form-control w-full mb-4">
-          <label class="label">
-            <span class="label-text">予算項目</span>
-          </label>
-          <select 
-            class="select select-bordered w-full" 
-            name="budgetItemId"
-            bind:value={allocationForm.budgetItemId}
-            required
-          >
-            <option value="">予算項目を選択</option>
-            {#each data.budgetItems as item}
-              <option value={item.id}>
-                {getBudgetItemDisplayName(item as any)} (残額: {formatCurrency(item.remaining || 0)})
-              </option>
-            {/each}
-          </select>
-        </div>
-        
-        <div class="form-control w-full mb-4">
-          <label class="label">
-            <span class="label-text">割当額</span>
-          </label>
-          <div class="flex gap-2">
-            <input 
-              type="number" 
-              class="input input-bordered flex-1" 
-              name="amount"
-              bind:value={allocationForm.amount}
-              min="0"
-              max={selectedTransaction.amount}
-              required
-            />
-            <button 
-              type="button"
-              class="btn btn-sm px-3 bg-white border border-gray-400 hover:bg-gray-50 hover:border-gray-600"
-              on:click={setRemainingAmount}
-            >
-              残額入力
-            </button>
-          </div>
-          {#if parseInt(allocationForm.amount) > selectedTransaction.unallocatedAmount}
-            <label class="label">
-              <span class="label-text-alt text-warning">
-                未割当額を超過しています
-              </span>
-            </label>
-          {/if}
-        </div>
-        
-        <div class="form-control w-full mb-4">
-          <label class="label">
-            <span class="label-text">備考</span>
-          </label>
-          <textarea 
-            class="textarea textarea-bordered" 
-            name="note"
-            bind:value={allocationForm.note}
-            placeholder="備考（任意）"
-          ></textarea>
-        </div>
-        
-        <div class="modal-action">
-          <button type="button" class="btn btn-ghost" on:click={closeAllocationModal}>
-            キャンセル
-          </button>
-          <button type="submit" class="btn btn-primary">
-            {editingAllocation ? '更新' : '保存'}
-          </button>
-        </div>
-      </form>
     </div>
-  </div>
-{/if}
+  {/if}
+</div>
+
+<!-- モーダル削除済み - インラインフォームを右ペインに統合 -->
 
 <!-- 一括割当用の隠しフォーム（SvelteKitのCSRF保護を活用） -->
 <form 
@@ -3944,7 +3967,6 @@
     </div>
   </div>
 {/if}
-</div>
 
 <style>
   :global(body) {
