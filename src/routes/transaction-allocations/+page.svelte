@@ -332,18 +332,10 @@
         if (!transaction) return false;
         const allocDate = new Date(transaction.date);
         const isInMonth = allocDate >= monthStart && allocDate <= monthEnd;
-        
-        
         return isInMonth;
       });
     
     const monthlyAllocated = monthlyAllocations.reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
-    
-        sampleAllocations: monthlyAllocations.slice(0, 2)
-      });
-    }
-    
-  
     
     return {
       budget: monthlyBudget,
