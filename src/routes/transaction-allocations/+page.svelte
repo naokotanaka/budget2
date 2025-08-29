@@ -1009,8 +1009,27 @@
   
   // 残額を自動入力
   function setRemainingAmount() {
+    console.log('setRemainingAmount called');
+    console.log('selectedTransaction:', selectedTransaction);
+    
     if (selectedTransaction) {
-      allocationForm.amount = selectedTransaction.unallocatedAmount.toString();
+      console.log('selectedTransaction.unallocatedAmount:', selectedTransaction.unallocatedAmount);
+      console.log('selectedTransaction.amount:', selectedTransaction.amount);
+      console.log('selectedTransaction.allocatedAmount:', selectedTransaction.allocatedAmount);
+      
+      if (selectedTransaction.unallocatedAmount !== undefined && selectedTransaction.unallocatedAmount !== null) {
+        allocationForm.amount = selectedTransaction.unallocatedAmount.toString();
+        console.log('Set amount to:', allocationForm.amount);
+      } else {
+        // フォールバック計算
+        const allocated = selectedTransaction.allocatedAmount || 0;
+        const total = selectedTransaction.amount || 0;
+        const remaining = total - allocated;
+        allocationForm.amount = remaining.toString();
+        console.log('Fallback calculation - total:', total, 'allocated:', allocated, 'remaining:', remaining);
+      }
+    } else {
+      console.log('selectedTransaction is null or undefined');
     }
   }
   
