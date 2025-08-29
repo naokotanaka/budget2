@@ -1842,8 +1842,8 @@
         // データ行を生成
         transactions.forEach(transaction => {
           // 該当する助成金の予算項目への割当のみ処理
-          const relevantAllocations = transaction.allocations.filter(alloc => 
-            budgetItems.some(item => item.id === alloc.budgetItemId)
+          const relevantAllocations = transaction.allocations.filter((alloc: any) => 
+            budgetItems.some((item: any) => item.id === alloc.budgetItemId)
           );
 
           if (relevantAllocations.length > 0) {
@@ -1866,7 +1866,7 @@
             }
             
             // 該当助成金への割当額合計
-            const allocationAmount = relevantAllocations.reduce((sum, alloc) => sum + alloc.amount, 0);
+            const allocationAmount = relevantAllocations.reduce((sum: number, alloc: any) => sum + alloc.amount, 0);
             const managementNumber = transaction.managementNumber || '';
             const originalAccount = transaction.account || '';
             const item = transaction.item || '';
@@ -1922,7 +1922,18 @@
         alert(`WAM CSV出力完了\n助成金: ${grant?.name || ''}\n対象期間: ${year}/${month}\n出力件数: ${dataRowCount}件`);
       } else {
         console.error('Export failed:', result);
-        alert(`CSV出力に失敗しました: ${result?.message || result?.error?.message || '不明なエラー'}`);
+        // エラーの詳細を確認
+        let errorMessage = 'CSV出力に失敗しました';
+        if (result?.data) {
+          try {
+            const errorData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+            errorMessage = errorData?.message || errorMessage;
+            console.error('Error detail:', errorData?.detail);
+          } catch (e) {
+            // パースエラーは無視
+          }
+        }
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('WAM CSV出力エラー:', error);

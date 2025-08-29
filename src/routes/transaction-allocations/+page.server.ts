@@ -383,11 +383,15 @@ export const actions: Actions = {
         })
       };
     } catch (error: any) {
+      console.error('WAM CSV出力エラー:', error);
       logger.error('WAM CSV出力エラー', createErrorContext('exportWamCsv', error, {
         grantId,
         yearMonth
       }));
-      return fail(500, { message: 'CSV出力に失敗しました' });
+      return fail(500, { 
+        message: `CSV出力に失敗しました: ${error.message || '不明なエラー'}`,
+        detail: error.toString()
+      });
     }
   }
 };
