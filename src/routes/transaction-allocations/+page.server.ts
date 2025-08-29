@@ -290,5 +290,99 @@ export const actions: Actions = {
       }));
       return fail(500, { message: '割当の削除に失敗しました' });
     }
+  },
+
+  exportWamCsv: async ({ request }) => {
+    const data = await request.formData();
+    const grantId = data.get('grantId') as string;
+    const yearMonth = data.get('yearMonth') as string;
+
+    if (!grantId || !yearMonth) {
+      return fail(400, { message: '助成金と年月の選択は必須です' });
+    }
+
+    try {
+      // 指定された年月の開始日と終了日を計算
+      const [year, month] = yearMonth.split('-').map(Number);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // 月末日
+
+      // 指定された助成金の予算項目を取得
+      const budgetItems = await prisma.budgetItem.findMany({
+        where: { grantId: parseInt(grantId) },
+        include: {
+          grant: true,
+          allocations: {
+            include: {
+              transaction: true
+            }
+          }
+        }
+      });
+
+      // 該当する取引を抽出
+      const budgetItemIds = budgetItems.map(item => item.id);
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { account: { contains: '【事】' } },
+                { account: { contains: '【管】' } }
+              ]
+            },
+            {
+              date: {
+                gte: startDate,
+                lte: endDate
+              }
+            },
+            {
+              allocations: {
+                some: {
+                  budgetItemId: {
+                    in: budgetItemIds
+                  }
+                }
+              }
+            }
+          ]
+        },
+        include: {
+          allocations: {
+            where: {
+              budgetItemId: {
+                in: budgetItemIds
+              }
+            },
+            include: {
+              budgetItem: true
+            }
+          }
+        },
+        orderBy: {
+          date: 'asc'
+        }
+      });
+
+      // 助成金情報を取得
+      const grant = await prisma.grant.findUnique({
+        where: { id: parseInt(grantId) }
+      });
+
+      return {
+        success: true,
+        transactions,
+        grant,
+        yearMonth,
+        budgetItems
+      };
+    } catch (error: any) {
+      logger.error('WAM CSV出力エラー', createErrorContext('exportWamCsv', error, {
+        grantId,
+        yearMonth
+      }));
+      return fail(500, { message: 'CSV出力に失敗しました' });
+    }
   }
 };

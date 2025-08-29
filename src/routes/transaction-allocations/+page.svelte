@@ -95,6 +95,10 @@
   let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
   let showMonthlyBalance = false;
   let filterByMonthlyBudget = false; // 選択月の予算がある項目のみ表示
+
+  // WAM CSV出力フィルター用の状態
+  let wamFilterGrantId = '';
+  let wamFilterYearMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
   
   // 左ペインソート状態（複数ソート対応）
   let sortFields: SortField[] = [{field: 'grantName', direction: 'asc'}];
@@ -1777,100 +1781,142 @@
   }
   
   // WAM CSV出力関数
-  function exportWamCsv() {
-    // WAM期間フィルタ（2025/4/1～2026/3/31）
-    const startDate = new Date('2025-04-01');
-    const endDate = new Date('2026-03-31');
-    
-    // WAM助成金のみフィルタ
-    const wamGrants = data.grants.filter(g => g.name.includes('WAM'));
-    const wamGrantIds = wamGrants.map(g => g.id);
-    
-    // 該当する予算項目を取得
-    const wamBudgetItems = data.budgetItems.filter(b => wamGrantIds.includes(b.grantId));
-    const wamBudgetItemIds = wamBudgetItems.map(b => b.id);
-    
-    // 該当する割当を持つ取引を取得
-    const wamTransactions = data.transactions.filter(t => {
-      const transDate = new Date(t.date);
-      // 期間内チェック
-      if (transDate < startDate || transDate > endDate) return false;
-      // WAM予算項目への割当があるかチェック
-      const hasWamAllocation = t.allocations?.some(a => wamBudgetItemIds.includes(a.budgetItemId));
-      return hasWamAllocation;
-    });
-    
-    // CSV用データ準備
-    const csvRows: string[][] = [];
-    
-    // ヘッダー行
-    csvRows.push(['支払日', 'WAM科目', '取引先', '摘要', '金額', '管理番号', '勘定科目', '品目']);
-    
-    // データ行
-    wamTransactions.forEach(transaction => {
-      const date = new Date(transaction.date);
-      const formattedDate = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  async function exportWamCsv() {
+    // フィルター条件のチェック
+    if (!wamFilterGrantId || !wamFilterYearMonth) {
+      alert('助成金と年月を選択してください。');
+      return;
+    }
+
+    try {
+      // サーバーサイドのexportWamCsvアクションを呼び出し
+      const formData = new FormData();
+      formData.append('grantId', wamFilterGrantId);
+      formData.append('yearMonth', wamFilterYearMonth);
+
+      const response = await fetch('?/exportWamCsv', {
+        method: 'POST',
+        body: formData
+      });
+
+      const responseText = await response.text();
+      console.log('Response:', responseText);
       
-      const wamCategory = mapToWamCategory(transaction.account || '');
-      const supplier = transaction.supplier || '';
-      
-      // 摘要の生成（取引内容/明細備考）
-      let summary = '';
-      if (transaction.description && transaction.detailDescription) {
-        summary = `${transaction.description}/${transaction.detailDescription}`;
-      } else if (transaction.description) {
-        summary = transaction.description;
-      } else if (transaction.detailDescription) {
-        summary = transaction.detailDescription;
-      } else {
-        summary = '';
+      // SvelteKitのアクションレスポンスを解析
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error('JSON parse error:', e);
+        alert('サーバーレスポンスの解析に失敗しました。');
+        return;
       }
-      
-      const amount = transaction.amount.toString();
-      const managementNumber = transaction.managementNumber || '';
-      const originalAccount = transaction.account || '';
-      const item = transaction.item || '';
-      
-      csvRows.push([
-        formattedDate,
-        wamCategory,
-        supplier,
-        summary,
-        amount,
-        managementNumber,
-        originalAccount,
-        item
-      ]);
-    });
-    
-    // CSV文字列生成（BOM付きUTF-8）
-    const csvContent = csvRows.map(row => 
-      row.map(cell => {
-        // セル内にカンマ、改行、ダブルクォートが含まれる場合はダブルクォートで囲む
-        if (cell.includes(',') || cell.includes('\n') || cell.includes('"')) {
-          return `"${cell.replace(/"/g, '""')}"`;
+
+      // SvelteKitのアクションは直接オブジェクトを返す
+      if (result && result.success) {
+        const { transactions, grant, yearMonth, budgetItems } = result;
+        
+        if (!transactions || !Array.isArray(transactions)) {
+          console.error('Invalid transactions data:', transactions);
+          alert('取引データが正しく取得できませんでした。');
+          return;
         }
-        return cell;
-      }).join(',')
-    ).join('\n');
-    
-    // BOM付きUTF-8でダウンロード
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const today = new Date();
-    const filename = `WAM報告_${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // 件数を通知
-    alert(`WAM CSV出力完了\n対象期間: 2025/4/1～2026/3/31\n出力件数: ${wamTransactions.length}件`);
+        
+        // CSV用データ準備
+        const csvRows: string[][] = [];
+        
+        // ヘッダー行
+        csvRows.push(['支払日', 'WAM科目', '取引先', '摘要', '金額', '管理番号', '勘定科目', '品目']);
+        
+        // データ行を生成
+        transactions.forEach(transaction => {
+          // 該当する助成金の予算項目への割当のみ処理
+          const relevantAllocations = transaction.allocations.filter(alloc => 
+            budgetItems.some(item => item.id === alloc.budgetItemId)
+          );
+
+          if (relevantAllocations.length > 0) {
+            const date = new Date(transaction.date);
+            const formattedDate = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+            
+            const wamCategory = mapToWamCategory(transaction.account || '');
+            const supplier = transaction.supplier || '';
+            
+            // 摘要の生成（取引内容/明細備考）
+            let summary = '';
+            if (transaction.description && transaction.detailDescription) {
+              summary = `${transaction.description}/${transaction.detailDescription}`;
+            } else if (transaction.description) {
+              summary = transaction.description;
+            } else if (transaction.detailDescription) {
+              summary = transaction.detailDescription;
+            } else {
+              summary = '';
+            }
+            
+            // 該当助成金への割当額合計
+            const allocationAmount = relevantAllocations.reduce((sum, alloc) => sum + alloc.amount, 0);
+            const managementNumber = transaction.managementNumber || '';
+            const originalAccount = transaction.account || '';
+            const item = transaction.item || '';
+            
+            csvRows.push([
+              formattedDate,
+              wamCategory,
+              supplier,
+              summary,
+              allocationAmount.toString(),
+              managementNumber,
+              originalAccount,
+              item
+            ]);
+          }
+        });
+        
+        if (csvRows.length === 1) { // ヘッダーのみの場合
+          alert('指定された条件に該当する取引が見つかりませんでした。');
+          return;
+        }
+        
+        // CSV文字列生成（BOM付きUTF-8）
+        const csvContent = csvRows.map(row => 
+          row.map(cell => {
+            // セル内にカンマ、改行、ダブルクォートが含まれる場合はダブルクォートで囲む
+            if (cell.includes(',') || cell.includes('\n') || cell.includes('"')) {
+              return `"${cell.replace(/"/g, '""')}"`;
+            }
+            return cell;
+          }).join(',')
+        ).join('\n');
+        
+        // BOM付きUTF-8でダウンロード
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        // ファイル名に助成金名と年月を含める
+        const [year, month] = yearMonth.split('-');
+        const filename = `WAM_${grant?.name || '助成金'}_${year}-${month}.csv`;
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 件数を通知
+        const dataRowCount = csvRows.length - 1; // ヘッダー行を除く
+        alert(`WAM CSV出力完了\n助成金: ${grant?.name || ''}\n対象期間: ${year}/${month}\n出力件数: ${dataRowCount}件`);
+      } else {
+        console.error('Export failed:', result);
+        alert(`CSV出力に失敗しました: ${result?.message || result?.error?.message || '不明なエラー'}`);
+      }
+    } catch (error) {
+      console.error('WAM CSV出力エラー:', error);
+      alert('CSV出力中にエラーが発生しました。');
+    }
   }
   
   // freeeファイルボックスから画像を取得
@@ -2749,14 +2795,38 @@
           🗑 フィルタークリア
         </button>
         
-        <!-- WAM CSV出力ボタン -->
-        <button 
-          class="btn btn-sm px-4 bg-green-500 text-white hover:bg-green-600 border-0 gap-1"
-          on:click={exportWamCsv}
-          title="WAM報告用CSVを出力"
-        >
-          📊 WAM CSV出力
-        </button>
+        <!-- WAM CSV出力フィルター -->
+        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border">
+          <span class="text-sm font-medium text-gray-700">WAM CSV出力</span>
+          
+          <!-- 助成金選択 -->
+          <select 
+            bind:value={wamFilterGrantId} 
+            class="select select-sm border-gray-300"
+          >
+            <option value="">助成金を選択</option>
+            {#each data.grants.filter(g => g.status === 'active') as grant (grant.id)}
+              <option value={grant.id}>{grant.name}</option>
+            {/each}
+          </select>
+          
+          <!-- 年月選択 -->
+          <input 
+            type="month" 
+            bind:value={wamFilterYearMonth}
+            class="input input-sm border-gray-300"
+          />
+          
+          <!-- 出力ボタン -->
+          <button 
+            class="btn btn-sm px-4 bg-green-500 text-white hover:bg-green-600 border-0 gap-1"
+            on:click={exportWamCsv}
+            title="選択した条件でWAM報告用CSVを出力"
+            disabled={!wamFilterGrantId || !wamFilterYearMonth}
+          >
+            📊 CSV出力
+          </button>
+        </div>
       </div>
       
       <!-- 検索バー（条件付き表示） -->
