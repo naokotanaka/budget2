@@ -96,7 +96,7 @@
   let showMonthlyBalance = false;
   let filterByMonthlyBudget = false; // 選択月の予算がある項目のみ表示
 
-  // WAM CSV出力フィルター用の状態
+  // CSV出力フィルター用の状態
   let wamFilterGrantId = '';
   let wamFilterYearMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
   
@@ -1699,7 +1699,7 @@
     }
   }
   
-  // WAM科目マッピング関数
+  // 科目マッピング関数
   function mapToWamCategory(account: string): string {
     // 【事】【管】などの接頭辞を除去
     const cleanAccount = account.replace(/^【[事管]】/, '');
@@ -1780,7 +1780,7 @@
     return '';
   }
   
-  // WAM CSV出力関数
+  // CSV出力関数
   async function exportWamCsv() {
     // フィルター条件のチェック
     if (!wamFilterGrantId || !wamFilterYearMonth) {
@@ -1789,6 +1789,8 @@
     }
 
     try {
+      console.log('CSV出力開始:', { grantId: wamFilterGrantId, yearMonth: wamFilterYearMonth });
+      
       // サーバーサイドのexportWamCsvアクションを呼び出し
       const formData = new FormData();
       formData.append('grantId', wamFilterGrantId);
@@ -1799,8 +1801,15 @@
         body: formData
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      }
+
       const responseText = await response.text();
       console.log('Response text length:', responseText.length);
+      console.log('Response text (first 200 chars):', responseText.substring(0, 200));
       
       // SvelteKitのアクションレスポンスを解析
       let result;
@@ -1815,17 +1824,59 @@
 
       // SvelteKitのアクションはtype: 'success'とdataを返す
       if (result && result.type === 'success' && result.data) {
-        // dataはJSON文字列なので再度パース
+        // SvelteKitアクションの場合、result.dataが配列の場合がある
         let exportData;
         try {
-          exportData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+          console.log('Raw result.data:', result.data);
+          
+          // SvelteKitのアクションレスポンスの形式を確認
+          let dataToProcess = result.data;
+          
+          // 配列の場合、最後の要素がJSON文字列の可能性
+          if (Array.isArray(dataToProcess)) {
+            console.log('Data is array, length:', dataToProcess.length);
+            console.log('Array elements:', dataToProcess.map((item, index) => ({ index, type: typeof item, preview: typeof item === 'string' ? item.substring(0, 50) + '...' : item })));
+            // 最後の要素を取得（通常はJSON文字列）
+            dataToProcess = dataToProcess[dataToProcess.length - 1];
+            console.log('Using last element (type:', typeof dataToProcess, '):', dataToProcess?.substring ? dataToProcess.substring(0, 100) + '...' : dataToProcess);
+          }
+          
+          // 文字列の場合はパース
+          if (typeof dataToProcess === 'string') {
+            exportData = JSON.parse(dataToProcess);
+          } else {
+            exportData = dataToProcess;
+          }
+          
+          console.log('Parsed exportData:', exportData);
+          
+          // パース後もまだ配列の場合、JSON文字列を探す
+          if (Array.isArray(exportData)) {
+            console.log('exportData is still array, looking for JSON string...');
+            // 配列内でJSON文字列を探す（通常は最後の要素）
+            for (let i = exportData.length - 1; i >= 0; i--) {
+              if (typeof exportData[i] === 'string' && exportData[i].startsWith('{')) {
+                console.log('Found JSON string at index', i);
+                exportData = JSON.parse(exportData[i]);
+                break;
+              }
+            }
+          }
         } catch (e) {
           console.error('Data parse error:', e);
+          console.error('Failed to parse:', result.data);
           alert('データの解析に失敗しました。');
           return;
         }
         
         const { transactions, grant, yearMonth, budgetItems } = exportData;
+        
+        console.log('Extracted data:', { 
+          transactionsLength: transactions?.length, 
+          grant: grant?.name, 
+          yearMonth, 
+          budgetItemsLength: budgetItems?.length 
+        });
         
         if (!transactions || !Array.isArray(transactions)) {
           console.error('Invalid transactions data:', transactions);
@@ -1837,7 +1888,7 @@
         const csvRows: string[][] = [];
         
         // ヘッダー行
-        csvRows.push(['支払日', 'WAM科目', '取引先', '摘要', '金額', '管理番号', '勘定科目', '品目']);
+        csvRows.push(['支払日', '科目', '取引先', '摘要', '金額', '管理番号', '勘定科目', '品目']);
         
         // データ行を生成
         transactions.forEach(transaction => {
@@ -1908,7 +1959,7 @@
         
         // ファイル名に助成金名と年月を含める
         const [year, month] = yearMonth.split('-');
-        const filename = `WAM_${grant?.name || '助成金'}_${year}-${month}.csv`;
+        const filename = `${grant?.name || '助成金'}_${year}-${month}.csv`;
         
         link.setAttribute('href', url);
         link.setAttribute('download', filename);
@@ -1919,7 +1970,7 @@
         
         // 件数を通知
         const dataRowCount = csvRows.length - 1; // ヘッダー行を除く
-        alert(`WAM CSV出力完了\n助成金: ${grant?.name || ''}\n対象期間: ${year}/${month}\n出力件数: ${dataRowCount}件`);
+        alert(`CSV出力完了\n助成金: ${grant?.name || ''}\n対象期間: ${year}/${month}\n出力件数: ${dataRowCount}件`);
       } else {
         console.error('Export failed:', result);
         // エラーの詳細を確認
@@ -1936,7 +1987,7 @@
         alert(errorMessage);
       }
     } catch (error) {
-      console.error('WAM CSV出力エラー:', error);
+      console.error('CSV出力エラー:', error);
       alert('CSV出力中にエラーが発生しました。');
     }
   }
@@ -2817,9 +2868,9 @@
           🗑 フィルタークリア
         </button>
         
-        <!-- WAM CSV出力フィルター -->
+        <!-- CSV出力フィルター -->
         <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border">
-          <span class="text-sm font-medium text-gray-700">WAM CSV出力</span>
+          <span class="text-sm font-medium text-gray-700">CSV出力</span>
           
           <!-- 助成金選択 -->
           <select 
@@ -2843,7 +2894,7 @@
           <button 
             class="btn btn-sm px-4 bg-green-500 text-white hover:bg-green-600 border-0 gap-1"
             on:click={exportWamCsv}
-            title="選択した条件でWAM報告用CSVを出力"
+            title="選択した条件でCSVを出力"
             disabled={!wamFilterGrantId || !wamFilterYearMonth}
           >
             📊 CSV出力
