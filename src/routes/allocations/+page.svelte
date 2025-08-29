@@ -714,7 +714,20 @@
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">金額</label>
-                  <input type="number" bind:value={newSplit.amount} placeholder="0" class="input input-bordered input-sm w-full">
+                  <div class="flex gap-1">
+                    <input type="number" bind:value={newSplit.amount} placeholder="0" class="input input-bordered input-sm w-full flex-1">
+                    <button 
+                      type="button"
+                      class="btn btn-sm btn-outline"
+                      on:click={() => {
+                        if (selectedTransaction) {
+                          newSplit.amount = String(remaining);
+                        }
+                      }}
+                    >
+                      残額
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">備考</label>
