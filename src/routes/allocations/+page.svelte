@@ -311,85 +311,77 @@
 <div class="space-y-6">
   <!-- ページヘッダー -->
   <div>
-    <h2 class="text-2xl font-bold text-gray-900">
+    <h2 class="text-2xl font-bold">
       割当管理
     </h2>
-    <p class="mt-2 text-sm text-gray-600">
+    <p class="mt-2 text-sm text-base-content/70">
       すべての予算割当を一覧で確認・管理できます
     </p>
   </div>
 
   <!-- 統計情報 -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div class="bg-white overflow-hidden shadow rounded-lg">
-      <div class="p-5">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
-              <span class="text-white text-sm font-medium">要</span>
+            <div class="w-8 h-8 bg-warning rounded-full flex items-center justify-center">
+              <span class="text-warning-content text-sm font-medium">要</span>
             </div>
           </div>
           <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">割当要対応</dt>
-              <dd class="text-lg font-medium text-gray-900">{transactions.length}件</dd>
-            </dl>
+            <div class="stat-title text-sm">割当要対応</div>
+            <div class="stat-value text-lg">{transactions.length}件</div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="bg-white overflow-hidden shadow rounded-lg">
-      <div class="p-5">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-              <span class="text-white text-sm font-medium">総</span>
+            <div class="w-8 h-8 bg-success rounded-full flex items-center justify-center">
+              <span class="text-success-content text-sm font-medium">総</span>
             </div>
           </div>
           <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">総割当件数</dt>
-              <dd class="text-lg font-medium text-gray-900">{allAllocations.length}件</dd>
-            </dl>
+            <div class="stat-title text-sm">総割当件数</div>
+            <div class="stat-value text-lg">{allAllocations.length}件</div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="bg-white overflow-hidden shadow rounded-lg">
-      <div class="p-5">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-              <span class="text-white text-sm font-medium">額</span>
+            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <span class="text-primary-content text-sm font-medium">額</span>
             </div>
           </div>
           <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">総割当額</dt>
-              <dd class="text-sm font-medium text-gray-900">
-                ¥{allAllocations.reduce((sum, a) => sum + a.amount, 0).toLocaleString()}
-              </dd>
-            </dl>
+            <div class="stat-title text-sm">総割当額</div>
+            <div class="stat-value text-sm">
+              ¥{allAllocations.reduce((sum, a) => sum + a.amount, 0).toLocaleString()}
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="bg-white overflow-hidden shadow rounded-lg">
-      <div class="p-5">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-              <span class="text-white text-sm font-medium">表</span>
+            <div class="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+              <span class="text-secondary-content text-sm font-medium">表</span>
             </div>
           </div>
           <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">表示件数</dt>
-              <dd class="text-lg font-medium text-gray-900">{filteredAllocations.length}件</dd>
-            </dl>
+            <div class="stat-title text-sm">表示件数</div>
+            <div class="stat-value text-lg">{filteredAllocations.length}件</div>
           </div>
         </div>
       </div>
@@ -397,19 +389,18 @@
   </div>
 
   <!-- フィルター -->  
-  <div class="bg-white shadow rounded-lg overflow-hidden">
-    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-      <h3 class="text-lg leading-6 font-medium text-gray-900">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h3 class="card-title text-lg">
         フィルター
       </h3>
-    </div>
     
     <div class="p-4">
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <!-- 助成金フィルター -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">助成金</label>
-          <select bind:value={grantFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <select bind:value={grantFilter} class="select select-bordered select-sm w-full">
             <option value="">すべて</option>
             {#each uniqueGrants as grant}
               <option value={grant}>{grant}</option>
@@ -420,7 +411,7 @@
         <!-- 予算項目フィルター -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">予算項目</label>
-          <select bind:value={budgetItemFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <select bind:value={budgetItemFilter} class="select select-bordered select-sm w-full">
             <option value="">すべて</option>
             {#each uniqueBudgetItems as item}
               <option value={item}>{item}</option>
@@ -431,30 +422,30 @@
         <!-- 日付From -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">日付開始</label>
-          <input type="date" bind:value={dateFromFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <input type="date" bind:value={dateFromFilter} class="input input-bordered input-sm w-full">
         </div>
         
         <!-- 日付To -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">日付終了</label>
-          <input type="date" bind:value={dateToFilter} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <input type="date" bind:value={dateToFilter} class="input input-bordered input-sm w-full">
         </div>
         
         <!-- 金額Min -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">金額最小</label>
-          <input type="number" bind:value={amountMinFilter} placeholder="0" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <input type="number" bind:value={amountMinFilter} placeholder="0" class="input input-bordered input-sm w-full">
         </div>
         
         <!-- 金額Max -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">金額最大</label>
-          <input type="number" bind:value={amountMaxFilter} placeholder="1000000" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <input type="number" bind:value={amountMaxFilter} placeholder="1000000" class="input input-bordered input-sm w-full">
         </div>
       </div>
       
       <div class="mt-4">
-        <button on:click={clearFilters} class="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600">
+        <button on:click={clearFilters} class="btn btn-outline btn-sm">
           フィルタークリア
         </button>
       </div>
@@ -462,21 +453,20 @@
   </div>
 
   <!-- メイン割当テーブル -->
-  <div class="bg-white shadow rounded-lg overflow-hidden">
-    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-      <h3 class="text-lg leading-6 font-medium text-gray-900">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h3 class="card-title text-lg">
         予算割当一覧
       </h3>
-      <p class="mt-1 max-w-2xl text-sm text-gray-500">
+      <p class="text-sm text-base-content/70 mb-4">
         すべての予算割当をフラットに表示します
       </p>
-    </div>
     
     <div class="p-4">
       {#if filteredAllocations.length > 0}
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+          <table class="table table-zebra w-full">
+            <thead>
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" on:click={() => sortBy('date')}>
                   日付 
@@ -659,13 +649,8 @@
 
 <!-- 分割割当モーダル -->
 {#if showAllocationModal && selectedTransaction}
-<div class="fixed inset-0 z-50 overflow-y-auto">
-  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
-      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
-    </div>
-
-    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+<div class="modal modal-open">
+  <div class="modal-box w-11/12 max-w-4xl">
       <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
         <div class="sm:flex sm:items-start">
           <div class="w-full">
@@ -719,8 +704,8 @@
               <h4 class="text-md font-medium text-gray-900 mb-3">新しい分割を追加</h4>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">予算項目</label>
-                  <select bind:value={newSplit.budgetItemId} class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                  <label class="block text-sm font-medium mb-1">予算項目</label>
+                  <select bind:value={newSplit.budgetItemId} class="select select-bordered select-sm w-full">
                     <option value="">選択してください</option>
                     {#each budgetItems as item}
                       <option value={item.id}>{item.grant.name} - {item.name}</option>
@@ -728,16 +713,16 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
-                  <input type="number" bind:value={newSplit.amount} placeholder="0" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                  <label class="block text-sm font-medium mb-1">金額</label>
+                  <input type="number" bind:value={newSplit.amount} placeholder="0" class="input input-bordered input-sm w-full">
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">備考</label>
-                  <input type="text" bind:value={newSplit.note} placeholder="分割理由など" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                  <label class="block text-sm font-medium mb-1">備考</label>
+                  <input type="text" bind:value={newSplit.note} placeholder="分割理由など" class="input input-bordered input-sm w-full">
                 </div>
               </div>
               <div class="mt-3">
-                <button on:click={addSplit} class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                <button on:click={addSplit} class="btn btn-primary btn-sm">
                   分割を追加
                 </button>
               </div>
@@ -765,18 +750,18 @@
       </div>
 
       <!-- モーダルフッター -->
-      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+      <div class="modal-action">
         <button 
           on:click={saveAllocation}
           disabled={saving || allocationSplits.length === 0}
           type="button" 
-          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          class="btn btn-primary {saving || allocationSplits.length === 0 ? 'btn-disabled' : ''}">
           {saving ? '保存中...' : '保存'}
         </button>
         <button 
           on:click={() => showAllocationModal = false} 
           type="button" 
-          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          class="btn btn-outline">
           キャンセル
         </button>
       </div>

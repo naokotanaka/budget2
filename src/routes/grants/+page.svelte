@@ -1797,11 +1797,11 @@
 <div class="w-full max-w-none">
   
   <div class="flex justify-between items-center mb-3">
-    <h1 class="text-3xl font-bold text-gray-900">助成金管理</h1>
+    <h1 class="text-3xl font-bold">助成金管理</h1>
     <div class="flex items-center gap-3">
       <button 
         on:click={openImportModal}
-        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        class="btn btn-success flex items-center gap-2"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
@@ -1810,7 +1810,7 @@
       </button>
       <button 
         on:click={() => openGrantForm()}
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        class="btn btn-primary flex items-center gap-2"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -1821,16 +1821,16 @@
   </div>
 
   {#if error}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    <div class="alert alert-error mb-4">
       {error}
     </div>
   {/if}
 
   <!-- 上部: 助成金一覧 -->
-  <div class="bg-white shadow rounded-lg mb-1">
-    <div class="px-6 py-4 border-b border-gray-200">
+  <div class="card bg-base-100 shadow-xl mb-1">
+    <div class="card-body">
       <div class="flex justify-between items-center">
-        <h2 class="text-xl font-semibold">助成金一覧</h2>
+        <h2 class="card-title text-xl">助成金一覧</h2>
         
         <!-- フィルターコントロール -->
         <div class="flex items-center gap-4">
@@ -1839,7 +1839,7 @@
               type="checkbox" 
               id="showCompleted" 
               bind:checked={showCompletedGrants}
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              class="checkbox checkbox-primary"
             />
             <label for="showCompleted" class="text-sm font-medium text-gray-700">
               終了済みを表示
@@ -1851,7 +1851,7 @@
               type="checkbox" 
               id="showReported" 
               bind:checked={showReportedGrants}
-              class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+              class="checkbox checkbox-success"
             />
             <label for="showReported" class="text-sm font-medium text-gray-700">
               報告済みを表示
@@ -1864,7 +1864,7 @@
               <select 
                 id="yearFilter"
                 bind:value={filterYear}
-                class="text-sm border-gray-300 rounded px-2 py-1 bg-white"
+                class="select select-sm select-bordered"
               >
                 <option value="">全て</option>
                 {#each getAvailableYears(grants) as year}
@@ -1888,7 +1888,7 @@
           <p>助成金が登録されていません</p>
           <button 
             on:click={() => openGrantForm()}
-            class="mt-2 text-blue-600 hover:text-blue-800"
+            class="btn btn-link mt-2"
           >
             最初の助成金を作成
           </button>
@@ -1978,14 +1978,14 @@
   </div>
 
   <!-- 下部: 予算項目管理 -->
-  <div class="bg-white shadow rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
       <div class="flex justify-between items-center">
         <div class="flex items-center gap-4">
-          <h2 class="text-xl font-semibold">予算項目</h2>
+          <h2 class="card-title text-xl">予算項目</h2>
           <button 
             on:click={() => openBudgetItemForm()}
-            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white"
+            class="btn btn-success btn-sm flex items-center gap-2"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -2001,7 +2001,7 @@
                 <span class="font-medium text-blue-600">{selectedGrant.name}</span> で絞り込み中
                 <button 
                   on:click={() => selectGrant(selectedGrant)}
-                  class="ml-2 text-blue-600 hover:text-blue-800 underline text-sm"
+                  class="btn btn-link btn-sm ml-2"
                 >
                   解除
                 </button>
@@ -2020,7 +2020,7 @@
             <div class="mb-3 text-right">
               <button 
                 on:click={clearSort}
-                class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 border rounded-md transition-colors"
+                class="btn btn-outline btn-sm"
               >
                 ソートをリセット
               </button>
@@ -2045,8 +2045,8 @@
             </div>
           {:else}
             <!-- 月データ表示設定 -->
-            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-              <h4 class="text-sm font-medium text-gray-700 mb-3">月データ表示設定</h4>
+            <div class="card bg-base-200 p-4 mb-4">
+              <h4 class="text-sm font-semibold mb-3">月データ表示設定</h4>
               
               <!-- 表示項目選択 -->
               <div class="flex flex-wrap gap-4 mb-4">
@@ -2056,7 +2056,7 @@
                     bind:checked={showMonthlyBudget}
                     class="mr-2"
                   />
-                  <span class="text-sm text-gray-600">予算額</span>
+                  <span class="text-sm">予算額</span>
                 </label>
                 <label class="flex items-center">
                   <input 
@@ -2064,7 +2064,7 @@
                     bind:checked={showMonthlyUsed}
                     class="mr-2"
                   />
-                  <span class="text-sm text-gray-600">使用額</span>
+                  <span class="text-sm">使用額</span>
                 </label>
                 <label class="flex items-center">
                   <input 
@@ -2072,24 +2072,24 @@
                     bind:checked={showMonthlyRemaining}
                     class="mr-2"
                   />
-                  <span class="text-sm text-gray-600">残額</span>
+                  <span class="text-sm">残額</span>
                 </label>
               </div>
               
               <!-- 月絞り込み設定 -->
               <div class="border-t pt-3">
-                <h5 class="text-xs font-medium text-gray-600 mb-2">表示月範囲</h5>
+                <h5 class="text-xs font-semibold mb-2">表示月範囲</h5>
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">開始</label>
                     <div class="flex gap-1">
-                      <select bind:value={monthFilterStartYear} class="text-xs border rounded px-2 py-1 w-16">
+                      <select bind:value={monthFilterStartYear} class="select select-xs select-bordered w-20">
                         <option value={2023}>2023</option>
                         <option value={2024}>2024</option>
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
                       </select>
-                      <select bind:value={monthFilterStartMonth} class="text-xs border rounded px-2 py-1 w-12">
+                      <select bind:value={monthFilterStartMonth} class="select select-xs select-bordered w-16">
                         {#each Array.from({length: 12}, (_, i) => i + 1) as month}
                           <option value={month}>{month}</option>
                         {/each}
@@ -2099,13 +2099,13 @@
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">終了</label>
                     <div class="flex gap-1">
-                      <select bind:value={monthFilterEndYear} class="text-xs border rounded px-2 py-1 w-16">
+                      <select bind:value={monthFilterEndYear} class="select select-xs select-bordered w-20">
                         <option value={2023}>2023</option>
                         <option value={2024}>2024</option>
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
                       </select>
-                      <select bind:value={monthFilterEndMonth} class="text-xs border rounded px-2 py-1 w-12">
+                      <select bind:value={monthFilterEndMonth} class="select select-xs select-bordered w-16">
                         {#each Array.from({length: 12}, (_, i) => i + 1) as month}
                           <option value={month}>{month}</option>
                         {/each}
@@ -2184,9 +2184,9 @@
 
 <!-- インポートモーダル -->
 {#if showImportModal}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">助成金データインポート</h3>
+  <div class="modal modal-open">
+    <div class="modal-box w-11/12 max-w-5xl">
+      <h3 class="text-lg font-bold mb-4">助成金データインポート</h3>
       
       {#if !isImporting}
         <div class="mb-4">
@@ -2221,7 +2221,7 @@
             type="file" 
             accept=".csv"
             on:change={handleFileSelect}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="file-input file-input-bordered w-full"
           />
           <div class="mt-2 flex justify-between items-center">
             <p class="text-sm text-gray-500">
@@ -2234,7 +2234,7 @@
             <button 
               type="button"
               on:click={downloadSampleCSV}
-              class="text-xs text-blue-600 hover:text-blue-800 underline"
+              class="btn btn-link btn-xs"
             >
               サンプルCSVダウンロード
             </button>
@@ -2242,7 +2242,7 @@
         </div>
 
         {#if importError}
-          <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div class="alert alert-error mb-4">
             {importError}
           </div>
         {/if}
@@ -2296,7 +2296,7 @@
           <button 
             type="button"
             on:click={() => showImportModal = false}
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            class="btn btn-outline"
           >
             キャンセル
           </button>
@@ -2304,7 +2304,7 @@
             <button 
               type="button"
               on:click={executeImport}
-              class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md"
+              class="btn btn-success"
             >
               インポート実行
             </button>
@@ -2326,7 +2326,7 @@
           <p class="text-sm text-gray-600">{importProgress}% 完了</p>
           
           {#if importError}
-            <div class="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <div class="alert alert-error mt-4">
               {importError}
             </div>
           {/if}
