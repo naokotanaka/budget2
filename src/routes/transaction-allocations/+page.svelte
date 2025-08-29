@@ -312,8 +312,8 @@
       (schedule: any) => schedule.year === year && schedule.month === monthNum
     );
     
-    // monthlyBudgetフィールドが存在しないため0を返す
-    const monthlyBudget = 0;
+    // schedulesから月別予算額を取得、なければ0
+    const monthlyBudget = monthSchedule?.amount || 0;
     
     // 該当月の割当済み額を計算
     const monthStart = new Date(year, monthNum - 1, 1);
