@@ -2616,6 +2616,39 @@
           ☰
         </button>
         
+        <!-- CSV出力フィルター -->
+        <div class="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded border">
+          <span class="text-xs font-medium text-gray-700">CSV</span>
+          
+          <!-- 助成金選択 -->
+          <select 
+            bind:value={wamFilterGrantId} 
+            class="select select-xs border-gray-300"
+          >
+            <option value="">助成金選択</option>
+            {#each data.grants.filter(g => g.status === 'active') as grant (grant.id)}
+              <option value={grant.id}>{grant.name}</option>
+            {/each}
+          </select>
+          
+          <!-- 年月選択 -->
+          <input 
+            type="month" 
+            bind:value={wamFilterYearMonth}
+            class="input input-xs border-gray-300 w-32"
+          />
+          
+          <!-- 出力ボタン -->
+          <button 
+            class="btn btn-xs px-2 bg-green-500 text-white hover:bg-green-600 border-0"
+            on:click={exportWamCsv}
+            title="CSV出力"
+            disabled={!wamFilterGrantId || !wamFilterYearMonth}
+          >
+            📊
+          </button>
+        </div>
+        
         <div class="flex-1"></div>
         
         <!-- 検索ボタン -->
@@ -2825,38 +2858,6 @@
           🗑 フィルタークリア
         </button>
         
-        <!-- CSV出力フィルター -->
-        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border">
-          <span class="text-sm font-medium text-gray-700">CSV出力</span>
-          
-          <!-- 助成金選択 -->
-          <select 
-            bind:value={wamFilterGrantId} 
-            class="select select-sm border-gray-300"
-          >
-            <option value="">助成金を選択</option>
-            {#each data.grants.filter(g => g.status === 'active') as grant (grant.id)}
-              <option value={grant.id}>{grant.name}</option>
-            {/each}
-          </select>
-          
-          <!-- 年月選択 -->
-          <input 
-            type="month" 
-            bind:value={wamFilterYearMonth}
-            class="input input-sm border-gray-300"
-          />
-          
-          <!-- 出力ボタン -->
-          <button 
-            class="btn btn-sm px-4 bg-green-500 text-white hover:bg-green-600 border-0 gap-1"
-            on:click={exportWamCsv}
-            title="選択した条件でCSVを出力"
-            disabled={!wamFilterGrantId || !wamFilterYearMonth}
-          >
-            📊 CSV出力
-          </button>
-        </div>
       </div>
       
       <!-- 検索バー（条件付き表示） -->
