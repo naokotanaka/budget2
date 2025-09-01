@@ -208,11 +208,11 @@ export const actions: Actions = {
 
   bulkAllocation: async ({ request }) => {
     const data = await request.formData();
-    const transactionIds = data.getAll('transactionIds') as string[];
+    const detailIds = data.getAll('detailIds') as string[];
     const budgetItemId = parseInt(data.get('budgetItemId') as string);
     const note = data.get('note') as string || null;
 
-    if (!transactionIds.length || !budgetItemId) {
+    if (!detailIds.length || !budgetItemId) {
       return fail(400, { message: '必須項目が入力されていません' });
     }
 
@@ -220,9 +220,10 @@ export const actions: Actions = {
       // 各取引の未割当金額を取得して一括割当
       const allocations = [];
       
-      for (const transactionId of transactionIds) {
+      for (const detailIdStr of detailIds) {
+        const detailId = BigInt(detailIdStr);
         const transaction = await prisma.transaction.findUnique({
-          where: { id: transactionId },
+          where: { detailId },
           include: { allocations: true }
         });
 
@@ -232,7 +233,7 @@ export const actions: Actions = {
           
           if (unallocatedAmount > 0) {
             allocations.push({
-              detailId: transaction.detailId,
+              detailId,
               budgetItemId,
               amount: unallocatedAmount,
               note
@@ -250,7 +251,7 @@ export const actions: Actions = {
       return { success: true, allocatedCount: allocations.length };
     } catch (error: any) {
       logger.error('一括割当エラー', createErrorContext('bulkAllocate', error, { 
-        transactionIds: transactionIds.length,
+        detailIds: detailIds.length,
         budgetItemId
       }));
       return fail(500, { message: '一括割当の保存に失敗しました' });

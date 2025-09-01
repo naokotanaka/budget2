@@ -26,12 +26,12 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.allocation_splits (
     id text NOT NULL,
-    "transactionId" text NOT NULL,
     "budgetItemId" integer NOT NULL,
     amount integer NOT NULL,
     note text,
     "createdAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updatedAt" timestamp(3) without time zone NOT NULL
+    "updatedAt" timestamp(3) without time zone NOT NULL,
+    "detailId" bigint
 );
 
 
@@ -89,7 +89,8 @@ CREATE TABLE public.budget_schedules (
     month integer NOT NULL,
     "isActive" boolean DEFAULT true NOT NULL,
     "createdAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updatedAt" timestamp(3) without time zone NOT NULL
+    "updatedAt" timestamp(3) without time zone NOT NULL,
+    "monthlyBudget" integer
 );
 
 
@@ -299,7 +300,7 @@ CREATE TABLE public.transactions (
     "createdAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     "updatedAt" timestamp(3) without time zone NOT NULL,
     "detailDescription" text,
-    "detailId" bigint,
+    "detailId" bigint NOT NULL,
     "receiptIds" text,
     tags text
 );
@@ -463,6 +464,13 @@ CREATE INDEX idx_transactions_freedealid ON public.transactions USING btree ("fr
 
 
 --
+-- Name: transactions_detailId_key; Type: INDEX; Schema: public; Owner: nagaiku_user
+--
+
+CREATE UNIQUE INDEX "transactions_detailId_key" ON public.transactions USING btree ("detailId");
+
+
+--
 -- Name: transactions_freeDealId_key; Type: INDEX; Schema: public; Owner: nagaiku_user
 --
 
@@ -478,11 +486,11 @@ ALTER TABLE ONLY public.allocation_splits
 
 
 --
--- Name: allocation_splits allocation_splits_transactionId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: nagaiku_user
+-- Name: allocation_splits allocation_splits_detailId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: nagaiku_user
 --
 
 ALTER TABLE ONLY public.allocation_splits
-    ADD CONSTRAINT "allocation_splits_transactionId_fkey" FOREIGN KEY ("transactionId") REFERENCES public.transactions(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT "allocation_splits_detailId_fkey" FOREIGN KEY ("detailId") REFERENCES public.transactions("detailId") ON UPDATE CASCADE ON DELETE SET NULL;
 
 
 --

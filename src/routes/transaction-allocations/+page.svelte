@@ -81,7 +81,7 @@
   let selectedTransaction: TransactionRow | null = null;
   let selectedAllocationIds: Set<string> = new Set(); // 選択された割当ID
   let isDeleting = false; // 削除処理中フラグ
-  let checkedTransactions = new Set<string>();
+  let checkedTransactions = new Set<bigint>();
   
   // キーボードショートカット用の行選択状態
   let selectedRowIndex = -1;
@@ -715,9 +715,9 @@
   }
   
   // チェックされた取引の合計額
-  $: checkedTotal = Array.from(checkedTransactions).reduce((sum, id) => {
-    const transaction = transactionData.find(t => t.id === id);
-    return sum + (transaction?.amount || 0);
+  $: checkedTotal = Array.from(checkedTransactions).reduce((sum, detailId) => {
+    const transaction = transactionData.find(t => t.detailId === detailId);
+    return sum + (transaction?.unallocatedAmount || 0);
   }, 0);
   
   // 期間フィルター用のキャッシュ
@@ -1076,8 +1076,8 @@
   
   // 割当削除
   // 一括削除処理
-  async function bulkDeleteAllocations() {
-    const selectedIds = Array.from(selectedAllocationIds);
+  async function bulkDeleteAllocations(allocationIds?: string[]) {
+    const selectedIds = allocationIds || Array.from(selectedAllocationIds);
     if (selectedIds.length === 0) {
       alert('削除する割当を選択してください');
       return;
@@ -1530,7 +1530,7 @@
   // フィルター結果をすべて選択
   function selectAllFiltered() {
     sortedTransactionData.forEach(row => {
-      checkedTransactions.add(row.id);
+      checkedTransactions.add(row.detailId);
     });
     checkedTransactions = checkedTransactions;
   }
@@ -1594,10 +1594,10 @@
   function toggleCurrentRowCheckbox() {
     if (selectedRowIndex >= 0 && paginatedTransactionData[selectedRowIndex]) {
       const row = paginatedTransactionData[selectedRowIndex];
-      if (checkedTransactions.has(row.id)) {
-        checkedTransactions.delete(row.id);
+      if (checkedTransactions.has(row.detailId)) {
+        checkedTransactions.delete(row.detailId);
       } else {
-        checkedTransactions.add(row.id);
+        checkedTransactions.add(row.detailId);
       }
       checkedTransactions = checkedTransactions;
     }
@@ -1605,7 +1605,7 @@
   
   function selectAllCurrentPage() {
     paginatedTransactionData.forEach(row => {
-      checkedTransactions.add(row.id);
+      checkedTransactions.add(row.detailId);
     });
     checkedTransactions = checkedTransactions;
   }
@@ -2730,35 +2730,23 @@
                 
                 // 選択された取引のすべての割当IDを収集
                 const allAllocationIds: string[] = [];
-                for (const transactionId of checkedTransactions) {
-                  const transaction = transactionData.find(t => t.id === transactionId);
-                  if (transaction && transaction.allocations) {
-                    allAllocationIds.push(...transaction.allocations.map((a: any) => a.id));
-                  }
-                }
-                
-                if (allAllocationIds.length === 0) {
-                  alert('削除する割当がありません');
-                  return;
-                }
-                
-                // 一括削除実行
-                const formData = new FormData();
-                formData.append('allocationIds', JSON.stringify(allAllocationIds));
-                
                 try {
-                  const response = await fetch('?/bulkDeleteAllocations', {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'include'
-                  });
+                  for (const detailId of checkedTransactions) {
+                    const transaction = transactionData.find(t => t.detailId === detailId);
+                    if (transaction && transaction.allocations) {
+                      for (const alloc of transaction.allocations) {
+                        if (alloc.id) {
+                          allAllocationIds.push(alloc.id);
+                        }
+                      }
+                    }
+                  }
                   
-                  if (response.ok) {
-                    await invalidateAll();
+                  if (allAllocationIds.length > 0) {
+                    await bulkDeleteAllocations(allAllocationIds);
                     checkedTransactions.clear();
                     checkedTransactions = checkedTransactions; // リアクティブ更新
-                  } else {
-                    alert('削除に失敗しました');
+                    await invalidateAll();
                   }
                 } catch (error) {
                   console.error('削除エラー:', error);
@@ -2909,8 +2897,8 @@
               <input 
                 type="checkbox" 
                 class="checkbox checkbox-xs" 
-                checked={paginatedTransactionData.length > 0 && paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
-                indeterminate={paginatedTransactionData.some(row => checkedTransactions.has(row.id)) && !paginatedTransactionData.every(row => checkedTransactions.has(row.id))}
+                checked={paginatedTransactionData.length > 0 && paginatedTransactionData.every(row => checkedTransactions.has(row.detailId))}
+                indeterminate={paginatedTransactionData.some(row => checkedTransactions.has(row.detailId)) && !paginatedTransactionData.every(row => checkedTransactions.has(row.detailId))}
                 on:change={(e) => {
                   if ((e.target as HTMLInputElement).checked) {
                     selectAllCurrentPage();
@@ -3535,7 +3523,7 @@
                 <input 
                   type="checkbox" 
                   class="checkbox checkbox-xs"
-                  checked={checkedTransactions.has(row.id)}
+                  checked={checkedTransactions.has(row.detailId)}
                   on:click|stopPropagation={(e) => {
                     if (e.shiftKey && lastClickedTransactionIndex >= 0 && lastClickedTransactionIndex !== index) {
                       // Shift+クリック：範囲選択
@@ -3557,10 +3545,10 @@
                       checkedTransactions = checkedTransactions; // リアクティブ更新
                     } else {
                       // 通常のクリック
-                      if (checkedTransactions.has(row.id)) {
-                        checkedTransactions.delete(row.id);
+                      if (checkedTransactions.has(row.detailId)) {
+                        checkedTransactions.delete(row.detailId);
                       } else {
-                        checkedTransactions.add(row.id);
+                        checkedTransactions.add(row.detailId);
                       }
                       checkedTransactions = checkedTransactions;
                       lastClickedTransactionIndex = index;
@@ -4064,8 +4052,8 @@
   {#if selectedBudgetItem}
     <input type="hidden" name="budgetItemId" value={selectedBudgetItem.id} />
   {/if}
-  {#each Array.from(checkedTransactions) as transactionId}
-    <input type="hidden" name="transactionIds" value={transactionId} />
+  {#each Array.from(checkedTransactions) as detailId}
+    <input type="hidden" name="detailIds" value={detailId.toString()} />
   {/each}
 </form>
 
